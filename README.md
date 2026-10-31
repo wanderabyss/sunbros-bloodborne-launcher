@@ -9,17 +9,17 @@
 </tr>
 </table>
 
-**v4.2.13:** Issue templates, contributing and security guides, and README badges. [Changelog](docs/changelog/changelog-2026-10-30-4.2.13.md) · [All versions](docs/changelog/README.md) · [Release notes](Release_Notes.md) · [DLSS 4.5 vs DLSS 5 at 4K](docs/dlss-4.2.0-comparison.md)
+**v4.2.14:** The README shows DLSS 4.5 and DLSS 5 side by side. [Changelog](docs/changelog/changelog-2026-10-30-4.2.14.md) · [All versions](docs/changelog/README.md) · [Release notes](Release_Notes.md) · [DLSS 4.5 vs DLSS 5 at 4K](docs/dlss-4.2.0-comparison.md)
 
 <a href="docs/media/launcher-4.2.7-tour.mp4"><img src="docs/images/launcher-4.2.7-tour.webp" width="100%" alt="Tour of the 4.2.7 launcher: Home, Visuals presets with their ? tips and Save settings, Online, Co-op, Dossier, Workshop, Settings and the what's-new sheet"/></a>
 
 *The 4.2.7 launcher: Home, then Visuals (Ultra, Remastered DLSS 4 and DLSS 5 with their ? tips, Save settings), Online, Co-op, Dossier, Workshop, Settings and the what's-new sheet. [Watch the video (MP4, 1460 × 940, 30 FPS)](docs/media/launcher-4.2.7-tour.mp4). Rendered from the live launcher with an example hunter; FPS values are configured targets.*
 
-## Gameplay
+## Gameplay: DLSS 4.5 vs DLSS 5
 
-<a href="https://github.com/wanderabyss/sunbros-bloodborne-launcher/releases/download/v4.2.9/bloodborne-4.2.4-dlss5-gameplay.mp4"><img src="docs/images/gameplay-4.2.4-dlss5.webp" width="100%" alt="4.2.4 with DLSS 5: Grand Cathedral, the Witch of Hemwick and Old Yharnam at 60 FPS with frame generation"/></a>
+<a href="https://github.com/wanderabyss/sunbros-bloodborne-launcher/releases/download/v4.2.13/bloodborne-4.2.13-dlss45-vs-dlss5.mp4"><img src="docs/images/dlss45-vs-dlss5-4.2.13.webp" width="100%" alt="DLSS 4.5 (left) and DLSS 5 (right) side by side at the Grand Cathedral, Great Bridge and Upper Cathedral Ward"/></a>
 
-*30 seconds of 4.2.4 with DLSS 5 neural rendering on an RTX 4090: the Grand Cathedral, the Witch of Hemwick's arena and Old Yharnam. 2560 × 1440 output scaled to a 4K display, DLSS Quality (model K), DLSS 2× frame generation at a 60 FPS base (120 shown), Reflex, ray tracing Ultra, NR style Cinematic with local structure 2.00. Recorded from the 4K desktop with HDR off. [Watch the video (MP4, 3840 × 2160, 60 FPS, 105 MB)](https://github.com/wanderabyss/sunbros-bloodborne-launcher/releases/download/v4.2.9/bloodborne-4.2.4-dlss5-gameplay.mp4), attached to the v4.2.9 release.*
+*DLSS 4.5 (left) and DLSS 5 through the community route (right), the same 30 seconds at the Grand Cathedral, Great Bridge and Upper Cathedral Ward. 4.2.13 on an RTX 4090 at 3840 × 2160 output, DLSS Performance, DLSS 2× frame generation, ray tracing High. DLSS 4.5 holds 120 FPS shown (60 game); DLSS 5 adds detail and contrast but runs at about 80 (40 game) at 4K. DLSS 5 is optional and off by default. [Watch the video (MP4, 3840 × 1080, 60 FPS, 150 MB)](https://github.com/wanderabyss/sunbros-bloodborne-launcher/releases/download/v4.2.13/bloodborne-4.2.13-dlss45-vs-dlss5.mp4), attached to the v4.2.13 release.*
 
 ## Screenshots
 

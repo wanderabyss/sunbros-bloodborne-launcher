@@ -1,5 +1,17 @@
 # Release Notes
 
+## [4.2.14+build103026.235301] — 2026-10-30
+### DLSS 4.5 and DLSS 5 side by side in the README
+<!-- launcher:
+### DLSS 4.5 vs DLSS 5
+
+- The project page now shows DLSS 4.5 and DLSS 5 side by side. Nothing in the launcher or the game changes.
+-->
+
+4.2.14 changes no code.
+
+- **README video:** DLSS 4.5 and DLSS 5 side by side at the Grand Cathedral, Great Bridge and Upper Cathedral Ward, 4K output on an RTX 4090. It replaces the 4.2.4 clip, which showed DLSS 5 alone. DLSS 5 adds detail and contrast but runs at about 40 game FPS at 4K, where DLSS 4.5 holds 60.
+
 ## [4.2.13+build103026.224141] — 2026-10-30
 ### Issue templates, contributing and security guides
 <!-- launcher:
