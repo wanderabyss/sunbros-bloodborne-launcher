@@ -1,5 +1,17 @@
 # Release Notes
 
+## [4.2.12+build103026.222830] — 2026-10-30
+### The repository is now sunbros-bloodborne-launcher
+<!-- launcher:
+### New repository name
+
+- SunBro's Edition now lives at github.com/wanderabyss/sunbros-bloodborne-launcher. Updates, Settings > Releases and the release notes use the new name.
+-->
+
+4.2.12 changes no game or launcher behaviour: the public repository was renamed so it's easier to find.
+
+- **New name:** wanderabyss/sunbros_bblauncher is now **wanderabyss/sunbros-bloodborne-launcher**. The update check and download, **Settings > Releases** and the release-notes and changelog links use the new name. GitHub redirects the old address, so 4.2.9 to 4.2.11 keep finding updates.
+
 ## [4.2.11+build103026.220950] — 2026-10-30
 ### Licence and art notes for the public source
 <!-- launcher:

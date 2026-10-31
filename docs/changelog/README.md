@@ -1,5 +1,6 @@
 # Changelog
 
+- [4.2.12 — The repository is now sunbros-bloodborne-launcher](changelog-2026-10-30-4.2.12.md)
 - [4.2.11 — Licence and art notes for the public source](changelog-2026-10-30-4.2.11.md)
 - [4.2.10 — Check now answers on the Updates page](changelog-2026-10-30-4.2.10.md)
 - [4.2.9 — Updates from the new repository; GPL v3 licence files](changelog-2026-10-30-4.2.9.md)

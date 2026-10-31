@@ -167,7 +167,7 @@ class BackgroundUpdateTests(unittest.TestCase):
             self.backend.openReleaseLink('https://example.invalid/a')
             self.backend.openReleaseLink('../../outside')
         self.assertEqual([c.args[0] for c in browser.call_args_list],
-                         ['https://github.com/wanderabyss/sunbros_bblauncher/blob/main/docs/x.md', 'https://example.invalid/a'])
+                         ['https://github.com/wanderabyss/sunbros-bloodborne-launcher/blob/main/docs/x.md', 'https://example.invalid/a'])
 
     def test_whats_new_once_after_an_update_and_never_on_a_first_install(self):
         with patch.object(module.core, 'release_notes_section', return_value='### This version'):
@@ -184,14 +184,14 @@ class BackgroundUpdateTests(unittest.TestCase):
 
     def test_releases_always_opens_sunbros(self):
         self.assertEqual(module.core.RELEASES_API,
-                         'https://api.github.com/repos/wanderabyss/sunbros_bblauncher/releases/latest')
+                         'https://api.github.com/repos/wanderabyss/sunbros-bloodborne-launcher/releases/latest')
         self.assertFalse(module.core.release_is_newer('qml-launcher-preview-24'))
         with patch.object(module.webbrowser, 'open') as browser:
             self.backend.viewRelease()
             self.backend.action('releases')
         self.assertEqual(browser.call_count, 2)
         for call in browser.call_args_list:
-            self.assertEqual(call.args[0], 'https://github.com/wanderabyss/sunbros_bblauncher/releases')
+            self.assertEqual(call.args[0], 'https://github.com/wanderabyss/sunbros-bloodborne-launcher/releases')
 
     def test_updates_view_exposes_background_toggle_and_download_status(self):
         from PySide6.QtCore import QUrl

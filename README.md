@@ -7,7 +7,7 @@
 </tr>
 </table>
 
-**v4.2.11:** NVIDIA's DLSS licence beside the DLSS files; notes on the launcher art from the game. [Changelog](docs/changelog/changelog-2026-10-30-4.2.11.md) · v4.2.10: Check now answers on the Updates page. [Changelog](docs/changelog/changelog-2026-10-30-4.2.10.md) · v4.2.9: Updates come from the new repository, wanderabyss/sunbros_bblauncher; the licence files say GPL v3. [Changelog](docs/changelog/changelog-2026-10-30-4.2.9.md) · v4.2.8: The bells after seamless co-op are normal bells again offline and online. [Changelog](docs/changelog/changelog-2026-10-30-4.2.8.md) · v4.2.7: Save settings and a tidier Visuals page, a co-op connection check, Download BBSC back. [Changelog](docs/changelog/changelog-2026-10-30-4.2.7.md) · [All versions](docs/changelog/README.md) · [Release notes](Release_Notes.md) · [DLSS 4.5 vs DLSS 5 at 4K](docs/dlss-4.2.0-comparison.md)
+**v4.2.12:** The repository is now wanderabyss/sunbros-bloodborne-launcher. [Changelog](docs/changelog/changelog-2026-10-30-4.2.12.md) · [All versions](docs/changelog/README.md) · [Release notes](Release_Notes.md) · [DLSS 4.5 vs DLSS 5 at 4K](docs/dlss-4.2.0-comparison.md)
 
 <a href="docs/media/launcher-4.2.7-tour.mp4"><img src="docs/images/launcher-4.2.7-tour.webp" width="100%" alt="Tour of the 4.2.7 launcher: Home, Visuals presets with their ? tips and Save settings, Online, Co-op, Dossier, Workshop, Settings and the what's-new sheet"/></a>
 
@@ -15,9 +15,9 @@
 
 ## Gameplay
 
-<a href="https://github.com/wanderabyss/sunbros_bblauncher/releases/download/v4.2.9/bloodborne-4.2.4-dlss5-gameplay.mp4"><img src="docs/images/gameplay-4.2.4-dlss5.webp" width="100%" alt="4.2.4 with DLSS 5: Grand Cathedral, the Witch of Hemwick and Old Yharnam at 60 FPS with frame generation"/></a>
+<a href="https://github.com/wanderabyss/sunbros-bloodborne-launcher/releases/download/v4.2.9/bloodborne-4.2.4-dlss5-gameplay.mp4"><img src="docs/images/gameplay-4.2.4-dlss5.webp" width="100%" alt="4.2.4 with DLSS 5: Grand Cathedral, the Witch of Hemwick and Old Yharnam at 60 FPS with frame generation"/></a>
 
-*30 seconds of 4.2.4 with DLSS 5 neural rendering on an RTX 4090: the Grand Cathedral, the Witch of Hemwick's arena and Old Yharnam. 2560 × 1440 output scaled to a 4K display, DLSS Quality (model K), DLSS 2× frame generation at a 60 FPS base (120 shown), Reflex, ray tracing Ultra, NR style Cinematic with local structure 2.00. Recorded from the 4K desktop with HDR off. [Watch the video (MP4, 3840 × 2160, 60 FPS, 105 MB)](https://github.com/wanderabyss/sunbros_bblauncher/releases/download/v4.2.9/bloodborne-4.2.4-dlss5-gameplay.mp4), attached to the v4.2.9 release.*
+*30 seconds of 4.2.4 with DLSS 5 neural rendering on an RTX 4090: the Grand Cathedral, the Witch of Hemwick's arena and Old Yharnam. 2560 × 1440 output scaled to a 4K display, DLSS Quality (model K), DLSS 2× frame generation at a 60 FPS base (120 shown), Reflex, ray tracing Ultra, NR style Cinematic with local structure 2.00. Recorded from the 4K desktop with HDR off. [Watch the video (MP4, 3840 × 2160, 60 FPS, 105 MB)](https://github.com/wanderabyss/sunbros-bloodborne-launcher/releases/download/v4.2.9/bloodborne-4.2.4-dlss5-gameplay.mp4), attached to the v4.2.9 release.*
 
 ## Screenshots
 

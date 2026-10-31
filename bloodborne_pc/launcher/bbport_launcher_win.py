@@ -77,8 +77,8 @@ STRIP_ART = PORT_DIR / 'launcher' / 'art' / 'strip.png'
 COMMUNITY_SERVER = 'https://thehuntersdream.com'
 # Its co-op service (bbhost's), as run.py's COMMUNITY_API_PORT sets the game's BB_THD_SERVER.
 COMMUNITY_API_PORT = 18671
-RELEASES_API = 'https://api.github.com/repos/wanderabyss/sunbros_bblauncher/releases/latest'
-RELEASES_PAGE = 'https://github.com/wanderabyss/sunbros_bblauncher/releases'
+RELEASES_API = 'https://api.github.com/repos/wanderabyss/sunbros-bloodborne-launcher/releases/latest'
+RELEASES_PAGE = 'https://github.com/wanderabyss/sunbros-bloodborne-launcher/releases'
 UPDATE_DIR = Path(tempfile.gettempdir()) / 'bbport-update'
 # The last answer from GitHub, so a direct launch (no launcher window) can check quietly and the
 # launcher shows the result the next time it opens. Off with check_updates like every check.
