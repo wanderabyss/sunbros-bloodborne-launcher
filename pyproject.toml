@@ -1,0 +1,131 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "bloodborne-pc-custom"
+version = "4.2.8+build103026.192936"
+description = "Custom build of Bloodborne PC port with BBSC 0.0.2 co-op support, DLSS Frame Generation, Vulkan Ray Tracing, and release packaging tools."
+readme = "README.md"
+requires-python = ">=3.10"
+license = "GPL-3.0-or-later"
+authors = [
+    { name = "Jgamrot / BBSC / bbport contributors" }
+]
+dependencies = [
+    "PyQt6>=6.11.0",
+    "PySide6>=6.12.0",
+    "PySide6_Essentials>=6.12.0",
+    "shiboken6>=6.12.0",
+    "pyinstaller>=6.0",
+    "pillow>=10.0.0",
+    "certifi>=2024.2.2",
+    "psutil>=5.9.0",
+    "packaging>=23.0",
+    "requests>=2.31.0",
+    "urllib3>=2.0.0",
+    "keystone-engine>=0.9.2",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "ruff>=0.8.0",
+    "flake8>=7.0.0",
+    "mypy>=1.0.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "ruff>=0.8.0",
+    "flake8>=7.0.0",
+    "mypy>=1.0.0",
+]
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+exclude = [
+    ".git",
+    ".venv",
+    "venv",
+    "vendor",
+    "reference",
+    "out",
+    "dist",
+    "bloodborne_pc/out",
+    "bloodborne_pc/dist",
+    "bloodborne_pc/third_party",
+    "bloodborne_pc/gpu/third_party",
+    "bloodborne_pc/tools",
+    "bloodborne_pc/tests",
+    "bloodborne_pc/scripts",
+    "bloodborne_pc/ATLAS",
+    "__pycache__",
+]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+]
+ignore = [
+    "E501",  # line length
+    "E701",  # multiple statements on one line (colon)
+    "E702",  # multiple statements on one line (semicolon)
+    "E731",  # do not assign a lambda expression, use a def
+    "E722",  # bare except
+    "E402",  # module level import not at top of file
+    "F401",  # unused import
+    "F841",  # unused variable
+]
+
+[tool.flake8]
+max-line-length = 120
+extend-ignore = [
+    "E501", "E701", "E702", "E731", "E722", "E402", "E401", "E741",
+    "W503", "W391", "E203", "E225", "E227", "E228", "E231", "E271",
+    "E111", "E114", "E122", "E127", "E128", "E301", "E302", "E303", "E305", "E306",
+    "F401", "F841"
+]
+exclude = [
+    ".git",
+    ".venv",
+    "venv",
+    "vendor",
+    "reference",
+    "out",
+    "dist",
+    "bloodborne_pc/out",
+    "bloodborne_pc/dist",
+    "bloodborne_pc/third_party",
+    "bloodborne_pc/gpu/third_party",
+    "bloodborne_pc/tools",
+    "bloodborne_pc/tests",
+    "bloodborne_pc/ATLAS",
+    "__pycache__",
+]
+
+[tool.pyright]
+extraPaths = [
+    "bloodborne_pc/launcher",
+    "bloodborne_pc/scripts",
+    "bloodborne_pc/ATLAS",
+    "bloodborne_pc/tests"
+]
+
+[tool.pytest.ini_options]
+pythonpath = [
+    "bloodborne_pc/launcher",
+    "bloodborne_pc/scripts",
+    "bloodborne_pc/ATLAS",
+    "bloodborne_pc/tests"
+]
+
+[tool.setuptools]
+packages = []
+

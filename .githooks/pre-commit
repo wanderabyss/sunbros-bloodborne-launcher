@@ -1,0 +1,13 @@
+#!/bin/sh
+# Pre-commit hook: sync pyproject.toml and bloodborne_pc/version.txt with Release_Notes.md;
+# --stage re-stages only the files the sync changed.
+PYTHON_CMD="python"
+if command -v python3 >/dev/null 2>&1; then
+    PYTHON_CMD="python3"
+fi
+
+"$PYTHON_CMD" scripts/sync_version.py --stage
+if [ $? -ne 0 ]; then
+    echo "[HOOK] Version sync failed!" >&2
+    exit 1
+fi

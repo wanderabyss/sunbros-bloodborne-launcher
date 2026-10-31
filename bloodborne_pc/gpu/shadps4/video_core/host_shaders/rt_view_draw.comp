@@ -1,0 +1,54 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+// bbport: draws a ray tracing debug view (vk_rt_effects.h DrawDebugView) over the upscaled frame
+// (the output-size UI image, before the game's UI; HDR_OUTPUT: the native preset's RGBA16F scene
+// color, before the game's post-processing). The render-size images hold the scene in
+// their top-left `region`; each output pixel takes its nearest texel. `mode`:
+//   1 AO:      grey, the AO term the game lights with (view R)
+//   2 shadow:  grey, the moon's light (view G)
+//   3 change:  the frame in dim grey, with what ray tracing changed in the game's inputs: red AO
+//              darker, blue AO lighter, yellow moon shadow darker (change R, B, G; times 3 so
+//              small changes show)
+//   4 scene:   the scene view as rt_view_scene.comp coloured it
+#version 460
+#extension GL_EXT_samplerless_texture_functions : require
+
+layout(local_size_x = 8, local_size_y = 8) in;
+
+layout(binding = 0) uniform texture2D view_tex;   // RGBA8: R AO, G moon light; or the scene view
+layout(binding = 1) uniform texture2D change_tex; // RGBA8: R AO darker, G shadow darker, B AO lighter
+#ifdef HDR_OUTPUT
+layout(binding = 2, rgba16f) uniform image2D frame_img;
+#else
+layout(binding = 2, rgba8) uniform image2D frame_img;
+#endif
+
+layout(push_constant) uniform Constants {
+    uint mode;
+    uint swap_rb; // the frame keeps blue in R (the game's 8-bit frame: its views swap them back)
+    uvec2 region; // render pixels of the scene in the two textures
+};
+
+void main() {
+    const ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
+    const ivec2 out_size = imageSize(frame_img);
+    if (any(greaterThanEqual(pixel, out_size))) {
+        return;
+    }
+    const ivec2 src = min(ivec2((vec2(pixel) + 0.5) * vec2(region) / vec2(out_size)),
+                          ivec2(region) - 1);
+    // The frame's alpha stays (the native preset's scene color carries data for the post in it).
+    const vec4 frame = imageLoad(frame_img, pixel);
+    vec3 color;
+    if (mode == 3u) {
+        const vec3 c = clamp(texelFetch(change_tex, src, 0).rgb * 3.0, 0.0, 1.0);
+        const vec3 rgb = swap_rb != 0u ? frame.bgr : frame.rgb;
+        color = vec3(dot(min(rgb, vec3(1.0)), vec3(0.299, 0.587, 0.114)) * 0.35);
+        color = mix(color, vec3(1.0, 0.1, 0.05), c.r);
+        color = mix(color, vec3(0.15, 0.4, 1.0), c.b);
+        color = mix(color, vec3(1.0, 0.9, 0.1), c.g);
+    } else {
+        const vec4 v = texelFetch(view_tex, src, 0);
+        color = mode == 1u ? vec3(v.r) : mode == 2u ? vec3(v.g) : v.rgb;
+    }
+    imageStore(frame_img, pixel, vec4(swap_rb != 0u ? color.bgr : color, frame.a));
+}

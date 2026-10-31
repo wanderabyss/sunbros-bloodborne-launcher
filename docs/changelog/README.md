@@ -1,0 +1,23 @@
+# Changelog
+
+- [4.2.8 — Co-op bells back to normal outside co-op](changelog-2026-10-30-4.2.8.md)
+- [4.2.7 — My settings; Download BBSC back on the Co-op page](changelog-2026-10-30-4.2.7.md)
+- [4.2.6 — Seamless co-op hosting: the co-op server ships again](changelog-2026-10-31-4.2.6.md)
+- [4.2.5 — First start set for your PC](changelog-2026-10-30-4.2.5.md)
+- [4.2.4 — DLSS 4 and DLSS 5 preset suggestions; DLSS 5 says when ReShade won't load it](changelog-2026-10-30-4.2.4.md)
+- [4.2.3 — Your PC at a glance in the launcher's top bar](changelog-2026-10-30-4.2.3.md)
+- [4.2.2 — Maintenance: one copy of the version, translations and DLSS model choices](changelog-2026-10-30-4.2.2.md)
+- [4.2.1 — Two unbuilt ray tracing options removed from the menus](changelog-2026-10-30-4.2.1.md)
+- [4.2.0 — NVIDIA DLSS: DLSS 4.5 and DLSS 5 measured at 4K, the automatic DLSS model fixed](changelog-2026-10-29-4.2.0.md)
+- [4.1.0 — The new launcher: glass design, one tab bar, shorter settings sections](changelog-2026-10-29-4.1.0.md)
+- [4.0.0 — Major release: save backups, HDR brightness controls, DLSS 5 neural rendering, FSR 4.1.1 on Windows, FSR 1 output upscale](changelog-2026-10-29-4.0.0.md)
+- [3.4.0 — DLSS roadmap: GPU time, a DLSS 5 ready preset, DLSS through Streamline](changelog-2026-10-28-3.4.0.md)
+- [3.3.3 — DLSS model per quality mode, DLSS 5 kept off](changelog-2026-10-28-3.3.3.md)
+- [3.3.2 — HD Texture Pack setup fix](changelog-2026-10-28-3.3.2.md)
+- [3.3.1 — Remastered, graphics availability, title presentation and desktop exit](changelog-2026-10-27-3.3.1.md)
+- [3.3.0 — SunBros migration](changelog-2026-10-28.md)
+- [Earlier October 27 changes](changelog-2026-10-27.md)
+- [October 26](changelog-2026-10-26.md)
+- [October 25](changelog-2026-10-25.md)
+
+[Release notes](../../Release_Notes.md) · [Launcher guide](README-LAUNCHER-V30.md)

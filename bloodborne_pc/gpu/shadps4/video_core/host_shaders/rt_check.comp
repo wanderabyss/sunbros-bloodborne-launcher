@@ -1,0 +1,98 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+// bbport: ray tracing phase 0 check (vk_ray_tracing.h): a ray from the camera through every 4th
+// pixel (each way) against the acceleration structure, compared with the game's own depth there.
+// Counters: [0] pixels with scene depth, [1] hit within 1 % of the depth, [2] hit clearly in
+// front (geometry where the game drew none), [3] hit clearly behind, [4] no hit (geometry the
+// structure does not have). The hit structure's own counts (rt_common.glsl CoverageStats) learn
+// how much of it the game draws: its coverage, for the rays of the effects.
+#version 460
+#extension GL_EXT_ray_query : require
+#extension GL_EXT_samplerless_texture_functions : require
+#extension GL_GOOGLE_include_directive : require
+#extension GL_KHR_shader_subgroup_arithmetic : require
+#include "rt_common.glsl"
+
+layout(local_size_x = 8, local_size_y = 8) in;
+
+layout(binding = 0) uniform texture2D depth_tex; // D32, depth 0..1 (D3D projection)
+layout(binding = 1) uniform accelerationStructureEXT scene;
+layout(binding = 2, std430) buffer Counters { uint counters[8]; };
+
+layout(push_constant) uniform Constants {
+    vec4 proj;  // x scale, y scale, z scale, z offset (camera_motion.comp)
+    vec2 size;  // render pixels
+    vec2 jitter; // viewport shift of this frame, render pixels
+    uint mask;   // instance mask: 0xFF everything, 0x01 without alpha-tested geometry
+    uint pad;
+    uint64_t stats; // CoverageStats
+};
+
+// This invocation's sample: 1 in the counter it falls in ([0] and one of [1]..[4]), or nothing.
+uint Classify() {
+    const ivec2 pixel = ivec2(gl_GlobalInvocationID.xy) * 4;
+    if (pixel.x >= int(size.x) || pixel.y >= int(size.y)) {
+        return 0u;
+    }
+    const float depth = texelFetch(depth_tex, pixel, 0).r;
+    if (depth >= 1.0) {
+        return 0u; // sky
+    }
+    // The view position at the pixel, as camera_motion.comp reconstructs it (unjittered).
+    const vec2 uv = (vec2(pixel) + 0.5) / size - jitter / size;
+    const vec2 ndc = vec2(uv.x * 2.0 - 1.0, 1.0 - uv.y * 2.0);
+    const float z = proj.w / min(depth - proj.z, -1e-8);
+    const vec3 view = vec3(ndc.x * z / proj.x, ndc.y * z / proj.y, z);
+    const float dist = length(view);
+    if (!(dist > 0.05 && dist < 3000.0)) {
+        return 0u;
+    }
+    const vec3 dir = view / dist;
+    rayQueryEXT query;
+    rayQueryInitializeEXT(query, scene, gl_RayFlagsOpaqueEXT, mask, vec3(0.0), 0.01, dir,
+                          dist * 1.5 + 1.0);
+    while (rayQueryProceedEXT(query)) {
+    }
+    if (rayQueryGetIntersectionTypeEXT(query, true) == gl_RayQueryCommittedIntersectionNoneEXT) {
+        return 4u;
+    }
+    const float t = rayQueryGetIntersectionTEXT(query, true);
+    const float tolerance = dist * 0.01 + 0.02;
+    CoverageStats coverage = CoverageStats(stats);
+    const uint slot = rayQueryGetIntersectionInstanceCustomIndexEXT(query, true);
+    const bool front = rayQueryGetIntersectionFrontFaceEXT(query, true);
+    if (abs(t - dist) <= tolerance) {
+        if (front) {
+            atomicAdd(coverage.counts[slot].x, 1u);
+        } else {
+            atomicAdd(coverage.counts[slot].y, 1u);
+        }
+        return 1u;
+    }
+    if (t < dist) {
+        if (front) {
+            atomicAdd(coverage.counts[slot].z, 1u);
+        } else {
+            atomicAdd(coverage.counts[slot].w, 1u);
+        }
+        return 2u;
+    }
+    return 3u;
+}
+
+void main() {
+    // The frame counters: summed over the subgroup, one atomic each by one invocation (each
+    // invocation is in exactly one sum, so this holds without reconvergence too).
+    const uint sample_class = Classify();
+    const uint sampled = subgroupAdd(sample_class != 0u ? 1u : 0u);
+    const uint matched = subgroupAdd(sample_class == 1u ? 1u : 0u);
+    const uint in_front = subgroupAdd(sample_class == 2u ? 1u : 0u);
+    const uint behind = subgroupAdd(sample_class == 3u ? 1u : 0u);
+    const uint missed = subgroupAdd(sample_class == 4u ? 1u : 0u);
+    if (subgroupElect() && sampled != 0u) {
+        atomicAdd(counters[0], sampled);
+        atomicAdd(counters[1], matched);
+        atomicAdd(counters[2], in_front);
+        atomicAdd(counters[3], behind);
+        atomicAdd(counters[4], missed);
+    }
+}

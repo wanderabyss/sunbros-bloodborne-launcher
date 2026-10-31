@@ -1,0 +1,490 @@
+/* libSceAudioOut on SDL3 audio streams. sceAudioOutOutput returns once per
+ * buffer period on a steady clock, like PS4 hardware: FMOD's output thread
+ * reads 256-frame slots out of its mixer's 512-frame ring, and returning in
+ * bursts (whenever the device pulls a quantum) lets it overtake the mixer and
+ * play stale halves - a click every 10.7 ms. The SDL queue itself is kept
+ * about four device periods deep (at least 80 ms). Two game buffers (~10 ms)
+ * sit under one Windows shared-mode chunk, so the device underruns and the
+ * hole is a crackle, loudest on high-pitched sounds; a busy 6-core CPU
+ * delivers the mix late and makes it constant. The lowest level of each
+ * window is steered there (one silence buffer on a real underrun, ±3%
+ * cadence), which also absorbs device clock drift. A queue that runs long
+ * drops one buffer; it is never flushed (flushing is a long dropout).
+ * Without an audio device (headless runs, BB_AUDIO=none) ports only follow
+ * the clock. */
+#define _GNU_SOURCE
+#include "runtime.h"
+#include "runtime_menu_sound.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <pthread.h>
+#include <stdatomic.h>
+#include <time.h>
+#include <SDL3/SDL.h>
+#ifdef _WIN32
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
+#endif
+
+#define PORTS 25
+#define ERR_NOT_OPENED ((int32_t)0x80260001)
+#define ERR_INVALID_PORT ((int32_t)0x80260003)
+#define ERR_INVALID_POINTER ((int32_t)0x80260004)
+#define ERR_PORT_FULL ((int32_t)0x80260005)
+#define ERR_INVALID_SIZE ((int32_t)0x80260006)
+#define ERR_INVALID_FORMAT ((int32_t)0x80260007)
+#define ERR_INVALID_FREQ ((int32_t)0x80260008)
+#define ERR_INVALID_VOLUME ((int32_t)0x80260009)
+#define ERR_INVALID_TYPE ((int32_t)0x8026000A)
+#define ERR_ALREADY_INIT ((int32_t)0x8026000E)
+#define ERR_NOT_INIT ((int32_t)0x8026000F)
+#define VOLUME_0DB 32768
+
+typedef struct {
+    int used, type, channels, out_channels, is_float, frames, sample_bytes, std_layout;
+    int32_t volume[8];
+    SDL_AudioStream *stream;
+    uint64_t next_deadline_ns; /* next return of sceAudioOutOutput */
+    int64_t adjust_ns; int window_min, window_count; /* queue level control */
+    uint64_t last_output_us;
+    pthread_mutex_t lock;
+    FILE *dump;                     /* BB_AUDIO_DUMP: raw converted PCM per port */
+    int stats;
+    uint64_t stat_start_ns, stat_last_ns, stat_max_gap_ns; /* BB_AUDIO_STATS */
+    unsigned stat_starved, stat_buffers; int stat_min_queued;
+    int primed, drop_warned;
+} Port;
+typedef struct { uint16_t output; uint8_t channel, reserved; int16_t volume; uint16_t reroute; uint64_t flag, reserved64[2]; } PortState;
+_Static_assert(sizeof(PortState)==32,"AudioOut port state layout");
+
+static pthread_mutex_t table_lock=PTHREAD_MUTEX_INITIALIZER;
+static Port ports[PORTS];
+static int initialized, sdl_ready=-1;
+static size_t buffers_out, ports_opened;
+static int device_channels; /* >0 playback channels, <0 query failed */
+static int device_period_frames; /* device chunk, in 48 kHz frames */
+static float master_gain=1.f;
+/* Hunter's Atlas: the menu cursor sounds of its map tile (runtime_menu_sound.c). */
+static pthread_mutex_t menu_load_lock=PTHREAD_MUTEX_INITIALIZER;
+static BbMenuSounds menu_sounds;
+static int menu_load_state;
+static atomic_uint menu_move_pending,menu_select_pending;
+static atomic_uint menu_queued_move,menu_queued_select,menu_mixed_move,menu_mixed_select,menu_muted;
+static atomic_uint menu_decoded_move,menu_decoded_select;
+static pthread_mutex_t menu_mix_lock=PTHREAD_MUTEX_INITIALIZER;
+static int menu_playing;
+static uint32_t menu_cursor;
+
+void runtime_audio_menu_event(int select) {
+    const char *mode=getenv("BB_AUDIO");
+    if(mode && !strcmp(mode,"none")){atomic_fetch_add(&menu_muted,1);return;}
+    pthread_mutex_lock(&menu_load_lock);
+    if(!menu_load_state){
+        char path[4096];
+        menu_load_state=runtime_file_translate("/app0/dvdroot_ps4/sound/sprj_main.fsb",path,sizeof(path))==0 &&
+                        runtime_menu_sound_load(path,&menu_sounds) ? 1 : -1;
+        if(menu_load_state<0)puts("Atlas: local menu cursor sound unavailable");
+        else {
+            atomic_store(&menu_decoded_move,menu_sounds.move.frames);
+            atomic_store(&menu_decoded_select,menu_sounds.select.frames);
+        }
+    }
+    if(menu_load_state>0){
+        if(select){atomic_fetch_add(&menu_queued_select,1);atomic_fetch_add(&menu_select_pending,1);}
+        else {atomic_fetch_add(&menu_queued_move,1);atomic_fetch_add(&menu_move_pending,1);}
+    }
+    pthread_mutex_unlock(&menu_load_lock);
+}
+void runtime_audio_menu_stats(BbMenuSoundStats *out){
+    if(!out)return;
+    *out=(BbMenuSoundStats){atomic_load(&menu_decoded_move),atomic_load(&menu_decoded_select),
+        atomic_load(&menu_queued_move),atomic_load(&menu_queued_select),
+        atomic_load(&menu_mixed_move),atomic_load(&menu_mixed_select),atomic_load(&menu_muted)};
+}
+
+
+/* SDL's 7.1->stereo matrix multiplies the front pair by ~0.21 so a full 8ch
+ * sum stays at 1. The game's mix lives in the fronts, so a stereo PC sounds
+ * about 13 dB quieter than everything else. Fold here, fronts at unity. */
+static float sat(float v) { return v>1.f ? 1.f : v<-1.f ? -1.f : v; }
+static float take(const void *data, int is_float, size_t index, float gain) {
+    if (is_float) { float v; memcpy(&v,(const char *)data+index*4,4); return v*gain; }
+    int16_t s; memcpy(&s,(const char *)data+index*2,2); return (s/32768.f)*gain;
+}
+static void put(void *dst, int is_float, size_t index, float v) {
+    v=sat(v);
+    if (is_float) { memcpy((char *)dst+index*4,&v,4); return; }
+    int16_t s=(int16_t)(v*32767.f); memcpy((char *)dst+index*2,&s,2);
+}
+static void menu_mix(void *converted,const Port *p) {
+    if(p->type!=0||!p->stream)return;
+    pthread_mutex_lock(&menu_mix_lock);
+    if(atomic_exchange(&menu_select_pending,0)){
+        atomic_store(&menu_move_pending,0);menu_playing=2;menu_cursor=0;
+    }else if(atomic_exchange(&menu_move_pending,0)){
+        menu_playing=1;menu_cursor=0;
+    }
+    const BbMenuSound *sound=menu_playing==2?&menu_sounds.select:&menu_sounds.move;
+    if(menu_playing&&sound->pcm){
+        for(int f=0;f<p->frames&&menu_cursor<sound->frames;++f,++menu_cursor){
+            const float sample=(float)sound->pcm[menu_cursor]/32768.f*master_gain;
+            const int fronts=p->out_channels<2?p->out_channels:2;
+            for(int c=0;c<fronts;++c){
+                const size_t at=(size_t)f*(size_t)p->out_channels+(size_t)c;
+                const float gain=(float)p->volume[c]/VOLUME_0DB;
+                put(converted,p->is_float,at,take(converted,p->is_float,at,1.f)+sample*gain);
+            }
+        }
+        if(menu_cursor>=sound->frames){
+            if(menu_playing==2)atomic_fetch_add(&menu_mixed_select,1);
+            else atomic_fetch_add(&menu_mixed_move,1);
+            menu_playing=0;
+        }
+    }
+    pthread_mutex_unlock(&menu_mix_lock);
+}
+static void fold8(const float in[8], float *out, int n) {
+    memset(out,0,(size_t)n*sizeof(float));
+    const float L=in[0], R=in[1], C=in[2], LFE=in[3], SL=in[4], SR=in[5], BL=in[6], BR=in[7];
+    const float k=0.70710678f;
+    switch (n) {
+    case 1: out[0]=0.5f*((L+R)+2.f*k*C+LFE+k*(SL+SR+BL+BR)); break;
+    case 2:
+        out[0]=L+k*C+0.5f*LFE+k*SL+k*BL;
+        out[1]=R+k*C+0.5f*LFE+k*SR+k*BR;
+        break;
+    case 3: out[0]=L+k*C+k*SL+k*BL; out[1]=R+k*C+k*SR+k*BR; out[2]=LFE; break; /* 2.1 */
+    case 4: out[0]=L+k*C+0.5f*LFE+k*SL; out[1]=R+k*C+0.5f*LFE+k*SR; out[2]=BL; out[3]=BR; break;
+    case 5: out[0]=L+k*C+k*SL; out[1]=R+k*C+k*SR; out[2]=LFE; out[3]=BL; out[4]=BR; break;
+    case 6: out[0]=L; out[1]=R; out[2]=C; out[3]=LFE; out[4]=BL+k*SL; out[5]=BR+k*SR; break; /* 5.1 */
+    default: out[0]=L; out[1]=R; out[2]=C; out[3]=LFE; out[4]=k*(BL+BR); out[5]=SL; out[6]=SR; break; /* 6.1 */
+    }
+    for (int i=0;i<n;++i) out[i]=sat(out[i]);
+}
+static void audio_levels(void) {
+    if (device_channels) return;
+    const char *env=getenv("BB_AUDIO_GAIN");
+    if (env && env[0]) { char *end=NULL; float g=strtof(env,&end); if (end!=env && g>0.f && g<=8.f) master_gain=g; }
+    SDL_AudioSpec spec;
+    int frames=0;
+    if (SDL_GetAudioDeviceFormat(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK,&spec,&frames) && spec.channels>=1 && spec.channels<=8) {
+        device_channels=spec.channels;
+        if (frames>0 && frames<=16384 && spec.freq>0)
+            device_period_frames=(int)((int64_t)frames*48000/spec.freq);
+    } else device_channels=-1;
+    printf("Runtime: audio device %d ch, period %d frames (%.1f ms), gain %.2f\n",
+           device_channels>0 ? device_channels : 0, device_period_frames,
+           device_period_frames*1000.0/48000.0, master_gain);
+}
+/* Bytes of queued PCM to stay ahead of the device. Four chunks, and at least
+ * 80 ms. Two chunks still drain here: WASAPI reports a 1024-frame / 21 ms
+ * period, and one late mix on a 6-thread CPU empties that lead. */
+static int queue_low_bytes(const Port *p) {
+    int bpf=p->out_channels*p->sample_bytes;
+    if (bpf<1) bpf=1;
+    int frames=device_period_frames>0 ? device_period_frames*4 : 0;
+    if (frames<3840) frames=3840;
+    if (frames<p->frames*4) frames=p->frames*4;
+    if (frames>9600) frames=9600;
+    return frames*bpf;
+}
+static void put_silence(SDL_AudioStream *stream, int bytes) {
+    static const unsigned char silence[4096];
+    while (bytes>0) {
+        int n=bytes>(int)sizeof silence ? (int)sizeof silence : bytes;
+        if (!SDL_PutAudioStreamData(stream,silence,n)) break;
+        bytes-=n;
+    }
+}
+#ifdef _WIN32
+/* The mix runs on this thread before it calls in. On a loaded 6-core CPU
+ * a normal priority wakeup is late, the queue empties, and the underrun is
+ * the crackle. The thread sleeps for most of each period. */
+static void raise_audio_thread(void) {
+    static __thread int done;
+    if (done) return;
+    done=1;
+    SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_HIGHEST);
+}
+#endif
+
+static uint64_t now_ns(void) { struct timespec t; clock_gettime(CLOCK_MONOTONIC,&t); return (uint64_t)t.tv_sec*1000000000u+(uint64_t)t.tv_nsec; }
+static void sleep_until(uint64_t deadline) {
+#ifdef _WIN32
+    /* winpthreads' clock_nanosleep only takes CLOCK_REALTIME (EINVAL otherwise). */
+    for (uint64_t now=now_ns(); now<deadline; now=now_ns()) compat_sleep_ns(deadline-now);
+#else
+    struct timespec t={(time_t)(deadline/1000000000u),(long)(deadline%1000000000u)};
+    while (clock_nanosleep(CLOCK_MONOTONIC,TIMER_ABSTIME,&t,NULL)) {}
+#endif
+}
+static int sdl_audio(void) {
+    if (sdl_ready<0) {
+        const char *mode=getenv("BB_AUDIO");
+        sdl_ready = (!mode || strcmp(mode,"none")) && SDL_InitSubSystem(SDL_INIT_AUDIO);
+        printf("Runtime: audio backend %s\n", sdl_ready ? SDL_GetCurrentAudioDriver() : "timer (silent)");
+    }
+    return sdl_ready;
+}
+static int port_range(int type, int *first, int *last) {
+    switch (type) {
+    case 0: *first=0; *last=7; return 1;      /* main */
+    case 1: *first=8; *last=8; return 1;      /* bgm */
+    case 2: *first=9; *last=12; return 1;     /* voice */
+    case 3: *first=13; *last=16; return 1;    /* personal */
+    case 4: *first=17; *last=20; return 1;    /* pad speaker */
+    case 126: *first=21; *last=22; return 1;  /* audio3d */
+    case 127: *first=23; *last=24; return 1;  /* aux */
+    default: return 0;
+    }
+}
+static Port *port_of(int32_t handle, int32_t *error) {
+    int id=handle & 0xff;
+    if ((handle & 0x3f000000)!=0x20000000 || id>=PORTS) { *error=ERR_INVALID_PORT; return NULL; }
+    if (!ports[id].used) { *error=ERR_NOT_OPENED; return NULL; }
+    return &ports[id];
+}
+
+static ABI int32_t audio_init(void) {
+    pthread_mutex_lock(&table_lock);
+    int32_t r=initialized ? ERR_ALREADY_INIT : 0;
+    initialized=1;
+    pthread_mutex_unlock(&table_lock);
+    return r;
+}
+static ABI int32_t audio_open(int32_t user, int32_t type, int32_t index, uint32_t length, uint32_t freq, uint32_t param) {
+    (void)user; (void)index;
+    if (!initialized) return ERR_NOT_INIT;
+    if (!length || length>2048 || (length & 0xff)) return ERR_INVALID_SIZE;
+    if (freq!=48000) return ERR_INVALID_FREQ;
+    uint32_t format=param & 0xff;
+    if (format>7) return ERR_INVALID_FORMAT;
+    int first, last;
+    if (!port_range(type,&first,&last)) return ERR_INVALID_TYPE;
+    static const int channels[8]={1,2,8,1,2,8,8,8};
+    pthread_mutex_lock(&table_lock);
+    int id=-1;
+    for (int i=first;i<=last;++i) if (!ports[i].used) { id=i; break; }
+    if (id<0) { pthread_mutex_unlock(&table_lock); return ERR_PORT_FULL; }
+    Port *p=&ports[id];
+    memset(p,0,sizeof(*p));
+    pthread_mutex_init(&p->lock,NULL);
+    p->used=1; p->type=type; p->channels=channels[format]; p->out_channels=p->channels;
+    p->is_float=format>=3 && format!=6;
+    p->sample_bytes=p->is_float ? 4 : 2; p->frames=(int)length; p->std_layout=format>=6;
+    for (int c=0;c<8;++c) p->volume[c]=VOLUME_0DB;
+    if (sdl_audio()) {
+        audio_levels();
+        int out=p->channels;
+        if (device_channels>0 && device_channels<p->channels) out=device_channels;
+        SDL_AudioSpec spec={p->is_float ? SDL_AUDIO_F32 : SDL_AUDIO_S16, out, 48000};
+        p->stream=SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK,&spec,NULL,NULL);
+        if (p->stream) { p->out_channels=out; SDL_ResumeAudioStreamDevice(p->stream); }
+        else fprintf(stderr,"Runtime: SDL audio stream failed (%s); port %d uses the timer sink\n",SDL_GetError(),id);
+    }
+    p->stats=getenv("BB_AUDIO_STATS")!=NULL;
+    const char *dump=getenv("BB_AUDIO_DUMP");
+    if (dump) {
+        char path[4096];
+        snprintf(path,sizeof(path),"%s.port%d.%dch.%s",dump,id,p->channels,p->is_float ? "f32" : "s16");
+        p->dump=fopen(path,"wb");
+    }
+    ++ports_opened;
+    pthread_mutex_unlock(&table_lock);
+    printf("Runtime: audio port %d opened (type %d, %d ch -> %d ch, %s, %u frames)\n",id,type,p->channels,p->out_channels,p->is_float ? "float" : "s16",length);
+    return (type<<16) | id | 0x20000000;
+}
+static ABI int32_t audio_close(int32_t handle) {
+    pthread_mutex_lock(&table_lock);
+    int32_t error=0;
+    Port *p=port_of(handle,&error);
+    if (p) {
+        pthread_mutex_lock(&p->lock);
+        if (p->stream) SDL_DestroyAudioStream(p->stream);
+        if (p->dump) fclose(p->dump);
+        p->dump=NULL;
+        p->stream=NULL; p->used=0;
+        pthread_mutex_unlock(&p->lock);
+    }
+    pthread_mutex_unlock(&table_lock);
+    return p ? 0 : error;
+}
+/* `pace`: wait for this port's next period. sceAudioOutOutputs waits once for all its ports. */
+static int32_t output_port(int32_t handle, const void *data, int pace) {
+    int32_t error=0;
+    pthread_mutex_lock(&table_lock);
+    Port *p=port_of(handle,&error);
+    pthread_mutex_unlock(&table_lock);
+    if (!p) return error;
+#ifdef _WIN32
+    raise_audio_thread();
+#endif
+    pthread_mutex_lock(&p->lock);
+    size_t samples=(size_t)p->frames*(size_t)p->channels;
+    size_t out_bytes=(size_t)p->frames*(size_t)p->out_channels*(size_t)p->sample_bytes;
+    uint64_t period=(uint64_t)p->frames*1000000000u/48000u;
+    if (data) {
+        /* Per-channel volume. When the device has fewer channels than the port,
+         * fold here with fronts at unity. Otherwise map PS4 8ch (L R C LFE SL SR BL BR) to SDL 7.1. */
+        unsigned char converted[2048*8*4];
+        if (p->out_channels!=p->channels) {
+            static const int from_std[8]={0,1,2,3,6,7,4,5}; /* SDL order -> PS4 L R C LFE SL SR BL BR */
+            for (size_t f=0;f<(size_t)p->frames;++f) {
+                float in[8]={0}, out[8]={0};
+                for (int s=0;s<p->channels && s<8;++s) {
+                    int guest=p->channels==8 && p->std_layout ? from_std[s] : s;
+                    float gain=(float)p->volume[guest]/VOLUME_0DB*master_gain;
+                    in[s]=take(data,p->is_float,f*(size_t)p->channels+(size_t)guest,gain);
+                }
+                fold8(in,out,p->out_channels);
+                for (int c=0;c<p->out_channels;++c) put(converted,p->is_float,f*(size_t)p->out_channels+(size_t)c,out[c]);
+            }
+        } else {
+            static const int remap[8]={0,1,2,3,6,7,4,5};
+            for (size_t f=0;f<(size_t)p->frames;++f) for (int c=0;c<p->channels;++c) {
+                int target=p->channels==8 && !p->std_layout ? remap[c] : c;
+                size_t from=f*(size_t)p->channels+(size_t)c, to=f*(size_t)p->channels+(size_t)target;
+                float gain=(float)p->volume[c]/VOLUME_0DB*master_gain;
+                if (p->is_float) { float v; memcpy(&v,(const char *)data+from*4,4); v*=gain; memcpy(converted+to*4,&v,4); }
+                else { int16_t v; memcpy(&v,(const char *)data+from*2,2); v=(int16_t)((float)v*gain); memcpy(converted+to*2,&v,2); }
+            }
+        }
+        menu_mix(converted,p);
+        if (p->dump) fwrite(converted,1,out_bytes,p->dump);
+        if (p->stats) {
+            uint64_t now=now_ns();
+            if (!p->stat_start_ns) { p->stat_start_ns=now; p->stat_min_queued=1<<30; }
+            else if (now-p->stat_last_ns>p->stat_max_gap_ns) p->stat_max_gap_ns=now-p->stat_last_ns;
+            p->stat_last_ns=now; ++p->stat_buffers;
+            if (p->stream) {
+                int queued=SDL_GetAudioStreamQueued(p->stream);
+                if (queued<p->stat_min_queued) p->stat_min_queued=queued;
+                if (queued==0) ++p->stat_starved;
+            }
+            if (now-p->stat_start_ns>=5000000000u) {
+                printf("Audio stats port %d: %u buffers/5s (expected %u), max gap %.2f ms, min queued %d bytes, starved %u\n",
+                       (int)(p-ports),p->stat_buffers,(unsigned)(5u*48000u/(unsigned)p->frames),p->stat_max_gap_ns/1e6,
+                       p->stat_min_queued,p->stat_starved);
+                p->stat_start_ns=now; p->stat_max_gap_ns=0; p->stat_starved=0; p->stat_buffers=0; p->stat_min_queued=1<<30;
+            }
+        }
+        if (pace) {
+            uint64_t now=now_ns();
+            if (!p->next_deadline_ns || now>p->next_deadline_ns+8*period) p->next_deadline_ns=now; /* start or stall: restart cadence */
+            else sleep_until(p->next_deadline_ns);
+            p->next_deadline_ns+=period;
+        }
+        if (p->stream) {
+            /* The device drains the queue in quanta, so the level is a sawtooth:
+               its minimum over ~32 buffers is what gets controlled. Silence is
+               only for a real hole. Pretending a short prefill filled `low`
+               made the controller slow down while the device was already empty. */
+            int bpf=p->out_channels*p->sample_bytes;
+            int low=queue_low_bytes(p);
+            int extra=device_period_frames>p->frames ? device_period_frames : p->frames;
+            int high=low+extra*bpf*2;
+            int queued=SDL_GetAudioStreamQueued(p->stream);
+            if (queued<0) queued=0;
+            if (!p->primed) {
+                /* Silence only before the first real buffer. Filling the whole
+                   cushion again after a hole mutes for the length of the lead. */
+                int fill=low-queued;
+                if (bpf>1) fill-=fill%bpf;
+                if (fill>0) put_silence(p->stream,fill);
+                p->primed=1;
+                queued=SDL_GetAudioStreamQueued(p->stream);
+                if (queued<0) queued=0;
+            } else if (queued<(int)out_bytes) {
+                int quantum=device_period_frames>0 ? device_period_frames*bpf : (int)out_bytes;
+                int fill=quantum-queued;
+                if (fill<(int)out_bytes) fill=(int)out_bytes;
+                if (fill>low-queued) fill=low-queued;
+                if (bpf>1) fill-=fill%bpf;
+                if (fill>0) put_silence(p->stream,fill);
+                queued=SDL_GetAudioStreamQueued(p->stream);
+                if (queued<0) queued=0;
+            }
+            if (!p->window_count || queued<p->window_min) p->window_min=queued;
+            if (++p->window_count==32) {
+                p->adjust_ns=p->window_min>low+2*(int)out_bytes ? (int64_t)(period/32) : p->window_min<low ? -(int64_t)(period/32) : 0;
+                p->window_count=0;
+            }
+            p->next_deadline_ns+=(uint64_t)p->adjust_ns;
+            if (queued>high) {
+                if (!p->drop_warned) {
+                    fprintf(stderr,"Runtime: audio queue backed up (%d bytes, limit %d), dropping one buffer\n",queued,high);
+                    p->drop_warned=1;
+                }
+            } else {
+                if (queued<low) p->drop_warned=0;
+                SDL_PutAudioStreamData(p->stream,converted,(int)out_bytes);
+            }
+        }
+        ++buffers_out;
+    }
+    p->last_output_us=now_ns()/1000;
+    pthread_mutex_unlock(&p->lock);
+    return data ? (int32_t)samples : 0;
+}
+static ABI int32_t audio_output(int32_t handle, const void *data) { return output_port(handle,data,1); }
+typedef struct { int32_t handle; const void *data; } OutputParam;
+static ABI int32_t audio_outputs(const OutputParam *params, uint32_t count) {
+    if (!params) return ERR_INVALID_POINTER;
+    if (!count || count>PORTS) return ERR_PORT_FULL;
+    int32_t result=0;
+    /* One period per call for all ports (FMOD feeds main and BGM together): pacing every
+       port would halve the rate and starve both. */
+    for (uint32_t i=0;i<count;++i) { int32_t r=output_port(params[i].handle,params[i].data,i==0); if (r<0) return r; result=r; }
+    return result;
+}
+static ABI int32_t audio_volume(int32_t handle, int32_t flags, const int32_t *volume) {
+    int32_t error=0;
+    pthread_mutex_lock(&table_lock);
+    Port *p=port_of(handle,&error);
+    pthread_mutex_unlock(&table_lock);
+    if (!p) return error;
+    if (!volume) return ERR_INVALID_POINTER;
+    pthread_mutex_lock(&p->lock);
+    for (int c=0;c<8;++c) if (flags & (1<<c)) {
+        if (volume[c]<0 || volume[c]>VOLUME_0DB) { pthread_mutex_unlock(&p->lock); return ERR_INVALID_VOLUME; }
+        p->volume[c]=volume[c];
+    }
+    pthread_mutex_unlock(&p->lock);
+    return 0;
+}
+static ABI int32_t audio_state(int32_t handle, PortState *state) {
+    int32_t error=0;
+    pthread_mutex_lock(&table_lock);
+    Port *p=port_of(handle,&error);
+    pthread_mutex_unlock(&table_lock);
+    if (!p) return error;
+    if (!state) return ERR_INVALID_POINTER;
+    memset(state,0,sizeof(*state));
+    switch (p->type) {
+    case 2: case 3: state->output=0x40; state->channel=1; break;          /* headphone */
+    case 4: state->output=0x04; state->channel=1; state->volume=127; break; /* pad speaker */
+    default: state->output=0x01; state->channel=(uint8_t)(p->channels>2 ? 2 : p->channels); break;
+    }
+    return 0;
+}
+static ABI int32_t audio_last_time(int32_t handle, uint64_t *time) {
+    int32_t error=0;
+    pthread_mutex_lock(&table_lock);
+    Port *p=port_of(handle,&error);
+    pthread_mutex_unlock(&table_lock);
+    if (!p) return error;
+    if (!time) return ERR_INVALID_POINTER;
+    *time=p->last_output_us; return 0;
+}
+
+static const RuntimeExport exports[]={
+    {"sceAudioOutInit",audio_init}, {"sceAudioOutOpen",audio_open}, {"sceAudioOutClose",audio_close},
+    {"sceAudioOutOutput",audio_output}, {"sceAudioOutOutputs",audio_outputs},
+    {"sceAudioOutSetVolume",audio_volume}, {"sceAudioOutGetPortState",audio_state},
+    {"sceAudioOutGetLastOutputTime",audio_last_time},
+};
+uintptr_t runtime_audio_resolve(const char *name) { return RUNTIME_LOOKUP(exports,name); }
+void runtime_audio_report(void) { printf("Runtime: audio ports opened=%zu, buffers output=%zu\n",ports_opened,buffers_out); }

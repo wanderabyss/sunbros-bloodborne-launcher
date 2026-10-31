@@ -1,0 +1,194 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+// bbport: ray-traced screen effects (vk_rt_screen_effect.h): the denoiser, compute only.
+// MODE_TEMPORAL: this frame's rays (rt_trace.comp) blended into last frame's result at the same
+//   world position. Reprojection uses the two cameras (world positions from the depth); a history
+//   sample counts only where its depth is the one expected there (no ghosting off moved or newly
+//   seen surfaces). Up to `max_frames` frames are averaged; the count is kept per pixel. A fast
+//   history (about 4 frames, in A) can bound the long one (`fast_band`; BB_RT_TRAIL_CLAMP=1):
+//   where a caster moved away (or in), the old shade then fades in a few frames instead of
+//   leaving a trail of `max_frames` (RTG-5; off by default, see vk_rt_screen_effect.cpp).
+// Otherwise: one edge-aware a-trous step (5x5 B-spline taps `step` pixels apart) over the result,
+//   weighted by depth similarity; fewer accumulated frames, more blur. The last step (MODE_LAST)
+//   writes only the result rt_apply.comp reads, 16 bits a pixel.
+#version 460
+#extension GL_EXT_samplerless_texture_functions : require
+#extension GL_GOOGLE_include_directive : require
+#include "rt_common.glsl"
+
+layout(local_size_x = 8, local_size_y = 8) in;
+
+#ifdef MODE_TEMPORAL
+layout(binding = 0) uniform texture2D raw_tex;     // rg: result, view depth (rt_trace.comp)
+layout(binding = 1) uniform texture2D history_tex; // last frame's: ao, view depth, frames, fast ao
+layout(binding = 2, rgba16f) uniform writeonly image2D history_out;
+layout(binding = 3) uniform texture2D depth_tex;   // the game's depth
+#else
+layout(binding = 0) uniform texture2D src_tex;     // rgb: ao, view depth, frames
+#ifdef MODE_LAST
+layout(binding = 1, r16f) uniform writeonly image2D dst_out;
+#else
+layout(binding = 1, rgba16f) uniform writeonly image2D dst_out;
+#endif
+#endif
+
+layout(push_constant) uniform Constants {
+    uint64_t frame;      // FrameConstants of this frame
+    uint64_t prev_frame; // and of the last one (0: no history)
+    uint step;           // a-trous: tap distance in pixels
+    float max_frames;    // temporal: frames averaged at most
+    uint scale;          // depth pixels per AO pixel, each way
+    float fast_band;     // temporal: how far the long history may be from the fast one
+};
+
+#ifdef MODE_TEMPORAL
+// The fast history's weight for a new sample. The long history may be `fast_band` from it (a
+// pixel has 1-2 rays a frame, so the fast history is noisy: a band, not a clamp to it).
+const float FastBlend = 0.25;
+
+vec3 ViewPosition(FrameConstants f, vec2 pixel, float depth) {
+    const vec2 uv = (pixel + 0.5) / f.size - f.jitter / f.size;
+    const vec2 ndc = vec2(uv.x * 2.0 - 1.0, 1.0 - uv.y * 2.0);
+    const float z = f.proj.w / min(depth - f.proj.z, -1e-8);
+    return vec3(ndc.x * z / f.proj.x, ndc.y * z / f.proj.y, z);
+}
+#endif
+
+#ifdef MODE_TEMPORAL
+// The mean of the 4-neighbours' rays this frame (a checkerboard's traced half), or lit (1) when
+// none was traced.
+float NeighbourRays(ivec2 pixel, ivec2 size) {
+    float sum = 0.0, count = 0.0;
+    for (int i = 0; i < 4; ++i) {
+        const ivec2 q = pixel + ivec2(i == 0 ? -1 : i == 1 ? 1 : 0, i == 2 ? -1 : i == 3 ? 1 : 0);
+        if (any(lessThan(q, ivec2(0))) || any(greaterThanEqual(q, size))) {
+            continue;
+        }
+        const vec2 r = texelFetch(raw_tex, q, 0).rg;
+        if (r.x >= 0.0 && r.y > 0.0) { // traced (not a pixel without a ray: depth negated)
+            sum += r.x;
+            count += 1.0;
+        }
+    }
+    return count > 0.0 ? sum / count : 1.0;
+}
+#endif
+
+void main() {
+    FrameConstants f = FrameConstants(frame);
+    const ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
+#ifdef MODE_TEMPORAL
+    const ivec2 size = imageSize(history_out);
+#else
+    const ivec2 size = imageSize(dst_out);
+#endif
+    if (pixel.x >= size.x || pixel.y >= size.y) {
+        return;
+    }
+#ifdef MODE_TEMPORAL
+    const vec2 now = texelFetch(raw_tex, pixel, 0).rg;
+    const ivec2 depth_pixel = min(pixel * int(scale) + int(scale / 2u), ivec2(f.size) - 1);
+    const float depth = texelFetch(depth_tex, depth_pixel, 0).r;
+    if (depth >= 1.0 || prev_frame == 0ul) {
+        const float first = now.r >= 0.0 ? now.r : NeighbourRays(pixel, size);
+        imageStore(history_out, pixel, vec4(first, now.g, 1.0, first));
+        return;
+    }
+    // Where this surface was last frame.
+    FrameConstants pf = FrameConstants(prev_frame);
+    const vec3 world = ViewToWorld(f, ViewPosition(f, vec2(depth_pixel), depth));
+    const vec4 w4 = vec4(world, 1.0);
+    const vec3 pv = vec3(dot(pf.view[0], w4), dot(pf.view[1], w4), dot(pf.view[2], w4));
+    // r < 0: no ray here this frame (the checkerboard's other half): history only, or the
+    // neighbours' rays (traced this frame) where there is none.
+    const bool sampled = now.r >= 0.0;
+    float ao = sampled ? now.r : NeighbourRays(pixel, size), frames = 1.0, fast = ao;
+    if (pv.z > 1e-3) {
+        const vec2 ndc = vec2(pv.x * pf.proj.x, pv.y * pf.proj.y) / pv.z;
+        const vec2 uv = vec2(ndc.x * 0.5 + 0.5, 0.5 - ndc.y * 0.5);
+        // Last frame's depth pixel, then its AO pixel.
+        const vec2 at = (uv * pf.size + pf.jitter - 0.5 - float(scale / 2u)) / float(scale);
+        const ivec2 base = ivec2(floor(at));
+        const vec2 fr = at - vec2(base);
+        float sum = 0.0, fast_sum = 0.0, weights = 0.0, count = 0.0;
+        for (int i = 0; i < 4; ++i) {
+            const ivec2 o = ivec2(i & 1, i >> 1);
+            const ivec2 q = base + o;
+            if (any(lessThan(q, ivec2(0))) || any(greaterThanEqual(q, size))) {
+                continue;
+            }
+            const vec4 h = texelFetch(history_tex, q, 0);
+            // Same surface: the stored depth is where this one was.
+            if (abs(h.g - pv.z) > 0.03 * pv.z + 0.02) {
+                continue;
+            }
+            const float w = (o.x == 1 ? fr.x : 1.0 - fr.x) * (o.y == 1 ? fr.y : 1.0 - fr.y);
+            sum += h.r * w;
+            fast_sum += h.a * w;
+            count += h.b * w;
+            weights += w;
+        }
+        if (weights > 1e-3) {
+            const float fast_history = fast_sum / weights;
+            fast = sampled ? mix(fast_history, now.r, FastBlend) : fast_history;
+            // The long history held within the band around the fast one; where it had to move,
+            // fewer frames so the new rays count more (the trail clears).
+            const float long_history = sum / weights;
+            const float held = clamp(long_history, fast - fast_band, fast + fast_band);
+            float history_frames = min(count / weights, max_frames - 1.0);
+            if (abs(held - long_history) > 0.05) {
+                history_frames = min(history_frames, 4.0);
+            }
+            frames = sampled ? history_frames + 1.0 : max(history_frames, 1.0);
+            // The long history held in the fast band (above), then bounded by the valid
+            // current rays around it, including on checkerboard pixels without their own ray.
+            // If none exist, the held history stays.
+            float reprojected = held;
+            {
+                float min_val = 1e30;
+                float max_val = -1e30;
+                for (int dy = -1; dy <= 1; ++dy) {
+                    for (int dx = -1; dx <= 1; ++dx) {
+                        ivec2 np = clamp(pixel + ivec2(dx, dy), ivec2(0), size - 1);
+                        vec2 neighbor = texelFetch(raw_tex, np, 0).rg;
+                        // Do not constrain history with sky/invalid rays or another surface.
+                        if (neighbor.r >= 0.0 && neighbor.g > 0.0 &&
+                            abs(neighbor.g - now.g) <= 0.03 * now.g + 0.02) {
+                            min_val = min(min_val, neighbor.r);
+                            max_val = max(max_val, neighbor.r);
+                        }
+                    }
+                }
+                if (min_val <= max_val) {
+                    reprojected = clamp(reprojected, min_val, max_val);
+                }
+            }
+            ao = sampled ? mix(reprojected, now.r, 1.0 / frames) : reprojected;
+        }
+    }
+    imageStore(history_out, pixel, vec4(ao, now.g, frames, fast));
+#else
+    const vec3 c = texelFetch(src_tex, pixel, 0).rgb;
+    if (c.g <= 0.0) {
+        imageStore(dst_out, pixel, vec4(c, 0.0));
+        return;
+    }
+    // Well-converged pixels need little filtering.
+    const float sharpness = clamp(c.b / 8.0, 0.0, 1.0);
+    const float kernel[3] = float[3](3.0 / 8.0, 1.0 / 4.0, 1.0 / 16.0);
+    float sum = 0.0, weights = 0.0;
+    for (int y = -2; y <= 2; ++y) {
+        for (int x = -2; x <= 2; ++x) {
+            const ivec2 q = clamp(pixel + ivec2(x, y) * int(step), ivec2(0), size - 1);
+            const vec3 s = texelFetch(src_tex, q, 0).rgb;
+            const float dz = abs(s.g - c.g) / (0.02 * c.g + 0.01);
+            float w = kernel[abs(x)] * kernel[abs(y)] * exp(-dz * dz) * (s.g > 0.0 ? 1.0 : 0.0);
+            if (x != 0 || y != 0) {
+                w *= 1.0 - 0.75 * sharpness;
+            }
+            sum += s.r * w;
+            weights += w;
+        }
+    }
+    imageStore(dst_out, pixel, vec4(sum / max(weights, 1e-6), c.g, c.b, 0.0));
+#endif
+}

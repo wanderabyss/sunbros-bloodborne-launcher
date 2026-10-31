@@ -1,0 +1,988 @@
+diff --git a/a/core/libraries/network/http.cpp b/b/core/libraries/network/http.cpp
+index a78e1eb..db1a8e8 100644
+--- a/a/core/libraries/network/http.cpp
++++ b/b/core/libraries/network/http.cpp
+@@ -365,6 +365,10 @@ static const HostOverrideState& GetHostOverrideState() {
+     return s;
+ }
+ 
++// bbport: The Hunter's Dream backend (gpu/bbnet/thd).
++extern "C" bool bbthd_enabled();
++extern "C" void bbthd_add_game_headers(std::vector<std::pair<std::string, std::string>>* headers);
++
+ bool ApplyHostOverride(std::string& scheme, std::string& host, u16& port, bool& is_secure) {
+     const auto& state = GetHostOverrideState();
+     if (state.entries.empty()) {
+@@ -385,6 +389,17 @@ bool ApplyHostOverride(std::string& scheme, std::string& host, u16& port, bool&
+     if (it == state.entries.end()) {
+         it = state.entries.find(host);
+     }
++    if (it == state.entries.end()) {
++        // bbport: "*.example.com" matches every host under it.
++        for (auto e = state.entries.begin(); e != state.entries.end(); ++e) {
++            const std::string& key = e->first;
++            if (key.size() > 2 && key[0] == '*' && key[1] == '.' && host.size() > key.size() - 1 &&
++                host.compare(host.size() - (key.size() - 1), key.size() - 1, key, 1) == 0) {
++                it = e;
++                break;
++            }
++        }
++    }
+     if (it == state.entries.end()) {
+         it = state.entries.find("*");
+     }
+@@ -440,7 +455,12 @@
+-// Extract the path-and-query portion from a full URL
++// Extract the path-and-query portion from a full URL or an origin-form target.
+ static std::string ExtractPathFromUrl(const std::string& url) {
++    // bbport: Bloodborne also supplies paths such as /bb-eu/ss.info directly.
++    if (!url.empty() && url.front() == '/') {
++        return url;
++    }
++
+     auto scheme_end = url.find("://");
+     if (scheme_end == std::string::npos) {
+         return "/";
+     }
+     auto authority_start = scheme_end + 3;
+@@ -1509,7 +1529,10 @@ int PS4_SYSV_ABI sceHttpCreateRequestWithURL(int connId, s32 method, const char* url,
+     auto req = std::make_shared<HttpRequest>();
+     req->conn_id = connId;
+     req->method = method;
+-    req->url = url;
++    // bbport: Bloodborne passes an empty request URL after creating a connection with
++    // the full URL. Keep that connection's path and query; using an empty URL
++    // here makes SendRequest request '/' instead (ss.info then returns 404).
++    req->url = url[0] ? url : conn_it->second.url;
+     req->content_length = contentLength;
+     req->settings = conn_it->second.settings;
+     req->epoll_id = conn_it->second.epoll_id;
+@@ -1745,6 +1763,10 @@ int PS4_SYSV_ABI sceHttpSendRequest(int reqId, const void* postData, u64 size) {
+                                                         ? tmpl_user_agent
+                                                         : BuildLibhttpUserAgent(""));
+         }
++        // bbport: The Hunter's Dream binds the game's requests to the account and its ruleset.
++        if (bbthd_enabled()) {
++            bbthd_add_game_headers(&plan.headers);
++        }
+         // Pull Content-Type out of headers
+         for (const auto& [k, v] : plan.headers) {
+             if (HeaderNameMatches(k, "Content-Type")) {
+diff --git a/a/core/libraries/np/np_manager.cpp b/b/core/libraries/np/np_manager.cpp
+index 4591814..0759787 100644
+--- a/a/core/libraries/np/np_manager.cpp
++++ b/b/core/libraries/np/np_manager.cpp
+@@ -1208,7 +1208,7 @@ void DeregisterNpCallback(std::string key) {
+     g_np_callbacks.erase(key);
+ }
+ 
+-void RegisterLib(Core::Loader::SymbolsResolver* sym) {
++void InitializeRuntime() {
+     ASSERT_MSG(Libraries::Kernel::sceKernelGetCompiledSdkVersion(&g_firmware_version) == ORBIS_OK,
+                "Failed to get compiled SDK version.");
+     g_shadnet_enabled = EmulatorSettings.IsShadNetEnabled();
+@@ -1222,7 +1222,9 @@ void RegisterLib(Core::Loader::SymbolsResolver* sym) {
+         },
+         nullptr);
+     Libraries::Np::NpHandler::GetInstance().Initialize();
++}
+ 
++void RegisterLib(Core::Loader::SymbolsResolver* sym) {
+     LIB_FUNCTION("GpLQDNKICac", "libSceNpManager", 1, "libSceNpManager", sceNpCreateRequest);
+     LIB_FUNCTION("eiqMCt9UshI", "libSceNpManager", 1, "libSceNpManager", sceNpCreateAsyncRequest);
+     LIB_FUNCTION("2rsFmlGWleQ", "libSceNpManager", 1, "libSceNpManager", sceNpCheckNpAvailability);
+diff --git a/a/core/libraries/np/np_manager.h b/b/core/libraries/np/np_manager.h
+index a87556c..e3ba25a 100644
+--- a/a/core/libraries/np/np_manager.h
++++ b/b/core/libraries/np/np_manager.h
+@@ -124,4 +124,5 @@ s32 PS4_SYSV_ABI
+ sceNpGetParentalControlInfoA(s32 req_id, Libraries::UserService::OrbisUserServiceUserId user_id,
+                              s8* age, OrbisNpParentalControlInfo* info);
+ void RegisterLib(Core::Loader::SymbolsResolver* sym);
++void InitializeRuntime();
+ } // namespace Libraries::Np::NpManager
+diff --git a/a/shadnet/client.cpp b/b/shadnet/client.cpp
+index 1d8b958..f05d5cb 100644
+--- a/a/shadnet/client.cpp
++++ b/b/shadnet/client.cpp
+@@ -558,18 +558,8 @@ static std::vector<u8> MakeComIdPayload(const std::string& com_id, const std::st
+ }
+ 
+ std::string ShadNetClient::BuildVersionString() {
+-    const std::string remote_url(Common::g_scm_remote_url);
+-    const std::string remote_host = Common::GetRemoteNameFromLink();
+-    const bool official = (remote_host == "shadps4-emu" || remote_url.empty());
+-
+-    if (Common::g_is_release) {
+-        return official ? fmt::format("shadPS4 v{}", Common::g_version)
+-                        : fmt::format("shadPS4 {}/v{}", remote_host, Common::g_version);
+-    }
+-    return official ? fmt::format("shadPS4 v{} {} {}", Common::g_version, Common::g_scm_branch,
+-                                  Common::g_scm_desc)
+-                    : fmt::format("shadPS4 v{} {}/{} {}", Common::g_version, remote_host,
+-                                  Common::g_scm_branch, Common::g_scm_desc);
++    const char* env = std::getenv("BB_CLIENT_VERSION");
++    return env && *env ? env : "shadPS4 Awakenchan/v0.20.0";
+ }
+ 
+ u64 ShadNetClient::ReportClientVersion() {
+diff --git a/a/core/libraries/np/np_matching2/np_matching2_mm.cpp b/b/core/libraries/np/np_matching2/np_matching2_mm.cpp
+index 9701234..7930efb 100644
+--- a/a/core/libraries/np/np_matching2/np_matching2_mm.cpp
++++ b/b/core/libraries/np/np_matching2/np_matching2_mm.cpp
+@@ -25,6 +25,7 @@
+ #include "core/libraries/np/np_matching2/np_matching2_signaling.h"
+ #include "core/libraries/np/np_signaling/np_signaling_transport.h"
+ #include "core/libraries/np/signaling_handler.h"
++#include "core/net/p2p_relay.h"
+ #include "shadnet.pb.h"
+ #include "shadnet/client.h"
+ 
+@@ -851,6 +852,7 @@ void SetMmShadNetClient(std::shared_ptr<ShadNet::ShadNetClient> client,
+         NpSignaling::Transport::SetPeerResolver(nullptr);
+         NpSignaling::Transport::SetMatching2Enabled(false);
+         NpSignaling::Transport::SetMmServerEndpoint(0, 0);
++        ::Core::Net::P2P::Relay::Instance().SetServer(0);
+         StopMatching2SignalingRuntime();
+         return;
+     }
+@@ -868,6 +870,9 @@ void SetMmShadNetClient(std::shared_ptr<ShadNet::ShadNetClient> client,
+     NpSignaling::Transport::SetPeerResolver(matching2_enabled ? RequestSignalingInfos : nullptr);
+     NpSignaling::Transport::SetMatching2Enabled(matching2_enabled);
+     NpSignaling::Transport::SetMmServerEndpoint(server_addr, server_udp_port);
++    // bbport (BBSC relay fallback): BBSC's game server runs the UDP relay on the shadNet
++    // server's address.
++    ::Core::Net::P2P::Relay::Instance().SetServer(matching2_enabled ? server_addr : 0);
+     if (!matching2_enabled) {
+         StopMatching2SignalingRuntime();
+     }
+@@ -893,6 +898,7 @@ void ClearMmShadNetClient() {
+     NpSignaling::Transport::SetPeerResolver(nullptr);
+     NpSignaling::Transport::SetMatching2Enabled(false);
+     NpSignaling::Transport::SetMmServerEndpoint(0, 0);
++    ::Core::Net::P2P::Relay::Instance().SetServer(0);
+     StopMatching2SignalingRuntime();
+     {
+         std::lock_guard lock(g_mm.pending_mutex);
+@@ -1479,6 +1485,7 @@ bool RequestSignalingInfos(std::string_view target_online_id, u32* out_addr, u16
+     }
+     *out_addr = addr_nbo;
+     *out_port = Libraries::Net::sceNetHtons(port_host);
++    ::Core::Net::P2P::Relay::Instance().RememberPeer(target_online_id, *out_addr, *out_port);
+     LOG_INFO(Lib_NpMatching2, "received peer='{}' ip={} port={} addr_nbo={:#x} port_nbo={:#x}",
+              target_online_id, addr_str, port_host, addr_nbo, *out_port);
+     return true;
+diff --git a/a/core/libraries/np/np_signaling/np_signaling_state.h b/b/core/libraries/np/np_signaling/np_signaling_state.h
+index e1d4a6d..9fcf991 100644
+--- a/a/core/libraries/np/np_signaling/np_signaling_state.h
++++ b/b/core/libraries/np/np_signaling/np_signaling_state.h
+@@ -151,6 +151,9 @@ struct PeerTransport {
+     bool peer_established = false;
+     bool transport_established_fired = false;
+     bool is_initiator = false;
++    // bbport (BBSC rejoin fix): the peer's own id for this connection (its packets'
++    // from_conn_id). A new one on an established connection: the peer started over.
++    u32 peer_conn_id = 0;
+ 
+     static constexpr u32 kProbeSampleCount = 6;
+     s32 probe_rtt_samples[kProbeSampleCount] = {-1, -1, -1, -1, -1, -1};
+diff --git a/a/core/libraries/np/signaling_handler.cpp b/b/core/libraries/np/signaling_handler.cpp
+index ff0d91d..028774d 100644
+--- a/a/core/libraries/np/signaling_handler.cpp
++++ b/b/core/libraries/np/signaling_handler.cpp
+@@ -23,6 +23,7 @@
+ #include "core/libraries/np/np_matching2/np_matching2_signaling.h"
+ #include "core/libraries/np/np_signaling/np_signaling_state.h"
+ #include "core/libraries/np/np_signaling/np_signaling_transport.h"
++#include "core/net/p2p_relay.h"
+ 
+ namespace Libraries::Np::SignalingHandler {
+ namespace {
+@@ -64,16 +65,22 @@ bool ShouldConnectToPeer(const NpMatching2::RoomCache& room,
+ }
+ 
+ bool ResolvePeerEndpoint(const NpMatching2::MemberCache& member, u32* out_addr, u16* out_port) {
++    const std::string online_id = OnlineIdString(member.np_id.handle);
++    bool resolved = false;
+     if (member.addr != 0 && member.port != 0) {
+         *out_addr = member.addr;
+         *out_port = member.port;
+-        return true;
++        resolved = true;
++    } else {
++        resolved = !online_id.empty() &&
++                   NpSignaling::Transport::ResolvePeer(online_id, out_addr, out_port) &&
++                   *out_addr != 0 && *out_port != 0;
+     }
+-
+-    const std::string online_id = OnlineIdString(member.np_id.handle);
+-    return !online_id.empty() &&
+-           NpSignaling::Transport::ResolvePeer(online_id, out_addr, out_port) && *out_addr != 0 &&
+-           *out_port != 0;
++    // bbport (BBSC relay fallback): the transport learns which online id is at each endpoint.
++    if (resolved) {
++        ::Core::Net::P2P::Relay::Instance().RememberPeer(online_id, *out_addr, *out_port);
++    }
++    return resolved;
+ }
+ 
+ bool HasSignalingMagic(const u8* buf, size_t nbytes) {
+@@ -99,6 +106,8 @@ void HandleStunEcho(const NpSignaling::StunEcho& echo) {
+ 
+     auto* netinfo = Common::Singleton<NetUtil::NetUtilInternal>::Instance();
+     netinfo->SetExternalIp(echo.ext_ip);
++    // bbport (BBSC relay fallback): relayed frames carry our public endpoint.
++    ::Core::Net::P2P::Relay::Instance().SetSelfEndpoint(echo.ext_ip, echo.ext_port);
+ }
+ 
+ void ProcessSignalingPacket(const void* data, u32 len, u32 from_addr, u16 from_port) {
+@@ -212,6 +221,8 @@ bool PublishSignalingInfo(const OrbisNpOnlineId& online_id) {
+     NpSignaling::StunPing ping{};
+     std::memcpy(ping.online_id, online_id.data, ORBIS_NP_ONLINEID_MAX_LENGTH);
+     ping.local_ip = NpSignaling::Transport::AdvertisedAddr();
++    // bbport (BBSC relay fallback): register this online id with the relay.
++    ::Core::Net::P2P::Relay::Instance().SetLocalId(OnlineIdString(online_id));
+ 
+     const int rc =
+         NpSignaling::Transport::SignalingSendTo(&ping, sizeof(ping), server_addr, server_udp);
+@@ -862,6 +873,39 @@ void ProcessPendingActivations() {
+     }
+ }
+ 
++// bbport (BBSC 0.0.2's rejoin fix): a peer that comes back on a new connection (after a Blank or
++// a reload) and asks for activation while this side still has the old one established gets a
++// new handshake. Before, the old one stayed "established", a peer that waits for the Offer
++// (BBSC's own clients do) got none and the connection went DEAD after 30 s. Activation requests
++// come once per connection, so a peer with a second connection costs one handshake at most.
++bool PeerStartedOverLocked(const NpSignaling::PeerTransport& transport, u32 from_conn_id) {
++    return transport.state == NpSignaling::ConnState::Established && from_conn_id != 0 &&
++           transport.peer_conn_id != 0 && from_conn_id != transport.peer_conn_id;
++}
++
++void RestartTransportHandshakeLocked(NpSignaling::PeerTransport& transport, u32 new_peer_conn,
++                                     const char* why) {
++    LOG_INFO(Lib_NpSignaling,
++             "Transport {} to '{}': {} (its connection {} -> {}) - handshake again",
++             transport.transport_id, OnlineIdString(transport.online_id), why,
++             transport.peer_conn_id, new_peer_conn);
++    transport.peer_conn_id = new_peer_conn;
++    transport.transport_established_fired = false;
++    transport.peer_established = false;
++    transport.last_handshake_send_us = 0;
++    SetTransportStateLocked(transport, NpSignaling::ConnState::WaitOffer);
++    SyncSig1ConnectionsForTransportLocked(transport.transport_id);
++}
++
++// The peer's id for the connection, from its packets: kept while the connection is established
++// (a different one there means it started over), else taken.
++void NotePeerConnIdLocked(NpSignaling::PeerTransport& transport, u32 from_conn_id) {
++    if (from_conn_id != 0 &&
++        (transport.peer_conn_id == 0 || transport.state != NpSignaling::ConnState::Established)) {
++        transport.peer_conn_id = from_conn_id;
++    }
++}
++
+ void HandleHandshakePacket(u32 from_addr, u16 from_port,
+                            const NpSignaling::SignalingHandshake& pkt) {
+     const std::string from_id = PacketOnlineIdString(pkt.online_id_from);
+@@ -889,6 +933,9 @@ void HandleHandshakePacket(u32 from_addr, u16 from_port,
+             }
+             auto& transport =
+                 NpHandler::GetInstance().GetSignalingState().peer_transports[transport_id];
++            // An Offer on an established transport is answered below as it is (the peer checks
++            // and establishes again), so it needs no restart here.
++            NotePeerConnIdLocked(transport, pkt.from_conn_id);
+             transport.addr = pkt.mapped_addr != 0 ? pkt.mapped_addr : from_addr;
+             transport.port = from_port;
+             transport.peer_activated = true;
+@@ -903,6 +950,7 @@ void HandleHandshakePacket(u32 from_addr, u16 from_port,
+         } else if (kind == NpSignaling::HandshakeKind::Accept) {
+             auto& transport =
+                 NpHandler::GetInstance().GetSignalingState().peer_transports[transport_id];
++            NotePeerConnIdLocked(transport, pkt.from_conn_id);
+             transport.peer_activated = true;
+             transport.addr = pkt.mapped_addr != 0 ? pkt.mapped_addr : from_addr;
+             transport.port = from_port;
+@@ -919,6 +967,7 @@ void HandleHandshakePacket(u32 from_addr, u16 from_port,
+         } else if (kind == NpSignaling::HandshakeKind::Check) {
+             auto& transport =
+                 NpHandler::GetInstance().GetSignalingState().peer_transports[transport_id];
++            NotePeerConnIdLocked(transport, pkt.from_conn_id);
+             reply = MakeHandshakeLocked(transport, NpSignaling::HandshakeKind::CheckAck);
+             reply.nonce = pkt.nonce;
+             send_reply = true;
+@@ -962,6 +1011,7 @@ void HandleControlPacket(u32 from_addr, u16 from_port, const NpSignaling::Signal
+     const NpSignaling::ControlKind kind = static_cast<NpSignaling::ControlKind>(pkt.kind);
+ 
+     s32 establish_transport = 0;
++    s32 restart_transport = 0;
+     s32 dead_conn = 0;
+     s32 peer_deactivated_conn = 0;
+     NpSignaling::SignalingControl ack{};
+@@ -1007,6 +1057,13 @@ void HandleControlPacket(u32 from_addr, u16 from_port, const NpSignaling::Signal
+             }
+             auto& transport =
+                 NpHandler::GetInstance().GetSignalingState().peer_transports[transport_id];
++            if (PeerStartedOverLocked(transport, pkt.from_conn_id)) {
++                // It started over and waits for an Offer: this side offers again.
++                RestartTransportHandshakeLocked(transport, pkt.from_conn_id,
++                                                "activation request on a new connection");
++                restart_transport = transport_id;
++            }
++            NotePeerConnIdLocked(transport, pkt.from_conn_id);
+             transport.peer_activated = true;
+             transport.addr = pkt.mapped_addr != 0 ? pkt.mapped_addr : from_addr;
+             transport.port = from_port;
+@@ -1105,6 +1162,9 @@ void HandleControlPacket(u32 from_addr, u16 from_port, const NpSignaling::Signal
+     if (send_ack && ack_addr != 0 && ack_port != 0) {
+         NpSignaling::Transport::ControlSendTo(&ack, sizeof(ack), ack_addr, ack_port);
+     }
++    if (restart_transport != 0) {
++        StartTransportHandshakeInitiator(restart_transport);
++    }
+     if (establish_transport != 0) {
+         EstablishConnection(establish_transport, false);
+     }
+diff --git a/a/core/net/p2p_relay.cpp b/b/core/net/p2p_relay.cpp
+new file mode 100644
+index 0000000..fe571fd
+--- /dev/null
++++ b/b/core/net/p2p_relay.cpp
+@@ -0,0 +1,420 @@
++// SPDX-FileCopyrightText: Copyright 2026 shadPS4 Emulator Project
++// SPDX-License-Identifier: GPL-2.0-or-later
++
++// bbport: BBSC's relay fallback (see p2p_relay.h).
++
++#include <algorithm>
++#include <cstdlib>
++#include <cstring>
++#include <iterator>
++
++#include "common/logging/log.h"
++#include "core/net/p2p_relay.h"
++
++#ifndef _WIN32
++#include <arpa/inet.h>
++#include <netinet/in.h>
++#endif
++
++namespace Core::Net::P2P {
++
++namespace {
++
++constexpr size_t kIdSize = 16;
++constexpr size_t kEpSize = 6;
++constexpr size_t kEarlyFrames = 32;
++constexpr u8 kMagic[4] = {'B', 'B', 'R', '1'};
++constexpr u16 kDefaultPort = 3478;
++
++std::string IdText(const std::string& id) {
++    return std::string(id.c_str());
++}
++
++bool V4(const Endpoint& e, u32* addr_nbo, u16* port_nbo) {
++    if (e.Family() != AF_INET) {
++        return false;
++    }
++    const auto* in = reinterpret_cast<const sockaddr_in*>(&e.addr);
++    *addr_nbo = in->sin_addr.s_addr;
++    *port_nbo = in->sin_port;
++    return true;
++}
++
++Endpoint MakeV4(u32 addr_nbo, u16 port_nbo) {
++    Endpoint e;
++    auto* in = reinterpret_cast<sockaddr_in*>(&e.addr);
++    in->sin_family = AF_INET;
++    in->sin_addr.s_addr = addr_nbo;
++    in->sin_port = port_nbo;
++    return e;
++}
++
++} // namespace
++
++Relay& Relay::Instance() {
++    static Relay relay;
++    return relay;
++}
++
++std::string Relay::PadId(std::string_view online_id) {
++    std::string id(online_id.substr(0, kIdSize));
++    id.resize(kIdSize, '\0');
++    return id;
++}
++
++u64 Relay::EndpointKey(u32 addr_nbo, u16 port_nbo) {
++    return (static_cast<u64>(addr_nbo) << 16) | port_nbo;
++}
++
++bool Relay::ActiveLocked() const {
++    return server_addr_ != 0 && !local_ids_.empty();
++}
++
++void Relay::SetServer(u32 addr_nbo) {
++    std::scoped_lock lock{mutex_};
++    const char* env = std::getenv("SHADPS4_P2P_RELAY");
++    const std::string mode = env != nullptr ? env : "";
++    force_ = mode != "auto" && mode != "direct";
++    u16 port = kDefaultPort;
++    if (const char* p = std::getenv("SHADPS4_P2P_RELAY_PORT"); p != nullptr && *p != 0) {
++        const long parsed = std::strtol(p, nullptr, 10);
++        if (parsed > 0 && parsed < 65536) {
++            port = static_cast<u16>(parsed);
++        }
++    }
++    if (mode == "0" || mode == "off") {
++        addr_nbo = 0;
++    } else if (const size_t colon = mode.find(':'); colon != std::string::npos && addr_nbo != 0) {
++        // Test override "a.b.c.d:port" (a relay other than the shadNet server's).
++        in_addr parsed{};
++        const long parsed_port = std::strtol(mode.c_str() + colon + 1, nullptr, 10);
++        if (inet_pton(AF_INET, mode.substr(0, colon).c_str(), &parsed) == 1 && parsed_port > 0 &&
++            parsed_port < 65536) {
++            addr_nbo = parsed.s_addr;
++            port = static_cast<u16>(parsed_port);
++        }
++    }
++    const u16 port_nbo = addr_nbo != 0 ? htons(port) : 0;
++    if (server_addr_ == addr_nbo && server_port_ == port_nbo) {
++        return;
++    }
++    server_addr_ = addr_nbo;
++    server_port_ = port_nbo;
++    acked_ = false;
++    last_register_ = {};
++    if (addr_nbo != 0) {
++        LOG_INFO(Lib_Net, "P2P relay fallback: server {:#x}:{}{}", addr_nbo, port,
++                 force_ ? " (every peer once it answers)" : " (after 2 s without direct answers)");
++    } else {
++        LOG_INFO(Lib_Net, "P2P relay fallback: off");
++    }
++}
++
++void Relay::SetSelfEndpoint(u32 addr_nbo, u16 port_nbo) {
++    std::scoped_lock lock{mutex_};
++    if (self_addr_ != addr_nbo || self_port_ != port_nbo) {
++        LOG_INFO(Lib_Net, "P2P relay fallback: our public endpoint {:#x}:{}", addr_nbo,
++                 ntohs(port_nbo));
++    }
++    self_addr_ = addr_nbo;
++    self_port_ = port_nbo;
++}
++
++void Relay::SetLocalId(std::string_view online_id) {
++    if (online_id.empty()) {
++        return;
++    }
++    std::scoped_lock lock{mutex_};
++    const std::string id = PadId(online_id);
++    if (std::find(local_ids_.begin(), local_ids_.end(), id) == local_ids_.end()) {
++        local_ids_.push_back(id);
++        last_register_ = {};
++    }
++}
++
++void Relay::RememberPeer(std::string_view online_id, u32 addr_nbo, u16 port_nbo) {
++    if (online_id.empty() || addr_nbo == 0 || port_nbo == 0) {
++        return;
++    }
++    std::scoped_lock lock{mutex_};
++    const std::string id = PadId(online_id);
++    // Peers are kept by online id; every endpoint signaling or the relay ever gave for it stays
++    // an alias, so signaling's sends to any endpoint it knows find the peer.
++    Peer& peer = peers_[id];
++    peer.id = id;
++    peer.addr = addr_nbo;
++    peer.port = port_nbo;
++    AddAliasLocked(id, addr_nbo, port_nbo, "signaling");
++}
++
++void Relay::AddAliasLocked(const std::string& id, u32 addr_nbo, u16 port_nbo, const char* from) {
++    if (addr_nbo == 0 || port_nbo == 0) {
++        return;
++    }
++    const u64 key = EndpointKey(addr_nbo, port_nbo);
++    const auto it = alias_.find(key);
++    if (it != alias_.end() && it->second == id) {
++        return;
++    }
++    alias_[key] = id;
++    LOG_INFO(Lib_Net, "P2P relay fallback: '{}' known at {:#x}:{} (from {})", IdText(id),
++             addr_nbo, ntohs(port_nbo), from);
++}
++
++Relay::Peer* Relay::FindPeerLocked(u32 addr_nbo, u16 port_nbo) {
++    const auto alias = alias_.find(EndpointKey(addr_nbo, port_nbo));
++    if (alias == alias_.end()) {
++        return nullptr;
++    }
++    const auto it = peers_.find(alias->second);
++    return it == peers_.end() ? nullptr : &it->second;
++}
++
++bool Relay::IsServer(const Endpoint& from) const {
++    u32 addr = 0;
++    u16 port = 0;
++    if (!V4(from, &addr, &port)) {
++        return false;
++    }
++    std::scoped_lock lock{mutex_};
++    return server_addr_ != 0 && addr == server_addr_ && port == server_port_;
++}
++
++std::optional<Endpoint> Relay::Server() const {
++    std::scoped_lock lock{mutex_};
++    if (server_addr_ == 0) {
++        return std::nullopt;
++    }
++    return MakeV4(server_addr_, server_port_);
++}
++
++std::vector<u8> Relay::RelayedLocked(const Peer& peer, std::span<const u8> datagram) {
++    const std::string& self = local_ids_.front();
++    std::vector<u8> packet;
++    packet.reserve(5 + 2 * kIdSize + kEpSize + datagram.size());
++    packet.insert(packet.end(), std::begin(kMagic), std::end(kMagic));
++    packet.push_back(0x03);
++    packet.insert(packet.end(), peer.id.begin(), peer.id.end());
++    packet.insert(packet.end(), self.begin(), self.end());
++    u8 ep[kEpSize];
++    std::memcpy(ep, &self_addr_, 4);
++    std::memcpy(ep + 4, &self_port_, 2);
++    packet.insert(packet.end(), ep, ep + kEpSize);
++    packet.insert(packet.end(), datagram.begin(), datagram.end());
++    ++sent_;
++    return packet;
++}
++
++Relay::Path Relay::Route(std::span<const u8> datagram, const Endpoint& to,
++                         std::vector<std::vector<u8>>* relayed) {
++    u32 addr = 0;
++    u16 port = 0;
++    if (!V4(to, &addr, &port)) {
++        return Path::Direct;
++    }
++    std::scoped_lock lock{mutex_};
++    if (!ActiveLocked() || addr == server_addr_) {
++        return Path::Direct;
++    }
++    Peer* const found = FindPeerLocked(addr, port);
++    if (found == nullptr) {
++        return Path::Direct;
++    }
++    Peer& peer = *found;
++    const auto now = Clock::now();
++    if (now < peer.missing_until) {
++        return Path::Direct;
++    }
++    if (peer.direct_rx && !peer.relay_seen) {
++        return Path::Direct; // it answers directly and does not use the relay
++    }
++    if (!peer.relayed) {
++        // Forced (BBSC 0.0.2's default) only through a relay that answered: a server without it
++        // must not take every peer's frames.
++        if (force_ && acked_) {
++            peer.relayed = true;
++        } else if (!peer.tx_started) {
++            peer.tx_started = true;
++            peer.first_tx = now;
++        } else if (!peer.direct_rx && now - peer.first_tx >= std::chrono::seconds(2)) {
++            peer.relayed = true;
++        }
++        if (!peer.relayed) {
++            // Kept for the switch: signaling sends some packets only once (the
++            // ActivationRequest); lost directly, the peer ignores everything after it.
++            if (!peer.direct_rx && peer.early.size() < kEarlyFrames) {
++                peer.early.emplace_back(datagram.begin(), datagram.end());
++            }
++            return Path::Direct;
++        }
++        peer.relayed_since = now;
++        LOG_INFO(Lib_Net,
++                 "P2P relay fallback: '{}' at {:#x}:{} - through the relay ({}; {} earlier "
++                 "frame(s) sent again)",
++                 IdText(peer.id), peer.addr, ntohs(peer.port),
++                 force_ && acked_ ? "every peer" : "nothing came back directly in 2 s",
++                 peer.early.size());
++        for (const std::vector<u8>& early : peer.early) {
++            relayed->push_back(RelayedLocked(peer, early));
++        }
++        peer.early.clear();
++        peer.early.shrink_to_fit();
++    }
++    relayed->push_back(RelayedLocked(peer, datagram));
++    const bool direct_copy =
++        !peer.direct_rx && (!peer.relay_seen || now - peer.relayed_since < std::chrono::seconds(10));
++    return direct_copy ? Path::Both : Path::Relay;
++}
++
++void Relay::NoteDirect(const Endpoint& from) {
++    u32 addr = 0;
++    u16 port = 0;
++    if (!V4(from, &addr, &port)) {
++        return;
++    }
++    std::scoped_lock lock{mutex_};
++    if (peers_.empty()) {
++        return;
++    }
++    Peer* const found = FindPeerLocked(addr, port);
++    if (found == nullptr || found->direct_rx) {
++        return;
++    }
++    Peer& peer = *found;
++    peer.direct_rx = true;
++    peer.early.clear();
++    if (peer.relayed && !peer.relay_seen) {
++        // It answers directly and never used the relay (a client without it, or a NAT hole that
++        // took longer than 2 s): direct from now on.
++        peer.relayed = false;
++        LOG_INFO(Lib_Net, "P2P relay fallback: '{}' reached us directly - back to direct",
++                 IdText(peer.id));
++    } else {
++        LOG_INFO(Lib_Net, "P2P relay fallback: '{}' reached us directly{}", IdText(peer.id),
++                 peer.relayed ? " (staying on the relay)" : "");
++    }
++}
++
++bool Relay::Receive(std::span<const u8> packet, std::vector<u8>* frame, Endpoint* from) {
++    if (packet.size() < 5 || std::memcmp(packet.data(), kMagic, 4) != 0) {
++        return false;
++    }
++    const u8 kind = packet[4];
++    std::scoped_lock lock{mutex_};
++    if (kind == 0x02) {
++        if (!acked_) {
++            acked_ = true;
++            LOG_INFO(Lib_Net, "P2P relay fallback: registered with the relay");
++        }
++        return false;
++    }
++    if (kind == 0x05 && packet.size() >= 5 + kIdSize) {
++        const std::string id(reinterpret_cast<const char*>(packet.data() + 5), kIdSize);
++        if (const auto known = peers_.find(id); known != peers_.end()) {
++            Peer& peer = known->second;
++            peer.missing_until = Clock::now() + std::chrono::seconds(10);
++            if (!peer.missing_logged) {
++                peer.missing_logged = true;
++                LOG_WARNING(Lib_Net,
++                            "P2P relay fallback: '{}' is not on the relay (its client has no relay, "
++                            "or it is not running) - direct only",
++                            IdText(peer.id));
++            }
++        }
++        return false;
++    }
++    if (kind != 0x04 || packet.size() < 5 + kIdSize + kEpSize) {
++        return false;
++    }
++    const std::string id(reinterpret_cast<const char*>(packet.data() + 5), kIdSize);
++    u32 ep_addr = 0;
++    u16 ep_port = 0;
++    std::memcpy(&ep_addr, packet.data() + 5 + kIdSize, 4);
++    std::memcpy(&ep_port, packet.data() + 5 + kIdSize + 4, 2);
++    if (!peers_.contains(id)) {
++        // A peer signaling never looked up: the endpoint it gave, else a made-up one
++        // (169.254.x.x, never sent to directly) so the answers go back through the relay.
++        Peer& made = peers_[id];
++        made.id = id;
++        if (ep_addr != 0 && ep_port != 0) {
++            made.addr = ep_addr;
++            made.port = ep_port;
++        } else {
++            made.addr = htonl(0xA9FE0000u | (next_pseudo_++ & 0xFFFFu));
++            made.port = htons(3173);
++        }
++        AddAliasLocked(id, made.addr, made.port, "relay, new peer");
++    }
++    // Its own endpoint is one more alias; the peer keeps the endpoint signaling knows, so the
++    // frame below arrives from where signaling expects it.
++    AddAliasLocked(id, ep_addr, ep_port, "relay");
++    Peer& peer = peers_[id];
++    peer.relay_seen = true;
++    peer.missing_until = {};
++    if (!peer.relayed) {
++        peer.relayed = true;
++        peer.relayed_since = Clock::now();
++        LOG_INFO(Lib_Net,
++                 "P2P relay fallback: '{}' reached us through the relay - answering the same way",
++                 IdText(peer.id));
++    }
++    ++received_;
++    const size_t head = 5 + kIdSize + kEpSize;
++    frame->assign(packet.begin() + head, packet.end());
++    *from = MakeV4(peer.addr, peer.port);
++    return true;
++}
++
++std::vector<std::vector<u8>> Relay::KeepAlive(Clock::time_point now) {
++    std::vector<std::vector<u8>> packets;
++    std::scoped_lock lock{mutex_};
++    if (!ActiveLocked()) {
++        return packets;
++    }
++    const auto interval = acked_ ? std::chrono::seconds(5) : std::chrono::seconds(2);
++    if (last_register_ != Clock::time_point{} && now - last_register_ < interval) {
++        return packets;
++    }
++    last_register_ = now;
++    if (now - last_status_ >= std::chrono::seconds(30) &&
++        (sent_ != status_sent_ || received_ != status_received_)) {
++        last_status_ = now;
++        status_sent_ = sent_;
++        status_received_ = received_;
++        std::string list;
++        for (const auto& [id, peer] : peers_) {
++            if (!list.empty()) {
++                list += ", ";
++            }
++            list += IdText(peer.id);
++            list += !peer.relayed                ? " direct"
++                    : now < peer.missing_until   ? " not on the relay"
++                    : peer.relay_seen            ? " relay"
++                                                 : " relay (no answer yet)";
++        }
++        LOG_INFO(Lib_Net,
++                 "P2P relay fallback: {} frame(s) sent / {} received through the relay so far; "
++                 "peers: {}",
++                 sent_, received_, list.empty() ? "none" : list);
++    }
++    for (const std::string& id : local_ids_) {
++        std::vector<u8> packet(std::begin(kMagic), std::end(kMagic));
++        packet.push_back(0x01);
++        packet.insert(packet.end(), id.begin(), id.end());
++        packets.push_back(std::move(packet));
++    }
++    return packets;
++}
++
++std::optional<Relay::Clock::time_point> Relay::NextKeepAlive() const {
++    std::scoped_lock lock{mutex_};
++    if (!ActiveLocked()) {
++        return std::nullopt;
++    }
++    if (last_register_ == Clock::time_point{}) {
++        return Clock::now();
++    }
++    return last_register_ + (acked_ ? std::chrono::seconds(5) : std::chrono::seconds(2));
++}
++
++} // namespace Core::Net::P2P
+diff --git a/a/core/net/p2p_relay.h b/b/core/net/p2p_relay.h
+new file mode 100644
+index 0000000..3d0dc14
+--- /dev/null
++++ b/b/core/net/p2p_relay.h
+@@ -0,0 +1,114 @@
++// SPDX-FileCopyrightText: Copyright 2026 shadPS4 Emulator Project
++// SPDX-License-Identifier: GPL-2.0-or-later
++
++// bbport: BBSC's relay fallback for P2P (BBSC 0.0.2, CLS_AMG; github.com/CLSAMG22/BBSC
++// bbport/bbport-1.7.2-bbsc.patch, network/p2p_sockets.cpp), on this transport.
++//
++// Direct P2P needs one side reachable: CGNAT, strict routers and several windows on one PC
++// (no hairpin) leave both sides unreachable and the connection goes DEAD after 30 s. BBSC's game
++// server runs a UDP relay on the shadNet server's address (port 3478) that forwards frames by
++// online id:
++//   "BBR1" 0x01 id[16]                        register, every 5 s (keeps our NAT mapping open)
++//   "BBR1" 0x02                               registered
++//   "BBR1" 0x03 dst[16] src[16] ep[6] frame   frame for dst
++//   "BBR1" 0x04 src[16] ep[6] frame           frame from src
++//   "BBR1" 0x05 dst[16]                       dst is not on the relay (direct only for 10 s)
++// ep = the sender's public address and port as shadNet sees them (its STUN echo), so the receiver
++// files the frame under the endpoint its signaling code uses for that peer. A frame is one whole
++// UDP datagram of this transport, as it would have been sent directly.
++//
++// As in BBSC 0.0.2, every peer whose online id is known goes through the relay from its first
++// frame, with direct copies until it answers either way; a peer that answers directly and never
++// used the relay goes back to direct. Unlike BBSC, nothing goes through the relay before it has
++// answered our registration (a server without the relay keeps every peer direct).
++// SHADPS4_P2P_RELAY=0 (or off) turns it off; =auto (or direct) sends directly first and through
++// the relay only after 2 s without a direct answer; =a.b.c.d:port uses another relay.
++// SHADPS4_P2P_RELAY_PORT changes the port.
++
++#pragma once
++
++#include <chrono>
++#include <mutex>
++#include <optional>
++#include <span>
++#include <string>
++#include <string_view>
++#include <unordered_map>
++#include <vector>
++
++#include "core/net/p2p_transport.h"
++
++namespace Core::Net::P2P {
++
++class Relay {
++public:
++    using Clock = std::chrono::steady_clock;
++    // Direct = send directly only; Relay = through the relay only; Both = relay + a direct copy.
++    enum class Path { Direct, Relay, Both };
++
++    static Relay& Instance();
++
++    // From the NP side. Addresses and ports in network byte order, as signaling keeps them.
++    void SetServer(u32 addr_nbo); // the shadNet server's address; 0 = no relay
++    void SetSelfEndpoint(u32 addr_nbo, u16 port_nbo); // our public endpoint (STUN echo)
++    void SetLocalId(std::string_view online_id);
++    void RememberPeer(std::string_view online_id, u32 addr_nbo, u16 port_nbo);
++
++    // From the IPv4 transport (its own mutex held; this class only takes its own).
++    // A datagram for `to`: the packets for the relay server are added to `relayed`.
++    Path Route(std::span<const u8> datagram, const Endpoint& to,
++               std::vector<std::vector<u8>>* relayed);
++    bool IsServer(const Endpoint& from) const;
++    std::optional<Endpoint> Server() const;
++    // A packet from the relay server: true with the frame and the peer's endpoint when it
++    // carries a frame for this transport.
++    bool Receive(std::span<const u8> packet, std::vector<u8>* frame, Endpoint* from);
++    void NoteDirect(const Endpoint& from);
++    // Registrations due now (to the server), and when the next one is due.
++    std::vector<std::vector<u8>> KeepAlive(Clock::time_point now);
++    std::optional<Clock::time_point> NextKeepAlive() const;
++
++private:
++    struct Peer {
++        std::string id;
++        u32 addr = 0; // the endpoint signaling uses: relayed frames arrive "from" it
++        u16 port = 0;
++        bool relayed = false;
++        bool direct_rx = false;
++        bool tx_started = false;
++        bool relay_seen = false; // it sent to us through the relay (it has the relay too)
++        Clock::time_point first_tx{};
++        Clock::time_point relayed_since{};
++        Clock::time_point missing_until{}; // the relay said it is not registered
++        bool missing_logged = false;
++        std::vector<std::vector<u8>> early; // sent directly before the switch (sent again then)
++    };
++
++    Relay() = default;
++    static std::string PadId(std::string_view online_id);
++    static u64 EndpointKey(u32 addr_nbo, u16 port_nbo);
++    bool ActiveLocked() const;
++    void AddAliasLocked(const std::string& id, u32 addr_nbo, u16 port_nbo, const char* from);
++    Peer* FindPeerLocked(u32 addr_nbo, u16 port_nbo);
++    std::vector<u8> RelayedLocked(const Peer& peer, std::span<const u8> datagram);
++
++    mutable std::mutex mutex_;
++    u32 server_addr_ = 0;
++    u16 server_port_ = 0;
++    bool force_ = true;
++    bool acked_ = false;
++    u32 self_addr_ = 0;
++    u16 self_port_ = 0;
++    Clock::time_point last_register_{};
++    std::vector<std::string> local_ids_;
++    std::unordered_map<std::string, Peer> peers_; // by padded online id
++    std::unordered_map<u64, std::string> alias_;  // every known endpoint -> online id
++    u32 next_pseudo_ = 1;
++    u64 sent_ = 0;
++    u64 received_ = 0;
++    Clock::time_point last_status_{};
++    u64 status_sent_ = 0;
++    u64 status_received_ = 0;
++};
++
++} // namespace Core::Net::P2P
+diff --git a/a/core/net/p2p_transport.cpp b/b/core/net/p2p_transport.cpp
+index 67b84e6..0440a59 100644
+--- a/a/core/net/p2p_transport.cpp
++++ b/b/core/net/p2p_transport.cpp
+@@ -5,6 +5,7 @@
+ #include <cstring>
+ #include <tuple>
+ 
++#include "core/net/p2p_relay.h"
+ #include "core/net/p2p_transport.h"
+ 
+ #ifndef _WIN32
+@@ -201,6 +202,13 @@ void Transport::ThreadMain() {
+         {
+             std::scoped_lock lock{mutex_};
+             deadline = EarliestDeadline();
++            // bbport (BBSC relay fallback): wake for the relay registration too.
++            if (family_ == AF_INET) {
++                if (const auto keepalive = Relay::Instance().NextKeepAlive();
++                    keepalive && (!deadline || *keepalive < *deadline)) {
++                    deadline = keepalive;
++                }
++            }
+             sleeping_until_ = deadline.value_or(Clock::time_point::max());
+         }
+         const auto result = Host::WaitOne(socket_, Host::Readable, kick_, deadline);
+@@ -214,6 +222,15 @@ void Transport::ThreadMain() {
+         std::scoped_lock lock{mutex_};
+         sleeping_until_ = Clock::time_point::min();
+         const auto now = Clock::now();
++        Relay& relay = Relay::Instance();
++        if (family_ == AF_INET) {
++            if (const auto server = relay.Server()) {
++                for (const auto& packet : relay.KeepAlive(now)) {
++                    Host::SendTo(socket_, packet.data(), packet.size(), 0, server->Sockaddr(),
++                                 server->Length());
++                }
++            }
++        }
+         for (int i = 0; i < 1024; ++i) { // don't starve timers
+             sockaddr_storage from{};
+             socklen_t from_len = sizeof(from);
+@@ -222,8 +239,23 @@ void Transport::ThreadMain() {
+             if (r.error != Error::Ok) {
+                 break;
+             }
+-            HandlePacket({receive_buffer_.data(), static_cast<size_t>(r.value)},
+-                         Endpoint::FromSockaddr(reinterpret_cast<sockaddr*>(&from), from_len), now);
++            const std::span<const u8> packet{receive_buffer_.data(), static_cast<size_t>(r.value)};
++            const Endpoint sender =
++                Endpoint::FromSockaddr(reinterpret_cast<sockaddr*>(&from), from_len);
++            if (family_ == AF_INET) {
++                // bbport (BBSC relay fallback): frames the relay brings arrive from the peer's
++                // endpoint; anything else from a peer is a direct answer.
++                if (relay.IsServer(sender)) {
++                    std::vector<u8> frame;
++                    Endpoint peer;
++                    if (relay.Receive(packet, &frame, &peer)) {
++                        HandlePacket(frame, peer, now);
++                    }
++                    continue;
++                }
++                relay.NoteDirect(sender);
++            }
++            HandlePacket(packet, sender, now);
+         }
+         RunTimers(now);
+     }
+@@ -270,9 +302,27 @@ Error Transport::SendPacket(std::span<const u8> packet, const Endpoint& to) {
+             return Error::Ok;
+         }
+     }
++    // bbport (BBSC relay fallback): a peer's frames may go through the relay, with or without
++    // a direct copy.
++    Relay::Path path = Relay::Path::Direct;
++    if (family_ == AF_INET) {
++        std::vector<std::vector<u8>> relayed;
++        path = Relay::Instance().Route(packet, to, &relayed);
++        if (!relayed.empty()) {
++            if (const auto server = Relay::Instance().Server()) {
++                for (const auto& frame : relayed) {
++                    Host::SendTo(socket_, frame.data(), frame.size(), 0, server->Sockaddr(),
++                                 server->Length());
++                }
++            }
++        }
++        if (path == Relay::Path::Relay) {
++            return Error::Ok;
++        }
++    }
+     const auto r =
+         Host::SendTo(socket_, packet.data(), packet.size(), 0, to.Sockaddr(), to.Length());
+-    return r.error;
++    return path == Relay::Path::Both ? Error::Ok : r.error;
+ }
+ 
+ u32 Transport::NewIss() {

@@ -1,0 +1,20 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+// bbport: the "Ray-traced AO" and "moon shadow" debug views (vk_rt_effects.h DrawDebugView):
+// the game's shadow mask as its lighting reads it (after the AO combine and the ray-traced
+// effects; with the compare split, the game's own on the left), kept for the display: R the AO
+// term (mask R), G the moon's light (mask A). Render size, RGBA8.
+#version 460
+
+layout(local_size_x = 8, local_size_y = 8) in;
+
+layout(binding = 0, rgba8) uniform readonly image2D mask;
+layout(binding = 1, rgba8) uniform writeonly image2D out_image;
+
+void main() {
+    const ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
+    if (any(greaterThanEqual(pixel, imageSize(out_image)))) {
+        return;
+    }
+    const vec4 m = imageLoad(mask, min(pixel, imageSize(mask) - 1));
+    imageStore(out_image, pixel, vec4(m.r, m.a, 0.0, 1.0));
+}

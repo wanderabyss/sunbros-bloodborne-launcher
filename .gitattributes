@@ -1,0 +1,10 @@
+# Exclude custom workspace and internal development folders from release source archives
+custom export-ignore
+custom/** export-ignore
+.agents export-ignore
+.agents/** export-ignore
+.trail export-ignore
+.trail/** export-ignore
+
+# Shell scripts must always keep LF line endings for bash / MSYS2
+*.sh text eol=lf

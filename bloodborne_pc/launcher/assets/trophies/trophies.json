@@ -1,0 +1,329 @@
+{
+  "complete": true,
+  "entries": [
+    {
+      "description": "All trophies acquired. Hats off!",
+      "grade": "P",
+      "hidden": false,
+      "id": 0,
+      "name": "Bloodborne",
+      "score": 100
+    },
+    {
+      "description": "You lived through the hunt, and saw another day.",
+      "grade": "G",
+      "hidden": false,
+      "id": 1,
+      "name": "Yharnam Sunrise",
+      "score": 60
+    },
+    {
+      "description": "Captivated by the Moon Presence,\nyou pledge to watch over the Hunter's Dream.",
+      "grade": "G",
+      "hidden": false,
+      "id": 2,
+      "name": "Honoring Wishes",
+      "score": 60
+    },
+    {
+      "description": "You became an infant Great One,\nlifting humanity into its next childhood.",
+      "grade": "G",
+      "hidden": false,
+      "id": 3,
+      "name": "Childhood's Beginning",
+      "score": 60
+    },
+    {
+      "description": "Defeat Yharnam, Blood Queen of the Old Labyrinth.",
+      "grade": "G",
+      "hidden": false,
+      "id": 4,
+      "name": "Yharnam, Pthumerian Queen",
+      "score": 60
+    },
+    {
+      "description": "Acquire all hunter weapons.",
+      "grade": "G",
+      "hidden": false,
+      "id": 5,
+      "name": "Hunter's Essence",
+      "score": 60
+    },
+    {
+      "description": "Acquire all special hunter tools.",
+      "grade": "G",
+      "hidden": false,
+      "id": 6,
+      "name": "Hunter's Craft",
+      "score": 60
+    },
+    {
+      "description": "Acquire a weapon of the highest level.",
+      "grade": "S",
+      "hidden": false,
+      "id": 7,
+      "name": "Weapon Master",
+      "score": 30
+    },
+    {
+      "description": "Acquire an extremely precious blood gem.",
+      "grade": "S",
+      "hidden": false,
+      "id": 8,
+      "name": "Blood Gem Master",
+      "score": 30
+    },
+    {
+      "description": "Acquire an extremely precious Caryll Rune.",
+      "grade": "S",
+      "hidden": false,
+      "id": 9,
+      "name": "Rune Master",
+      "score": 30
+    },
+    {
+      "description": "Gain entry to Cainhurst, the lost and ruined castle.",
+      "grade": "S",
+      "hidden": false,
+      "id": 10,
+      "name": "Cainhurst",
+      "score": 30
+    },
+    {
+      "description": "Gain entry to the realm of the Choir,\nthe high stratum of the Healing Church.",
+      "grade": "S",
+      "hidden": false,
+      "id": 11,
+      "name": "The Choir",
+      "score": 30
+    },
+    {
+      "description": "Discover the abandoned old workshop,\nthe source of the Hunter's Dream.",
+      "grade": "S",
+      "hidden": false,
+      "id": 12,
+      "name": "The Source of the Dream",
+      "score": 30
+    },
+    {
+      "description": "Gain entry into the Byrgenwerth lecture building,\nthat drifts within the realm of nightmare.",
+      "grade": "S",
+      "hidden": false,
+      "id": 13,
+      "name": "Nightmare Lecture Building",
+      "score": 30
+    },
+    {
+      "description": "Defeat the beast that once was Father Gascoigne.",
+      "grade": "B",
+      "hidden": false,
+      "id": 14,
+      "name": "Father Gascoigne",
+      "score": 10
+    },
+    {
+      "description": "Defeat the beast that once was Vicar Amelia.",
+      "grade": "B",
+      "hidden": false,
+      "id": 15,
+      "name": "Vicar Amelia",
+      "score": 10
+    },
+    {
+      "description": "Defeat the Shadow of Yharnam.",
+      "grade": "B",
+      "hidden": false,
+      "id": 16,
+      "name": "Shadow of Yharnam",
+      "score": 10
+    },
+    {
+      "description": "Defeat Great One: Rom, the Vacuous Spider.",
+      "grade": "B",
+      "hidden": false,
+      "id": 17,
+      "name": "Rom, the Vacuous Spider",
+      "score": 10
+    },
+    {
+      "description": "Defeat the One Reborn.",
+      "grade": "B",
+      "hidden": false,
+      "id": 18,
+      "name": "The One Reborn",
+      "score": 10
+    },
+    {
+      "description": "Defeat Micolash, Host of the Nightmare.",
+      "grade": "B",
+      "hidden": false,
+      "id": 19,
+      "name": "Micolash, Host of the Nightmare",
+      "score": 10
+    },
+    {
+      "description": "Defeat Great One: Mergo's Wet Nurse.",
+      "grade": "B",
+      "hidden": false,
+      "id": 20,
+      "name": "Mergo's Wet Nurse",
+      "score": 10
+    },
+    {
+      "description": "Defeat Cleric Beast.",
+      "grade": "B",
+      "hidden": false,
+      "id": 21,
+      "name": "Cleric Beast",
+      "score": 10
+    },
+    {
+      "description": "Defeat Blood-starved Beast.",
+      "grade": "B",
+      "hidden": false,
+      "id": 22,
+      "name": "Blood-starved Beast",
+      "score": 10
+    },
+    {
+      "description": "Defeat the Witch of Hemwick.",
+      "grade": "B",
+      "hidden": false,
+      "id": 23,
+      "name": "The Witch of Hemwick",
+      "score": 10
+    },
+    {
+      "description": "Defeat Darkbeast Paarl.",
+      "grade": "B",
+      "hidden": false,
+      "id": 24,
+      "name": "Darkbeast Paarl",
+      "score": 10
+    },
+    {
+      "description": "Defeat Great One: Amygdala.",
+      "grade": "B",
+      "hidden": false,
+      "id": 25,
+      "name": "Amygdala",
+      "score": 10
+    },
+    {
+      "description": "Defeat Martyr Logarius.",
+      "grade": "B",
+      "hidden": false,
+      "id": 26,
+      "name": "Martyr Logarius",
+      "score": 10
+    },
+    {
+      "description": "Defeat Great One: Celestial Emissary.",
+      "grade": "B",
+      "hidden": false,
+      "id": 27,
+      "name": "Celestial Emissary",
+      "score": 10
+    },
+    {
+      "description": "Defeat Great One: Ebrietas, Daughter of the Cosmos.",
+      "grade": "B",
+      "hidden": false,
+      "id": 28,
+      "name": "Ebrietas, Daughter of the Cosmos",
+      "score": 10
+    },
+    {
+      "description": "Acquire a blood gem that imbues hunter weapons\nwith special strength.",
+      "grade": "B",
+      "hidden": false,
+      "id": 29,
+      "name": "Blood Gem Contact",
+      "score": 10
+    },
+    {
+      "description": "Acquire a Caryll Rune that endows hunters with special strength.",
+      "grade": "B",
+      "hidden": false,
+      "id": 30,
+      "name": "Rune Contact",
+      "score": 10
+    },
+    {
+      "description": "Acquire the Chalice of Pthumeru that seals the catacombs\nthat form a web deep below Yharnam.",
+      "grade": "B",
+      "hidden": false,
+      "id": 31,
+      "name": "Chalice of Pthumeru",
+      "score": 10
+    },
+    {
+      "description": "Acquire the Chalice of Ailing Loran that seals\nthe tragic land lost to the sands.",
+      "grade": "B",
+      "hidden": false,
+      "id": 32,
+      "name": "Chalice of Ailing Loran",
+      "score": 10
+    },
+    {
+      "description": "Acquire the Great Chalice of Isz that seals\nthe home of the cosmic kin.",
+      "grade": "B",
+      "hidden": false,
+      "id": 33,
+      "name": "Chalice of Isz",
+      "score": 10
+    },
+    {
+      "description": "Acquire all old hunter weapons.",
+      "grade": "G",
+      "hidden": false,
+      "id": 34,
+      "name": "Old Hunter's Essence",
+      "score": 60
+    },
+    {
+      "description": "Defeat Great One: Orphan of Kos.",
+      "grade": "S",
+      "hidden": false,
+      "id": 35,
+      "name": "Orphan of Kos",
+      "score": 30
+    },
+    {
+      "description": "Defeat the beast that was once Ludwig, the Holy Blade.",
+      "grade": "B",
+      "hidden": false,
+      "id": 36,
+      "name": "Ludwig, the Holy Blade",
+      "score": 10
+    },
+    {
+      "description": "Defeat Lady Maria of the Astral Clocktower.",
+      "grade": "B",
+      "hidden": false,
+      "id": 37,
+      "name": "Lady Maria of the Astral Clocktower",
+      "score": 10
+    },
+    {
+      "description": "Defeat the failed attempts to become Great Ones.",
+      "grade": "B",
+      "hidden": false,
+      "id": 38,
+      "name": "Living Failures",
+      "score": 10
+    },
+    {
+      "description": "Defeat the beast that was once Laurence, the First Vicar.",
+      "grade": "B",
+      "hidden": false,
+      "id": 39,
+      "name": "Laurence, the First Vicar",
+      "score": 10
+    }
+  ],
+  "language": 1,
+  "source_modified": 1792089028000000000,
+  "source_size": 5007360,
+  "version": 1
+}

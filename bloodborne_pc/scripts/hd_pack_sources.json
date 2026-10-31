@@ -1,0 +1,28 @@
+{
+  "about": "The Nexus Mods downloads the HD Texture Pack is built from (plans/pc-enhancements.md 2.1, B9.1), in pack order: later sources win where they change the same texture. Picture files only; scripts/picture_gate.py checks every file. sha256 and size are the files the pack was made with; a different one (an update on Nexus) is reported and still checked.",
+  "game": "bloodborne",
+  "sources": [
+    {"id": "R0", "title": "BB Reborne (Texture 0)", "author": "Serotoniner", "mod": 503, "file_id": 2665,
+     "download": "BBReborne Texture 0", "size": 4102127383,
+     "sha256": "878b56939df684287d0113c2af664c685a4882ca20f2b70c884ea61ec7346bbc"},
+    {"id": "R1", "title": "BB Reborne (Texture 1)", "author": "Serotoniner", "mod": 503, "file_id": 2666,
+     "download": "BBReborne Texture 1", "size": 4591368846,
+     "sha256": "495090ebaf4bb8466a7969fdd659d4855c1554c8894733112eb0894731e2ea0e"},
+    {"id": "R2", "title": "BB Reborne (Texture 2)", "author": "Serotoniner", "mod": 503, "file_id": 2667,
+     "download": "BBReborne Texture 2", "size": 3496333546,
+     "sha256": "4f25906f0bd90927e29386d5f6418ca74b71fcb75b585410ae72b7c3f6af9ab6"},
+    {"id": "R3", "title": "BB Reborne (Texture 3)", "author": "Serotoniner", "mod": 503, "file_id": 2668,
+     "download": "BBReborne Texture 3", "size": 4555893135,
+     "sha256": "23985c0e908bf5d2cf6ee4542af0d2ab845ed1308f646dbfcfa22c1b854a0b75"},
+    {"id": "SKY", "title": "Upscaled Skybox and Clouds (High Res Sky v2.0, with ArcRay's Moon Fix)", "author": "johnnycoax",
+     "mod": 436, "file_id": 2289, "download": "High Res Sky v2.0 (includes ArcRay's Moon Fix mod)", "size": 4651782681,
+     "sha256": "a900f5138c9c7abc418a9ef9022b6684e01ad1629c63fea7f7dc422df830cd52"},
+    {"id": "ARM", "title": "4x Upscaled Armors", "author": "Giorma", "mod": 61, "file_id": 337, "default": false,
+     "why": "Left out unless asked for (--include ARM): with it, lamp travel stalled on the loading screen (every long test run, into or out of Forbidden Woods) and arrivals hitched up to 230 ms; the hunter's 4x armour is reloaded at every area change. The pack without it passed 24 travels.",
+     "download": "Upscaled Armors", "size": 10963648176,
+     "sha256": "e01d342f971b2ab4e8a2f243df9d9dffa9e43dc1ef84d95655d5438e894c81d1"},
+    {"id": "SFX", "title": "SFX Texture Overhaul", "author": "WorldDstroyer", "mod": 430, "file_id": 2200,
+     "download": "SFX Texture Overhaul", "size": 66873056,
+     "sha256": "1d8b5bc4786b98a0b938dabc559d2c3e7e4bc40c1d6473b8ac61f0e8c691fcc0"}
+  ]
+}

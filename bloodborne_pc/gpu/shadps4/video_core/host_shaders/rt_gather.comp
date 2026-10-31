@@ -1,0 +1,116 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+// bbport: ray tracing (vk_ray_tracing.h): build inputs of this frame's new or refit structures.
+// One thread per index (MODE_INDICES) or per vertex: each thread finds its item by binary search
+// over the items' first threads.
+// - Indices: the game's 16- or 32-bit indices (its index buffer, through the buffer cache),
+//   rebased to the stored vertices (element = index + base_vertex - first_vertex). An index
+//   outside them is written as 0 and flags the item's error word (the CPU drops that draw). For
+//   static draws, the indices at 4 positions are kept as the vertices rt_instances.comp checks.
+// - Vertices: object motion's clip positions to world space.
+#version 460
+#extension GL_GOOGLE_include_directive : require
+#include "rt_common.glsl"
+
+layout(local_size_x = 256) in;
+
+#ifdef MODE_INDICES
+struct Item {
+    uint64_t src;   // the game's index data
+    uint64_t dst;   // uint32 indices
+    uint start;     // first thread
+    uint count;
+    int rebase;
+    uint vertices;  // stored elements: valid indices are below
+    uint index_size;
+    uint sig_slot;  // entry whose check vertices these are, or ~0
+    uint error_slot;
+    uint pad;
+};
+#else
+struct Item {
+    uint64_t dst;   // vec4 world positions
+    uint start;
+    uint count;
+    uint store;     // object motion element of vertex 0
+    uint pad0, pad1, pad2;
+};
+#endif
+
+layout(buffer_reference, std430, buffer_reference_align = 16) readonly buffer Items {
+    Item items[];
+};
+layout(buffer_reference, std430, buffer_reference_align = 4) readonly buffer Words {
+    uint w[];
+};
+layout(buffer_reference, std430, buffer_reference_align = 4) writeonly buffer OutWords {
+    uint w[];
+};
+layout(buffer_reference, std430, buffer_reference_align = 16) writeonly buffer OutPositions {
+    vec4 p[];
+};
+layout(buffer_reference, std430, buffer_reference_align = 16) buffer SigVertices {
+    uvec4 v[];
+};
+
+layout(push_constant) uniform Constants {
+    uint64_t item_address;
+    uint64_t positions;    // ClipPositions
+    uint64_t frame;        // FrameConstants
+    uint64_t sig_vertices; // SigVertices
+    uint64_t errors;       // OutWords (host visible), one per item with an error_slot
+    uint item_count;
+    uint thread_count;
+};
+
+void main() {
+    const uint id = gl_GlobalInvocationID.x;
+    if (id >= thread_count) {
+        return;
+    }
+    Items list = Items(item_address);
+    uint lo = 0, hi = item_count - 1;
+    while (lo < hi) {
+        const uint mid = (lo + hi + 1) >> 1;
+        if (list.items[mid].start <= id) {
+            lo = mid;
+        } else {
+            hi = mid - 1;
+        }
+    }
+    const Item item = list.items[lo];
+    const uint local = id - item.start;
+    if (local >= item.count) {
+        return;
+    }
+#ifdef MODE_INDICES
+    uint index;
+    if (item.index_size == 2) {
+        const uint64_t byte = item.src + uint64_t(local) * 2ul;
+        const uint word = Words(byte & ~3ul).w[0];
+        index = (byte & 2ul) != 0ul ? word >> 16 : word & 0xFFFFu;
+    } else {
+        index = Words(item.src).w[local];
+    }
+    const int rebased = int(index) + item.rebase;
+    const bool valid = int(index) >= 0 && rebased >= 0 && uint(rebased) < item.vertices;
+    const uint value = valid ? uint(rebased) : 0u;
+    OutWords(item.dst).w[local] = value;
+    if (!valid && item.error_slot != ~0u) {
+        OutWords(errors).w[item.error_slot] = 1u;
+    }
+    if (item.sig_slot != ~0u) {
+        const uint n = item.count;
+        const uvec4 at = uvec4(0u, n / 3u, (2u * n) / 3u, n - 1u);
+        SigVertices sig = SigVertices(sig_vertices);
+        for (int k = 0; k < 4; ++k) {
+            if (local == at[k]) {
+                sig.v[item.sig_slot][k] = value;
+            }
+        }
+    }
+#else
+    FrameConstants f = FrameConstants(frame);
+    const vec4 c = ClipPositions(positions).clip[item.store + local];
+    OutPositions(item.dst).p[local] = vec4(ViewToWorld(f, ClipToView(f, c)), 1.0);
+#endif
+}

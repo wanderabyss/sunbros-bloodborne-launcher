@@ -1,0 +1,18 @@
+# The DLSS model setting (bbport.ini dlss_model), the one place its choices are written down.
+# scripts/gen_settings_tables.py turns it into gpu/shim/bbport_dlss_models.h (the game's
+# settings and in-game menu) and launcher/bbport_dlss_models.py (the launcher); a test fails
+# when either is out of date: run `python bloodborne_pc/scripts/gen_settings_tables.py`.
+#
+# Rows are in menu order. index is the value saved in settings and must never change for a model;
+# a new model takes the next free index. preset is NVSDK_NGX_DLSS_Hint_Render_Preset (0: the
+# driver's default, or Auto's per-frame pick, bbport_nvidia_gpu.h BbDlssAutoPreset). The presets
+# are the ones DLSS 310 recommends; the deprecated and "do not use" ones are left out.
+# Labels read "<name>: <summary>" in the launcher and "<name> - <summary>" in the game.
+@help	The AI model DLSS uses. Auto follows NVIDIA per quality mode: on RTX 40 and 50, K for DLAA, Quality and Balanced, M for Performance, L for Ultra Performance; K in every mode on RTX 20 and 30. Default lets the driver choose.
+index	id	ini	preset	family	name	name_ru	summary	summary_ru
+5	Auto	auto	0		Auto	Авто	NVIDIA's pick per quality mode	выбор NVIDIA для каждого режима
+1	K	K	11	DLSS 4	K	K	DLSS 4, for DLAA, Quality and Balanced	DLSS 4, для DLAA, Quality и Balanced
+3	M	M	13	DLSS 4.5	M	M	DLSS 4.5 for Performance	DLSS 4.5 для Performance
+4	L	L	12	DLSS 4.5	L	L	DLSS 4.5 for Ultra Performance	DLSS 4.5 для Ultra Performance
+2	J	J	10	DLSS 4	J	J	DLSS 4, less ghosting, more flicker	DLSS 4, меньше шлейфов, больше мерцания
+0	Default	default	0		Default	По умолчанию	the driver's choice	выбор драйвера

@@ -1,0 +1,123 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+// bbport: ray-traced screen effects (vk_rt_screen_effect.h): the filtered result into the game's
+// own target, one channel, the others kept. mode 0: replaced; mode 1: multiplied with the game's.
+// - Ambient occlusion: the SSAO target (RGBA8, half size). R is the AO (1: not occluded; with the
+//   game's SSAO patched off its passes read a 1x1 white texture instead); G and B carry the depth
+//   its upsampling uses and A marks the sky.
+// - CHANNEL_A (moon shadow): the shadow mask (RGBA8, full size). A is the moon's light (1: lit);
+//   R and G carry the depth.
+// A result traced at 1/`up` of the target's size (Medium's half-size shadows) is upsampled: the
+// four nearest traced pixels, weighted by distance and by how close their depth is to this
+// pixel's (no shade bleeding across edges).
+// `split` > 0 (the menu's compare, vk_rt_effects.h): the target's left `split` of its width keeps
+// the game's own value. DEBUG_CHANGE (the "What ray tracing changed" view): also records the
+// change in `change` (render size, `scale` texels a target pixel each way): R the AO darker, B
+// the AO lighter, G the moon's light darker.
+// `strength` 0..1 fades the result towards 1 (no effect); above 1 it is raised to that power
+// (darker, never below 0). `direct` > 0 (AO into the shadow mask's R only): that share of the AO
+// also multiplies the moon's light in A (rt_ao_direct).
+#version 460
+#extension GL_EXT_samplerless_texture_functions : require
+#extension GL_GOOGLE_include_directive : require
+#include "rt_common.glsl"
+
+layout(local_size_x = 8, local_size_y = 8) in;
+
+layout(binding = 0) uniform texture2D effect_tex; // r: unoccluded / lit fraction
+layout(binding = 1, rgba8) uniform image2D target;
+layout(binding = 2) uniform texture2D depth_tex;
+#ifdef DEBUG_CHANGE
+layout(binding = 3, rgba8) uniform image2D change;
+#endif
+
+layout(push_constant) uniform Constants {
+    float strength;
+    uint mode;
+    uint scale;     // depth pixels per target pixel, each way
+    uint up;        // target pixels per traced pixel, each way (1: same size)
+    uint64_t frame; // FrameConstants (for up > 1)
+    float split;    // the left share of the width that keeps the game's value (0: none)
+    float direct;   // share of the AO also on the moon's light (mask A)
+};
+
+// The view distance of a depth pixel (rt_trace.comp's ViewPosition z).
+float Distance(FrameConstants f, ivec2 p) {
+    const ivec2 size = textureSize(depth_tex, 0);
+    const float d = texelFetch(depth_tex, clamp(p, ivec2(0), size - 1), 0).r;
+    return abs(f.proj.w / min(d - f.proj.z, -1e-8));
+}
+
+float Upsampled(ivec2 pixel) {
+    FrameConstants f = FrameConstants(frame);
+    const ivec2 size = textureSize(effect_tex, 0);
+    const float z = Distance(f, pixel * int(scale) + int(scale / 2u));
+    const vec2 at = (vec2(pixel) + 0.5) / float(up) - 0.5;
+    const ivec2 base = ivec2(floor(at));
+    const vec2 t = at - vec2(base);
+    const uint step = up * scale;
+    float sum = 0.0, weights = 0.0, nearest = 1.0, nearest_dz = 1e30;
+    for (int j = 0; j < 2; ++j) {
+        for (int i = 0; i < 2; ++i) {
+            const ivec2 q = clamp(base + ivec2(i, j), ivec2(0), size - 1);
+            const float v = texelFetch(effect_tex, q, 0).r;
+            const float dz = abs(Distance(f, q * int(step) + int(step / 2u)) - z);
+            const float w = (i == 1 ? t.x : 1.0 - t.x) * (j == 1 ? t.y : 1.0 - t.y) *
+                            exp(-dz / (0.02 * z + 0.02));
+            sum += w * v;
+            weights += w;
+            if (dz < nearest_dz) {
+                nearest_dz = dz;
+                nearest = v;
+            }
+        }
+    }
+    return weights > 1e-4 ? sum / weights : nearest;
+}
+
+void main() {
+    const ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
+    if (any(greaterThanEqual(pixel, imageSize(target))) ||
+        float(pixel.x) < split * float(imageSize(target).x)) {
+        return;
+    }
+    const float e = up > 1u && frame != 0ul ? Upsampled(pixel)
+                                             : texelFetch(effect_tex, pixel / int(up), 0).r;
+    const float c = clamp(e, 0.0, 1.0);
+    const float v = strength <= 1.0 ? mix(1.0, c, strength) : pow(c, strength);
+    vec4 value = imageLoad(target, pixel);
+#ifdef CHANNEL_A
+    const float before = value.a;
+    value.a = mode == 1u ? value.a * v : v;
+    const float after = value.a;
+#elif defined(REFLECTION)
+    // Hybrid screen-space / ray-traced water reflections:
+    // Blend reflection term into surface RGB scaled by strength
+    value.rgb = mix(value.rgb, value.rgb + vec3(e * 0.5), strength);
+#else
+    const float before = value.r;
+    value.r = mode == 1u ? value.r * v : v;
+    const float after = value.r;
+    if (direct > 0.0) {
+        value.a *= mix(1.0, v, direct);
+    }
+#endif
+    imageStore(target, pixel, value);
+#ifdef DEBUG_CHANGE
+    for (uint y = 0u; y < scale; ++y) {
+        for (uint x = 0u; x < scale; ++x) {
+            const ivec2 q = pixel * int(scale) + ivec2(x, y);
+            if (any(greaterThanEqual(q, imageSize(change)))) {
+                continue;
+            }
+            vec4 c = imageLoad(change, q);
+#ifdef CHANNEL_A
+            c.g = max(before - after, 0.0);
+#else
+            c.r = max(before - after, 0.0);
+            c.b = max(after - before, 0.0);
+#endif
+            imageStore(change, q, c);
+        }
+    }
+#endif
+}

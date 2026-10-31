@@ -1,0 +1,80 @@
+[flake8]
+# ==============================================================================
+# Global & Geometry Settings
+# ==============================================================================
+
+# Extended line length matching ruff configuration
+max-line-length = 120
+
+# Files and directories to completely skip tracking
+exclude =
+    .git,
+    .venv,
+    venv,
+    vendor,
+    reference,
+    out,
+    dist,
+    custom,
+    bloodborne_pc/out,
+    bloodborne_pc/dist,
+    bloodborne_pc/third_party,
+    bloodborne_pc/gpu/third_party,
+    bloodborne_pc/tools,
+    bloodborne_pc/tests,
+    bloodborne_pc/scripts,
+    bloodborne_pc/ATLAS,
+    __pycache__
+
+
+# ==============================================================================
+# Rules configuration
+# ==============================================================================
+
+# Harmonized with ruff.toml: ignore cosmetic whitespace/formatting nuances
+# and allow tabular alignments, nested definitions, and conditional imports
+ignore =
+    # Formatting and whitespace (delegated to ruff/formatter)
+    E501,
+    E203,
+    W503,
+    W504,
+    E221,
+    E225,
+    E226,
+    E227,
+    E228,
+    E231,
+    E241,
+    E261,
+    E271,
+    E272,
+    E301,
+    E302,
+    E303,
+    E305,
+    E306,
+    E111,
+    E114,
+    E117,
+    E122,
+    E127,
+    E128,
+    E701,
+    E702,
+    E704,
+    E722,
+    E731,
+    E741,
+    F401,
+    F841,
+    W391,
+    # Architectural imports & complexity
+    E401,
+    E402,
+    C901,
+    B008
+
+# Ignore unused and wildcard imports specifically in __init__.py files
+per-file-ignores =
+    __init__.py: F401, F403

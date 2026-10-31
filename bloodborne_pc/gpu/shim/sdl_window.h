@@ -1,0 +1,65 @@
+// bbport: the game window. Created by the VideoOut driver on first open; the
+// event pump runs on the port's window thread (see window.cpp).
+#pragma once
+#include <atomic>
+#include <mutex>
+#include <string>
+#include "common/types.h"
+
+struct SDL_Window;
+
+namespace Frontend {
+
+enum class WindowSystemType : u8 { Headless, Windows, X11, Wayland, Metal };
+
+struct WindowSystemInfo {
+    void* display_connection = nullptr;
+    void* render_surface = nullptr;
+    float render_surface_scale = 1.0f;
+    WindowSystemType type = WindowSystemType::Headless;
+};
+
+class WindowSDL {
+public:
+    WindowSDL(s32 width, s32 height, const char* title);
+    ~WindowSDL();
+    s32 GetWidth() const { return width.load(std::memory_order_relaxed); }
+    s32 GetHeight() const { return height.load(std::memory_order_relaxed); }
+    SDL_Window* GetSDLWindow() const { return window; }
+    WindowSystemInfo GetWindowInfo() const { return window_info; }
+    bool IsOpen() const { return is_open.load(std::memory_order_relaxed); }
+    /// Windows only: the window is on a display that Windows runs in HDR, where the desktop
+    /// decodes an SDR swapchain with the sRGB curve instead of the display's gamma 2.2.
+    bool IsOnHdrDisplay() const { return on_hdr_display.load(std::memory_order_relaxed); }
+    /// Windows only, with HDR on: the SDR content brightness Windows uses (its slider) and the
+    /// display's peak, in nits; 0 when unknown.
+    float SdrWhiteNits() const { return sdr_white_nits.load(std::memory_order_relaxed); }
+    float PeakNits() const { return peak_nits.load(std::memory_order_relaxed); }
+    /// Processes pending window events. Returns false once the user closed the window.
+    bool PollEvents();
+    /// Keyboard text entry for the system IME dialog; typed text shows in the title bar.
+    void BeginTextInput(const std::string& initial, const std::string& prompt);
+    /// 0 while typing, 1 confirmed (Enter), 2 cancelled (Escape); text is UTF-8.
+    int PollTextInput(std::string& text);
+
+private:
+    std::atomic<s32> width, height;
+    std::atomic<bool> is_open{true};
+    std::atomic<bool> on_hdr_display{false};
+    std::atomic<float> sdr_white_nits{0.0f}, peak_nits{0.0f};
+    void ReadHdrLevels();
+    std::mutex text_mutex;
+    bool text_requested{}, text_active{};
+    bool fullscreen_applied{}; // what the window was last set to (BbSettings::Values::fullscreen)
+    bool mouse_armed{};        // a click asked for the mouse camera (window.cpp)
+    bool mouse_captured{};     // relative mouse mode is on
+    bool menu_pointer_seen{};  // a menu showed the pointer (src/menu_pointer.c)
+    bool rearm_after_menu{};   // ... while the camera held the mouse: it takes it back after
+    int text_state{};
+    std::string text, text_prompt, base_title;
+    void UpdateTextTitle();
+    SDL_Window* window{};
+    WindowSystemInfo window_info{};
+};
+
+} // namespace Frontend

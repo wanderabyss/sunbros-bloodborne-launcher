@@ -1,0 +1,70 @@
+# Virtual Environments
+.venv/
+venv/
+env/
+
+# Python bytecode and caches
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.ruff_cache/
+.pytest_cache/
+.mypy_cache/
+
+# Build outputs and distribution archives
+out/
+dist/
+src/bloodborne_pc/out/
+src/bloodborne_pc/dist/
+*.zip
+*.tar.gz
+*.7z
+*.tmp.zip
+
+# Runtime logs and profiling
+*.log
+last_run.log
+perf.data
+pgo/
+
+# Local configuration, user saves, and game data
+bbport.ini
+mods.json
+patches.json
+user/
+mods/
+*.dcx
+*.bdt
+*.bhd
+*.tpf
+*.prx
+*.sprx
+eboot.bin
+param.sfo
+
+# IDE & Editor files
+.vscode/
+.idea/
+.claude/settings.local.json
+*.orig
+graphify-out/
+
+# External SDKs and reference repositories (top level only: a bare vendor/ also matched
+# bloodborne_pc/gpu/bbnet/vendor, the online code the build needs)
+/vendor/
+/reference/
+graphify*
+.code*
+.claude/
+.agents/
+Im-Vibe/
+.trail/cache/
+.gemini/
+AGENTS.md
+CLAUDE.md
+GEMINI.md
+build-logs/
+.audit-temp/
+.audit-temp/
+scratch/

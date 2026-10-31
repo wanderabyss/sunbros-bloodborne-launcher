@@ -1,0 +1,51 @@
+# Ray tracing settings, read alike by the game (bbport_settings.cpp; tests/test_rt_settings.cpp)
+# and the launcher (bbport_launcher_win.py; tests/test_launcher_ray_tracing.py).
+#
+# migrate | bbport.ini keys, ';' between them | ray_tracing rt_ao_quality rt_shadow_quality
+# level   | ray_tracing level                 | rt_ao_quality rt_shadow_quality it traces
+# custom  | level before, Custom tiers and strength | Custom tiers and strength after (CustomStart)
+
+# Nothing set: no ray tracing.
+migrate |  | off off off
+# Files from before the tiers: the nearest tier, Custom without a level.
+migrate | ambient_occlusion=raytraced;shadows=game | custom medium off
+migrate | ambient_occlusion=game;shadows=game | off off off
+migrate | ambient_occlusion=raytraced;rt_ao_rays=2;rt_ao_radius=1.25;shadows=raytraced;rt_shadow_reach=4.0 | custom ultra low
+migrate | ambient_occlusion=raytraced;rt_ao_rays=3;rt_ao_radius=1.0 | custom high off
+migrate | ambient_occlusion=raytraced;rt_ao_radius=0.5;shadows=raytraced;rt_shadow_reach=150 | custom low ultra
+# Their moon shadows were full size: past 6 m the full-size High (15 m) and Ultra (40 m).
+migrate | shadows=raytraced;rt_shadow_reach=6 | custom off low
+migrate | shadows=raytraced;rt_shadow_reach=8 | custom off high
+migrate | shadows=raytraced;rt_shadow_reach=15 | custom off high
+migrate | shadows=raytraced;rt_shadow_reach=20 | custom off high
+migrate | shadows=raytraced;rt_shadow_reach=27.5 | custom off high
+migrate | shadows=raytraced;rt_shadow_reach=40 | custom off ultra
+# A value that is not all a number is the default (radius 1, reach 4, one ray).
+migrate | ambient_occlusion=raytraced;rt_ao_radius=abc | custom medium off
+migrate | ambient_occlusion=raytraced;rt_ao_radius= | custom medium off
+migrate | ambient_occlusion=raytraced;rt_ao_rays=two;rt_ao_radius=0.5 | custom low off
+migrate | shadows=raytraced;rt_shadow_reach=10m | custom off low
+# A tier or level in the file wins over the old keys; 'maximum' is Ultra; a tier spelled
+# otherwise is not one.
+migrate | ray_tracing=custom;rt_ao_quality=off;ambient_occlusion=raytraced | custom off off
+migrate | ray_tracing=maximum | ultra off off
+migrate | ray_tracing=high;ambient_occlusion=raytraced | high medium off
+migrate | rt_ao_quality=High;ambient_occlusion=raytraced | custom medium off
+migrate | ray_tracing=low;rt_ao_quality=ultra;rt_shadow_quality=low | low ultra low
+
+level | off | off off
+level | low | medium off
+level | medium | medium low
+level | high | medium medium
+level | ultra | ultra ultra
+
+# Custom starts from the level when no Custom effect was chosen, at full strength.
+custom | high off off 0.50 | medium medium 1.00
+custom | ultra off off 0.50 | ultra ultra 1.00
+custom | low off off 0.25 | medium off 1.00
+# Custom effects chosen before stay.
+custom | high high off 0.50 | high off 0.50
+custom | ultra off low 0.75 | off low 0.75
+# From Off or Custom there is nothing to start from.
+custom | off off off 0.50 | off off 0.50
+custom | custom off off 0.50 | off off 0.50

@@ -1,0 +1,197 @@
+#!/usr/bin/env bash
+set -euo pipefail
+cd -- "$(dirname -- "$0")"
+if [[ ${1:-} == --software ]]; then
+    shift
+    if [[ -z ${VK_DRIVER_FILES:-} ]]; then
+        for candidate in /run/opengl-driver/share/vulkan/icd.d/lvp_icd*.json /usr/share/vulkan/icd.d/lvp_icd*.json; do
+            if [[ -f $candidate ]]; then export VK_DRIVER_FILES=$candidate; break; fi
+        done
+    fi
+    if [[ -z ${VK_DRIVER_FILES:-} ]]; then echo 'Lavapipe not found; set VK_DRIVER_FILES.' >&2; exit 1; fi
+    export VK_LOADER_LAYERS_DISABLE='~implicit~'
+fi
+# BB_PREBUILT=1 (packaged builds, the AppImage): out/bb-probe and its GPU library are installed
+# next to this script; nothing is built and no nix-shell is needed.
+# BB_DATA_DIR: writable directory for the generated files (out/), saves (user/) and bbport.ini;
+# by default this directory.
+data=${BB_DATA_DIR:-.}
+out=$data/out
+mkdir -p "$out"
+export BB_CONFIG=${BB_CONFIG:-$data/bbport.ini}
+# FSR 4.1.1 assets (tools/fsr4cap/build_assets.sh): next to run.sh or in the data directory.
+if [[ -z ${BB_FSR411_DIR:-} && ! -d fsr4_411 && -d $data/fsr4_411 ]]; then
+    export BB_FSR411_DIR=$data/fsr4_411
+fi
+if [[ -z ${BB_PREBUILT:-} && -z ${BB_IN_NIX_SHELL:-} ]] && ! { command -v pkg-config >/dev/null && pkg-config --exists vulkan sdl3; } && command -v nix-shell >/dev/null; then
+    args=''; if (( $# )); then args=$(printf '%q ' "$@"); fi
+    exec env BB_IN_NIX_SHELL=1 nix-shell shell.nix --run "bash run.sh $args"
+fi
+if [[ -z ${PYTHON:-} ]]; then
+    PYTHON=$(command -v python3 || true)
+    if [[ -z $PYTHON ]]; then
+        for candidate in /nix/store/*-python3-*/bin/python3; do
+            if [[ -x $candidate ]]; then PYTHON=$candidate; break; fi
+        done
+    fi
+fi
+if [[ -z ${PYTHON:-} ]]; then echo 'Install Python 3 or set PYTHON.' >&2; exit 1; fi
+# BB_GAME_DIR: the game's folder (eboot.bin, sce_module, ...); default next to this directory.
+game=${BB_GAME_DIR:-../CUSA03173}
+if [[ ! -f $game/eboot.bin ]]; then echo "No eboot.bin in $game (set BB_GAME_DIR)." >&2; exit 1; fi
+original_game=$game
+# PC enhancements (bbport.ini pc_*, BB_PC_*): files made from the game, under the mods.
+generated=()
+# The in-game PC menu adds its rows only when its files were made, and the title's Quit Game
+# only when both title movies have its line.
+export BB_PC_MENU_ASSETS=0 BB_PC_MENU_QUIT=0 BB_PC_REBIRTH_ACTIVE=0
+while IFS= read -r folder; do
+    folder=${folder%$'\r'}
+    [[ -n $folder ]] && generated+=(--generated "$folder")
+    [[ ${folder##*/} == rebirth ]] && BB_PC_REBIRTH_ACTIVE=1  # the altar's script is in place
+    if [[ ${folder##*/} == pc-menu ]]; then
+        BB_PC_MENU_ASSETS=1
+        [[ -f $folder/dvdroot_ps4/menu/title.gfx && -f $folder/dvdroot_ps4/menu/title_dlc.gfx ]] && BB_PC_MENU_QUIT=1
+    fi
+done < <("$PYTHON" scripts/enhancements.py --game "$game" --out "$out/enhancements" --settings "$BB_CONFIG")
+# Fill only the title artwork; generated Quit/menu commands remain in its source movie.
+title_layer=$out/title_presentation
+title_sources=()
+for ((i=1; i<${#generated[@]}; i+=2)); do title_sources+=(--source "${generated[i]}"); done
+"$PYTHON" scripts/title_presentation.py --game "$game" --out "$title_layer" --settings "$BB_CONFIG" "${title_sources[@]}"
+if [[ -d $title_layer/dvdroot_ps4 ]]; then generated+=(--generated "$title_layer"); fi
+exit_layer=$out/exit_text
+"$PYTHON" scripts/exit_text.py --game "$game" --out "$exit_layer" "${title_sources[@]}"
+if [[ -d $exit_layer/dvdroot_ps4 ]]; then generated+=(--generated "$exit_layer"); fi
+# The Xbox button prompts the package ships (packaging/windows/mods in a source checkout).
+bundled=()
+for folder in "mods/Xbox 360 Prompts (Elden Ring)" "packaging/windows/mods/Xbox 360 Prompts (Elden Ring)"; do
+    if [[ -d $folder ]]; then bundled=(--bundled "$folder"); break; fi
+done
+# The keyboard prompts (PCBButtons by JinkiJinn), seeded switched off.
+for folder in "bundled/Keyboard Prompts (PCBButtons)" "packaging/windows/bundled/Keyboard Prompts (PCBButtons)"; do
+    if [[ -d $folder ]]; then bundled+=(--bundled-off "$folder"); break; fi
+done
+game=$("$PYTHON" scripts/mods.py "$game" --out "$out" \
+    --mods-dir "${BB_MODS_DIR:-$data/mods}" --config "${BB_MODS_CONFIG:-$data/mods.json}" \
+    --enabled "${BB_MODS_ENABLED:-1}" --owner-pid $$ ${generated[@]+"${generated[@]}"} ${bundled[@]+"${bundled[@]}"})
+# A private merged view lasts for this launch, including restarts. Cleanup only our own view.
+if [[ $game != "$(realpath "$original_game")" ]]; then
+    mod_game=$game
+    trap '"$PYTHON" -c '\''import shutil,sys; shutil.rmtree(sys.argv[1])'\'' "$mod_game"; rm -f "$mod_game.owner"' EXIT
+fi
+"$PYTHON" scripts/prepare.py "$game" --out "$out"
+"$PYTHON" scripts/link_libc.py "$game" --out "$out"
+"$PYTHON" scripts/link_modules.py "$game" --out "$out"
+# Legacy CPU profile (scripts/cpu_compat.py): bb-probe's CPU check lets such a CPU start.
+if "$PYTHON" -c 'import json,sys; sys.exit(0 if json.load(open(sys.argv[1])).get("cpu_compat",{}).get("enabled") else 1)' "$out/link.json"; then
+    export BB_CPU_COMPAT=1
+else
+    unset BB_CPU_COMPAT
+fi
+"$PYTHON" scripts/content_profile.py "$game" --out "$out" --sku "${BB_CONTENT_SKU:-full}"
+# Sizes chosen below for the previous launch are recomputed after an in-game restart.
+# A BB_OUTPUT_RES given by the user (not one chosen below) is kept for that restart.
+if [[ ${BB_AUTO_RENDER_RES:-} == 1 ]]; then
+    unset BB_RENDER_RES BB_OUTPUT_RES BB_AUTO_RENDER_RES
+    if [[ -n ${BB_USER_OUTPUT_RES:-} ]]; then export BB_OUTPUT_RES=$BB_USER_OUTPUT_RES; fi
+elif [[ -n ${BB_OUTPUT_RES:-} ]]; then
+    export BB_USER_OUTPUT_RES=$BB_OUTPUT_RES
+fi
+# BB_RENDER_RES=WxH explicitly sets the game's render resolution (a patch at start).
+# Frame rate: BB_FPS=uncap (default; delta-time patch, vblank follows the display),
+# 60/90 (fixed-timestep patches), 120/144 (90 FPS++ scaled to the rate) or 30 (unpatched). BB_PATCHES adds patch names ("a;b").
+fps=${BB_FPS:-uncap}
+# bbport.ini output_res other than 1080p (720p for the Steam Deck, 1440p, 2160p): the whole game
+# renders at the preset's size of the output (a patch), the upscaler fills the output, the UI is
+# drawn at the output size. Preset and output changes need a restart.
+# Live resolution changes keep the guest at 1920x1080 and scale host targets at run time instead
+# (output and presets change in the menu without a restart, but post-processing stays at 1080p
+# and scene targets are copied back: much slower on the Steam Deck and older GPUs). Chosen by
+# BB_LIVE_RES=0/1, else bbport.ini live_resolution=0/1/auto (auto: the GPU check, strong
+# discrete GPUs get them); off when unset. 1080p output and TAA always use the live path.
+if [[ -z ${BB_RENDER_RES:-} ]]; then
+    read -r scaled_render scaled_output < <("$PYTHON" scripts/patches.py --print-scaled --settings "$BB_CONFIG" \
+        --output-res "${BB_OUTPUT_RES:-}") || true
+    scaled_render=${scaled_render%$'\r'}
+    scaled_output=${scaled_output%$'\r'}
+fi
+live=0
+if [[ -n ${scaled_output:-} ]]; then
+    live=${BB_LIVE_RES:-}
+    # Bash builtins only: the AppImage's PATH has no sed/grep (a missing one ended run.sh silently).
+    if [[ -z $live && -f $BB_CONFIG ]]; then
+        while IFS= read -r line || [[ -n $line ]]; do
+            line=${line%$'\r'}
+            [[ $line =~ ^live_resolution=([01]|auto)$ ]] && live=${BASH_REMATCH[1]}
+        done < "$BB_CONFIG"
+    fi
+    if [[ $live == auto ]]; then
+        if [[ -n ${BB_PROBE:-} ]]; then caps=$(dirname -- "$BB_PROBE")/bb-gpu-capabilities
+        elif [[ -n ${BB_PREBUILT:-} ]]; then caps=bin/bb-gpu-capabilities
+        else caps=out/bb-gpu-capabilities; fi
+        live=$("$caps" --live-resolution 2> >(while IFS= read -r line; do
+            [[ $line == *MANGOHUD* ]] || printf '%s\n' "$line"; done >&2)) || live=0
+        live=${live%$'\r'}
+    fi
+    [[ $live == 1 ]] || live=0
+fi
+if [[ $live == 1 ]]; then
+    echo "Output ${scaled_output}: live resolution changes (live_resolution=0: startup patch)"
+elif [[ -n ${scaled_output:-} ]]; then
+    export BB_RENDER_RES=$scaled_render BB_OUTPUT_RES=$scaled_output BB_AUTO_RENDER_RES=1
+    export BB_DMEM_MB=${BB_DMEM_MB:-9152}
+    echo "Output ${scaled_output}: scene ${scaled_render}, direct memory ${BB_DMEM_MB} MiB (live_resolution=1: live changes)"
+fi
+# The game's graphics heaps at PC sizes need the larger pool (patches.py HEAP_PATCH; pc_heaps=0 or
+# BB_PC_HEAPS=0: the PS4's heaps, the larger pool only above 1080p).
+pc_heaps=${BB_PC_HEAPS:-}
+if [[ -z $pc_heaps && -f $BB_CONFIG ]]; then
+    while IFS= read -r line || [[ -n $line ]]; do
+        line=${line%$'\r'}
+        [[ $line =~ ^pc_heaps=([01])$ ]] && pc_heaps=${BASH_REMATCH[1]}
+    done < "$BB_CONFIG"
+fi
+[[ $pc_heaps == 0 ]] || export BB_DMEM_MB=${BB_DMEM_MB:-9152}
+"$PYTHON" scripts/patches.py --out "$out" --fps "$fps" --extra "${BB_PATCHES:-}" --settings "$BB_CONFIG" --game-dir "$game" --render-res "${BB_RENDER_RES:-}" --output-res "${BB_OUTPUT_RES:-}" \
+    --patches-dir "${BB_PATCHES_DIR:-$data/patches}" --patches-config "${BB_PATCHES_CONFIG:-$data/patches.json}"
+if [[ $fps == 120 || $fps == 144 ]]; then
+    # 90 FPS++ scaled to the rate (patches.py SCALED_FPS): vblank and frame limit at the rate.
+    export BB_VBLANK_HZ=${BB_VBLANK_HZ:-$fps} BB_FPS_LIMIT=$fps
+elif [[ -z ${BB_VBLANK_HZ:-} ]]; then
+    case $fps in uncap) export BB_VBLANK_HZ=0 ;; 90) export BB_VBLANK_HZ=90 ;; *) export BB_VBLANK_HZ=60 ;; esac
+fi
+jump_setting=${BB_RUNNING_JUMP_FIX:-}
+if [[ -z $jump_setting && -f $BB_CONFIG ]]; then
+    while IFS= read -r line || [[ -n $line ]]; do
+        line=${line%$'\r'}
+        [[ $line =~ ^[[:space:]]*running_jump_fix[[:space:]]*=[[:space:]]*0[[:space:]]*$ ]] && jump_setting=0
+    done < "$BB_CONFIG"
+fi
+if [[ $fps == uncap && ${jump_setting:-1} != 0 && ${BB_JUMP_DT:-} != 0 ]]; then
+    export BB_JUMP_DT=${BB_JUMP_DT:-1}
+elif [[ ${jump_setting:-} == 0 || ${BB_JUMP_DT:-} == 0 ]]; then
+    export BB_JUMP_DT=0
+fi
+# FSR 4: faster post passes next to the downloaded ones (incremental; tools/fsr4_optimize.sh).
+if [[ -z ${BB_PREBUILT:-} && -d fsr4_shaders ]] && command -v spirv-cross >/dev/null; then
+    bash tools/fsr4_optimize.sh || echo 'FSR 4: optimized post passes not built' >&2
+fi
+if [[ -n ${BB_PREBUILT:-} ]]; then
+    probe=${BB_PROBE:-bin/bb-probe}
+else
+    bash build.sh
+    probe=out/bb-probe
+fi
+probe_args=("$out/boot-linked.bin" --content-profile "$out/content.bin" --patches "$out/patches.bin" --app0 "$game" --user "${BB_USER_DIR:-$data/user}" --timeout "${BB_TIMEOUT:-0}" "$@")
+if [[ -n ${mod_game:-} ]]; then
+    "$probe" "${probe_args[@]}" &
+    mod_pid=$!
+    trap 'kill -TERM "$mod_pid" 2>/dev/null || true' TERM INT
+    mod_status=0
+    wait "$mod_pid" || mod_status=$?
+    # An interrupted wait must finish the child before removing its mounted view.
+    if kill -0 "$mod_pid" 2>/dev/null; then wait "$mod_pid" || mod_status=$?; fi
+    exit "$mod_status"
+fi
+exec "$probe" "${probe_args[@]}"

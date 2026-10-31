@@ -1,0 +1,12 @@
+#!/bin/sh
+# Pre-push hook: verify pyproject.toml and Release_Notes.md are synchronized
+PYTHON_CMD="python"
+if command -v python3 >/dev/null 2>&1; then
+    PYTHON_CMD="python3"
+fi
+
+"$PYTHON_CMD" scripts/sync_version.py --check
+if [ $? -ne 0 ]; then
+    echo "[HOOK] Version check failed! Run 'python scripts/sync_version.py' to synchronize." >&2
+    exit 1
+fi

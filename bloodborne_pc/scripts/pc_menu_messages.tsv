@@ -1,0 +1,137 @@
+# The in-game PC menu's strings (scripts/menu_assets.py adds them to every language's
+# menu.msgbnd.dcx). Ids and wording after droogie's bbhost (tools/pc_option_messages.tsv).
+#
+# Bloodborne's option screens own one thousand-id block each: 110000 System, 111000
+# Environment, ... 115000 Language. Inside a block, N is a row and N+20 is the screen title;
+# N+100.. are a row's choices. The PC menu takes 116000 PC Settings, 117000 PC Graphics,
+# 120000 PC Effects, 124000 PC Enhancements, 125000 PC Display, 126000 PC Gameplay and
+# 127000 PC Cheats and 128000 Achievements, and 110006..110018 for the System rows that open them; all are unused in
+# the shipped bundle.
+# Ids 920000..929999 are dialog text (groups 78 and 204, yes/no questions); 122000 is the
+# title menu's Quit Game.
+# Ids 14000332..14000399 are event text (group 30): talk menu entries and the messages their
+# scripts show (the Altar of Despair's rebirth); the help column is unused.
+# A "\n" in the text is a line break. Line help stays within 52 characters (the help bar).
+#
+# id	menu text (group 0xc8)	line help (group 0xc9)
+110006	PC Settings	Intro logos, reflections and the debug tools.
+110007	PC Graphics	Upscaling and image quality.
+110010	PC Effects	The game's post-processing. Restart to apply.
+110013	PC Enhancements	Mirror, invaders and rebirth. Restart to apply.
+110014	PC Display	Fullscreen, resolution, detail and the FPS counter.
+110015	PC Gameplay	Gameplay tweaks. Restart to apply.
+110016	PC Cheats	Cheats for this session. Restart to apply.
+110018	Achievements	Your achievements, unlock dates and Gamerscore.
+110017	Restart to Apply	Restart the game so changed settings take effect.
+116020	PC Settings
+116004	Skip Company Logos	Skips the logos and intro movie. Applies next start.
+116008	Screen-space Reflections	Reflections on wet floors. Restart to apply.
+116009	Free Camera	Hold Cross and press L3. Restart to apply.
+116010	Debug Menu	Needs the debug font files. Restart to apply.
+116011	Mouse Camera	Click the game, then the mouse turns the camera.
+116012	Mouse Sensitivity	How far the camera turns as the mouse moves.
+116100	0.5x
+116101	0.7x
+116102	1.0x
+116103	1.3x
+116104	1.6x
+116105	2.0x
+116106	3.0x
+117020	PC Graphics
+117000	Sharpening	Sharpens the upscaled image (RCAS).
+117001	Subpixel Jitter	Needed by temporal upscalers; off only to compare.
+117002	Object Motion Vectors	Fewer trails on moving enemies. Restart to apply.
+117003	Upscaler	How the game is scaled to your output resolution.
+117004	Upscaling Preset	Render scale: higher quality costs more GPU time.
+117100	Off
+117101	FSR 3.1
+117102	FSR 4
+117103	FSR 4.1.1
+117104	TAA
+117105	DLSS
+117110	Native AA
+117111	Quality
+117112	Balanced
+117113	Performance
+117114	Ultra Performance
+120020	PC Effects
+120000	Chromatic Aberration	Colour fringes at the screen edges.
+120001	Depth of Field	Blur on distant or near objects.
+120002	Motion Blur	Blur when the camera turns. Costs GPU time.
+120003	Ambient Occlusion	Contact shadows in corners (SSAO).
+120004	Game Anti-aliasing	The game's own edge smoothing.
+120005	Dynamic Shadows	Shadows from moving lights. Costs GPU time.
+125020	PC Display
+125004	Fullscreen	Fullscreen or a window. Applies straight away.
+125000	FPS Counter	Frames per second, in the corner of the screen.
+125001	Output Resolution	The size of the final image. Restart if not live.
+125002	Live Resolution Changes	Change resolution without a restart.
+125003	Model Detail	Level of detail of characters and objects.
+125100	1280 x 720
+125101	1920 x 1080
+125102	2560 x 1440
+125103	3840 x 2160
+125104	2560 x 1080 (21:9)
+125105	3440 x 1440 (21:9)
+125106	3840 x 1600 (21:9)
+125107	5120 x 2160 (21:9)
+125108	3840 x 1080 (32:9)
+125109	5120 x 1440 (32:9)
+125110	Auto
+125111	Off
+125112	On
+125113	1920 x 1200 (16:10)
+125120	Highest
+125121	Original
+125122	Lower
+125123	Lowest
+126020	PC Gameplay
+126000	No Rally	Hits do not give health back. Restart to apply.
+126001	Camera Further Away	Increases the camera distance. Restart to apply.
+126002	No Camera Auto-rotation	The camera stays put while moving. Restart.
+126003	Easier Running	Run with less stick tilt. Restart to apply.
+126004	Ragdoll Physics	Dark Souls-style corpses. Restart to apply.
+127020	PC Cheats
+127000	Never Die	Health never drops below 1. Restart to apply.
+127001	Unseen	Enemies cannot see you. Restart to apply.
+127002	Unheard	Enemies cannot hear you. Restart to apply.
+127003	Rally Never Decays	Regained health stays available. Restart.
+127004	Enemy Control	Control the targeted enemy. Restart to apply.
+124020	PC Enhancements
+128020	Achievements
+128000	Achievements	Left and right show more achievements.
+128001	Achievement
+128002	Achievement
+128003	Achievement
+128004	Achievement
+128005	Achievement
+124001	Hunter's Dream Mirror	Dream mirror changes appearance. Restart to apply.
+124003	Two Invaders	Two invaders in late areas, if all players use it.
+124002	Rebirth at the Altar	Altar of Despair resets levels. Restart to apply.
+122000	Quit Game	Close the game and return to the desktop.
+920001	Quit the game and return to the desktop?
+920002	Restart the game now to apply changed settings?
+14000332	Rebirth in the Nightmare
+14000333	The altar is silent.\nIt awaits one who bears a sacred heirloom,\na consciousness that is only asleep.
+14000334	Too many Blood Echoes are held to be reborn.\nSpend some, then return to the altar.
+14000335	Accept Rebirth
+14000336	Undo Rebirth
+14000337	Rematch Cleric Beast
+14000338	Rematch Father Gascoigne
+14000339	Rematch Blood-starved Beast
+14000340	Rematch Vicar Amelia
+14000341	Rematch The Witch of Hemwick
+14000342	Rematch Darkbeast Paarl
+14000343	Rematch Shadow of Yharnam
+14000344	Rematch Rom, the Vacuous Spider
+14000345	Rematch The One Reborn
+14000346	Rematch Martyr Logarius
+14000347	Rematch Amygdala
+14000348	Rematch Celestial Emissary
+14000349	Rematch Ebrietas, Daughter of the Cosmos
+14000350	Rematch Mergo's Wet Nurse
+14000351	Rematch Ludwig, the Holy Blade
+14000352	Rematch Living Failures
+14000353	Rematch Lady Maria of the Astral Clocktower
+14000354	Rematch Laurence, the First Vicar
+14000355	Rematch Orphan of Kos

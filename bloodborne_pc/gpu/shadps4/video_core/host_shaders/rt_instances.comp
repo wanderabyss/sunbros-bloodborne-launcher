@@ -1,0 +1,171 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+// bbport: ray tracing (vk_ray_tracing.h): the top level's instances of this frame, one thread
+// each. The transform is world to this frame's view (rays are traced in view space).
+// Static structures are checked here: four of the draw's vertices (rt_gather.comp chose them),
+// moved to world space with this frame's camera, must still be where they were when it was
+// built. The result word of each instance (host visible) is 1 for a mismatch; the CPU reads it a
+// few frames later and drops that structure. A new structure stores its four positions instead.
+// For a dynamic structure the word is its view distance in metres (the CPU refits far ones less
+// often).
+// Geometry the game pins to the far plane (clip z = w at its vertices: sky and backdrops) gets
+// mask 0x04, which no ray uses: its stored positions are not where it shows.
+#version 460
+#extension GL_GOOGLE_include_directive : require
+#include "rt_common.glsl"
+
+layout(local_size_x = 64) in;
+
+struct Item {
+    uint64_t blas;
+    uint custom;   // entry slot
+    uint flags;    // 1 check, 2 store the check positions, 4 non-indexed, 8 alpha-tested,
+                   // 16 a character (a character-size skeleton), 32 new in its slot,
+                   // 64 kept: not drawn this frame (no positions), placed by its signature
+    uint store;    // object motion element of vertex 0
+    uint vertices;
+    uint siblings, sibling_count; // 128: its mesh's other structures (Siblings), for a mismatch
+};
+layout(buffer_reference, std430, buffer_reference_align = 16) readonly buffer Items {
+    Item items[];
+};
+layout(buffer_reference, std430, buffer_reference_align = 16) readonly buffer SigVertices {
+    uvec4 v[];
+};
+layout(buffer_reference, std430, buffer_reference_align = 16) buffer SigPositions {
+    vec4 p[];
+};
+layout(buffer_reference, std430, buffer_reference_align = 4) readonly buffer Siblings {
+    uint w[]; // slot, structure address low, high
+};
+layout(buffer_reference, std430, buffer_reference_align = 4) writeonly buffer OutWords {
+    uint w[];
+};
+// VkAccelerationStructureInstanceKHR: 3x4 transform, custom index | mask << 24,
+// shader binding offset | flags << 24, structure address.
+struct VkInstance {
+    vec4 rows[3];
+    uint custom_mask;
+    uint offset_flags;
+    uint64_t reference;
+};
+layout(buffer_reference, std430, buffer_reference_align = 16) writeonly buffer OutInstances {
+    VkInstance instances[];
+};
+
+const float KeptReach = 60.0; // metres
+
+layout(push_constant) uniform Constants {
+    uint64_t item_address;
+    uint64_t positions;     // ClipPositions
+    uint64_t frame;         // FrameConstants
+    uint64_t sig_vertices;
+    uint64_t sig_positions;
+    uint64_t results;       // OutWords (host visible), one per item
+    uint64_t out_instances;
+    uint64_t stats;         // CoverageStats
+    uint64_t siblings;      // Siblings
+    uint count;
+};
+
+void main() {
+    const uint id = gl_GlobalInvocationID.x;
+    if (id >= count) {
+        return;
+    }
+    FrameConstants f = FrameConstants(frame);
+    const Item item = Items(item_address).items[id];
+    uint mismatch = 0u;
+    const bool kept = (item.flags & 64u) != 0u;
+    // Four vertices: those rt_gather.comp chose (static, indexed: drawn ones), else spread out.
+    const uint n = item.vertices;
+    const uvec4 at = (item.flags & 3u) != 0u && (item.flags & 4u) == 0u
+                         ? SigVertices(sig_vertices).v[item.custom]
+                         : uvec4(0u, n / 3u, (2u * n) / 3u, n - 1u);
+    bool sky = !kept;
+    for (int k = 0; k < 4 && !kept; ++k) {
+        const vec4 c = ClipPositions(positions).clip[item.store + min(at[k], n - 1u)];
+        sky = sky && c.w > 0.0 && abs(c.z - c.w) <= 1e-5 * c.w;
+    }
+    if ((item.flags & 3u) != 0u) {
+        SigPositions sig = SigPositions(sig_positions);
+        for (int k = 0; k < 4; ++k) {
+            const vec3 view = ClipToView(f, ClipPositions(positions).clip[item.store + min(at[k], n - 1u)]);
+            const vec3 world = ViewToWorld(f, view);
+            const uint s = item.custom * 4u + uint(k);
+            if ((item.flags & 2u) != 0u) {
+                sig.p[s] = vec4(world, 1.0);
+            } else {
+                // Reconstruction error grows with the distance from the camera.
+                const float tolerance = 2e-3 * length(view) + 1e-2;
+                if (!(distance(world, sig.p[s].xyz) <= tolerance)) {
+                    mismatch = 1u;
+                }
+            }
+        }
+    }
+    // A mismatch may be another structure of the same mesh (culling changed which instance is
+    // which): the first whose stored vertices match this instance's is used this frame, and the
+    // CPU swaps the two (result word 0x80000000 | its slot).
+    uint custom = item.custom;
+    uint64_t reference = item.blas;
+    if (mismatch == 1u && (item.flags & 128u) != 0u) {
+        Siblings list = Siblings(siblings);
+        for (uint c = 0u; c < item.sibling_count; ++c) {
+            const uint at_word = (item.siblings + c) * 3u;
+            const uint j = list.w[at_word];
+            if (j == item.custom) {
+                continue;
+            }
+            const uvec4 at_j = (item.flags & 4u) == 0u ? SigVertices(sig_vertices).v[j]
+                                                       : uvec4(0u, n / 3u, (2u * n) / 3u, n - 1u);
+            bool same = true;
+            for (int k = 0; k < 4 && same; ++k) {
+                const vec3 view = ClipToView(f, ClipPositions(positions).clip[item.store + min(at_j[k], n - 1u)]);
+                const float tolerance = 2e-3 * length(view) + 1e-2;
+                same = distance(ViewToWorld(f, view), SigPositions(sig_positions).p[j * 4u + uint(k)].xyz) <= tolerance;
+            }
+            if (same) {
+                custom = j;
+                reference = uint64_t(list.w[at_word + 1u]) | (uint64_t(list.w[at_word + 2u]) << 32);
+                mismatch = 0x80000000u | j;
+                break;
+            }
+        }
+    }
+    if ((item.flags & 67u) == 0u) { // dynamic: neither checked, nor stored, nor kept
+        mismatch = uint(clamp(ClipPositions(positions).clip[item.store].w, 0.0, 65535.0));
+    }
+    OutWords(results).w[id] = mismatch;
+    VkInstance inst;
+    inst.rows[0] = f.view[0];
+    inst.rows[1] = f.view[1];
+    inst.rows[2] = f.view[2];
+    // See-through geometry (foliage, fences, grates: the pixel shader discards, or rt_check.comp
+    // found the game draws clearly less than its triangles): mask 0x02 and not opaque, so rays
+    // decide per triangle with its coverage (rt_trace.comp). Characters (capes, torn cloth) are
+    // mostly solid and count as opaque.
+    CoverageStats stats_buffer = CoverageStats(stats);
+    if ((item.flags & 32u) != 0u) {
+        stats_buffer.counts[item.custom] = uvec4(0u); // a new structure in this slot
+    } else {
+        const uvec4 c = stats_buffer.counts[custom];
+        if (c.x + c.y + c.z + c.w > 4096u) {
+            stats_buffer.counts[custom] = c / 2u; // recent views weigh more; no overflow
+        }
+    }
+    const bool character = (item.flags & 16u) != 0u;
+    const bool see_through = !character && ((item.flags & 8u) != 0u ||
+                                             Coverage(stats_buffer, custom, 1.0) < 0.9);
+    uint mask = sky ? 0x04u : see_through ? 0x02u : 0x01u;
+    if (kept) {
+        // Out of view: in reach of the effects' rays only within KeptReach of the camera.
+        const vec3 anchor = SigPositions(sig_positions).p[item.custom * 4u].xyz;
+        const vec3 camera = vec3(f.inv_view[0].w, f.inv_view[1].w, f.inv_view[2].w);
+        mask = distance(anchor, camera) > KeptReach ? 0u : see_through ? 0x10u : 0x08u;
+    }
+    inst.custom_mask = (custom & 0xFFFFFFu) | (mask << 24);
+    // Facing cull disabled (1), then forced opaque (4) or forced not opaque (8).
+    inst.offset_flags = (0x1u | (see_through ? 0x8u : 0x4u)) << 24;
+    inst.reference = reference;
+    OutInstances(out_instances).instances[id] = inst;
+}

@@ -1,0 +1,2 @@
+// The launcher's gold Hunter's Mark, like Bloodborne.exe; the game (bb-probe.rc) keeps bloodborne.ico.
+1 ICON "../../launcher/assets/hunter-icon.ico"

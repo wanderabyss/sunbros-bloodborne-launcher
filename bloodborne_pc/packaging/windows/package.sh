@@ -1,0 +1,238 @@
+#!/usr/bin/env bash
+# Builds dist/bbport-windows/ (and dist/bbport-windows.zip): Bloodborne.exe (the launcher, frozen
+# with PyInstaller so players need no Python), bb-probe.exe with the MSYS2 CLANG64 DLLs it needs,
+# the preparation scripts and run.py. Run from an MSYS2 CLANG64 shell after `bash build.sh`.
+# Freezing uses a Windows Python 3.10+ (python.org; WINPYTHON overrides) and a private venv with
+# PyInstaller and PySide6 Essentials. FSR 4 assets are included when present.
+# BB_PACKAGE_NAME names the package folder and zip (default bbport-windows).
+set -euo pipefail
+cd -- "$(dirname -- "$0")/../.."
+source ./msys2-env.sh
+name=${BB_PACKAGE_NAME:-bbport-windows}
+[[ $name =~ ^[A-Za-z0-9._-]+$ ]] || { echo "BB_PACKAGE_NAME: letters, digits, '.', '_' and '-' only" >&2; exit 1; }
+[[ -f out/bb-probe.exe && -f out/bb-gpu-capabilities.exe && -f out/bb-play.exe ]] || { echo 'Build first: bash build.sh' >&2; exit 1; }
+# Refuse stale or incomplete DLSS bundles before building the launcher or staging files.
+if [[ -f out/bbport_dlss.dll || -f out/nvngx_dlss.dll || -f out/nvngx_dlssg.dll ]]; then
+    dlss_check="${DLSS_BUILD_DIR:-out/dlss-bridge-vs18}/Release/bbport-dlss-check.exe"
+    for required in "$dlss_check" out/bbport_dlss.dll out/nvngx_dlss.dll out/nvngx_dlssg.dll out/NVIDIA-DLSS-LICENSE.txt; do
+        [[ -f $required ]] || { echo "Incomplete DLSS bundle: $required missing. Run packaging/windows/build_dlss.sh" >&2; exit 1; }
+    done
+    "$dlss_check" out/bbport_dlss.dll
+    if [[ -d out/streamline ]]; then
+        for required in bbport_dlss_sl.dll sl.interposer.dll sl.common.dll sl.dlss.dll nvngx_dlss.dll; do
+            [[ -f out/streamline/$required ]] || { echo "Incomplete Streamline bundle: $required missing. Run packaging/windows/build_dlss.sh with STREAMLINE_SDK_ROOT" >&2; exit 1; }
+        done
+        "$dlss_check" out/streamline/bbport_dlss_sl.dll
+    fi
+fi
+
+# A Windows Python (not MSYS2's) for PyInstaller.
+python=${WINPYTHON:-}
+if [[ -z $python ]]; then
+    for candidate in /c/Python3*/python.exe "${LOCALAPPDATA:-/c/Users/$USER/AppData/Local}"/Programs/Python/Python3*/python.exe; do
+        [[ -x $candidate ]] && python=$candidate
+    done
+fi
+[[ -n $python ]] || { echo 'Need a Windows Python 3 (python.org) or WINPYTHON=path\to\python.exe' >&2; exit 1; }
+# A venv outside Python's install tree may not find Tcl/Tk itself. Point PyInstaller's
+# tkinter hook at the base interpreter's data so the frozen launcher keeps its UI.
+for library in "$(dirname "$python")"/tcl/tcl*; do
+    if [[ -d $library && -z ${TCL_LIBRARY:-} ]]; then export TCL_LIBRARY=$(cygpath -w "$library"); break; fi
+done
+for library in "$(dirname "$python")"/tcl/tk*; do
+    if [[ -d $library && -z ${TK_LIBRARY:-} ]]; then export TK_LIBRARY=$(cygpath -w "$library"); break; fi
+done
+# Windows Python needs USERPROFILE (some MSYS2 shells start without it).
+export USERPROFILE=${USERPROFILE:-$(cygpath -w "/c/Users/$(id -un)")}
+venv=${BB_LAUNCHER_VENV:-out/qt-venv}
+if [[ ! -x $venv/Scripts/python.exe ]]; then
+    "$python" -m venv "$venv"
+fi
+# Qt Quick uses real translucent surfaces over full-window artwork. Pillow remains for the
+# classic Tk fallback. Essentials avoids the unrelated, very large Qt Addons wheel.
+"$venv/Scripts/python.exe" -m pip install -q --disable-pip-version-check pyinstaller pillow certifi PySide6_Essentials==6.12.0
+# The scripts run inside Bloodborne.exe (--script): the standard modules they import come along.
+hidden=()
+for module in argparse base64 bisect collections contextlib hashlib json re shutil struct tempfile \
+              xml.etree.ElementTree urllib.request ctypes.wintypes certifi bbport_launcher_qml bbport_character; do
+    hidden+=(--hidden-import "$module")
+done
+"$venv/Scripts/python.exe" -m PyInstaller --noconfirm --clean --log-level WARN --windowed \
+    --name Bloodborne --icon "$(cygpath -w "$PWD/launcher/assets/hunter-icon.ico")" --distpath out/pyi-dist \
+    --workpath out/pyi-work --specpath out/pyi-work --paths "$(cygpath -w "$PWD/scripts")" \
+    --paths "$(cygpath -w "$PWD/launcher")" "${hidden[@]}" \
+    "$(cygpath -w "$PWD/launcher/bbport_launcher_win.py")"
+# Qt Quick needs the VC runtime shipped with the PySide6 wheel. PyInstaller can pick an older
+# root copy from Windows Python. It can also collect an unrelated ICU from the build host's PATH;
+# that DLL shadows Windows' ICU and prevents Qt6Core from loading in the packaged launcher.
+pyi_internal=out/pyi-dist/Bloodborne/_internal
+for dll in VCRUNTIME140.dll VCRUNTIME140_1.dll; do
+    cp "$pyi_internal/PySide6/$dll" "$pyi_internal/$dll"
+done
+rm -f "$pyi_internal/icuuc.dll" "$pyi_internal/icudt78.dll"
+
+# The package is assembled in a fresh staging folder and zipped from there; dist/$name
+# (a playable copy that may hold saves and settings) is only refreshed afterwards.
+dest=out/stage/$name
+# A distinct package must not delete another build's staging folder (its launcher art may
+# still be open in a verification run).
+rm -rf -- "$dest"
+mkdir -p "$dest/bin" "$dest/launcher"
+cp -r out/pyi-dist/Bloodborne/. "$dest/"
+llvm-strip -o "$dest/Play Bloodborne.exe" out/bb-play.exe
+cp launcher/bloodborne.ico launcher/bloodborne.png "$dest/launcher/"
+cp launcher/*.py "$dest/launcher/" 2>/dev/null || true
+cp -r launcher/art "$dest/launcher/"
+cp -r launcher/qml "$dest/launcher/"
+mkdir -p "$dest/launcher/assets"
+cp -r launcher/assets/. "$dest/launcher/assets/"
+# ShadPs4Plus PKG Extractor 1.1 handles the user's own base and update PKGs from the
+# launcher's Game page. Pin the upstream binary so release builds stay reproducible.
+pkg_archive=out/vendor/ShadPs4Plus-PkgExtractor-1.1-windows.zip
+pkg_url=https://github.com/AzaharPlus/shadPS4Plus/releases/download/PKG_EXTRACTOR_1_1/ShadPs4Plus-PkgExtractor-1.1-windows.zip
+mkdir -p out/vendor
+if [[ ! -f $pkg_archive ]]; then curl -fL --retry 3 "$pkg_url" -o "$pkg_archive"; fi
+printf '%s  %s\n' 'a6a6dee84c1283949245c868e580ff8d0049d0e73df9de3096460ee26c6f04d7' "$pkg_archive" | sha256sum -c -
+"$venv/Scripts/python.exe" - "$pkg_archive" "$dest/tools/pkg-extractor" <<'PY'
+from pathlib import Path
+import sys, zipfile
+
+archive, destination = Path(sys.argv[1]), Path(sys.argv[2])
+destination.mkdir(parents=True, exist_ok=True)
+prefix = 'ShadPs4Plus-PkgExtractor-1.1-windows/'
+with zipfile.ZipFile(archive) as source:
+    for name in ('pkg_extractor.exe', 'libc++.dll', 'zlib1.dll'):
+        (destination / name).write_bytes(source.read(prefix + name))
+PY
+# The executables without debug information (out/ keeps the symbols for crash reports).
+for exe in bb-probe.exe bb-gpu-capabilities.exe; do
+    llvm-strip --strip-debug -o "$dest/bin/$exe" "out/$exe"
+done
+# Every DLL the executables load from the CLANG64 tree (SDL3, FFmpeg, Vulkan loader, ...).
+ldd "$dest/bin/bb-probe.exe" "$dest/bin/bb-gpu-capabilities.exe" |
+    awk '/\/clang64\/bin\// {print $3}' | sort -u | while read -r dll; do
+        cp -u "$dll" "$dest/bin/"
+    done
+cp -r scripts patches "$dest/"
+# Hunter's Atlas (tools/atlas/README.md): its art and generator source, pre-built maps and generator
+# (packaging/windows/build_atlas_generator.sh) when it was built.
+mkdir -p "$dest/tools"
+cp -r tools/atlas "$dest/tools/"
+if [[ -d ATLAS/atlas ]]; then
+    mkdir -p "$dest/atlas"
+    for folder in art maps; do
+        if [[ -d "ATLAS/atlas/$folder" ]]; then
+            cp -r "ATLAS/atlas/$folder" "$dest/atlas/"
+        fi
+    done
+fi
+if [[ -x out/atlas-generator/generate_atlas.exe ]]; then
+    cp -r out/atlas-generator "$dest/tools/atlas-generator"
+elif [[ -d ATLAS/tools/atlas-generator ]]; then
+    cp -r ATLAS/tools/atlas-generator "$dest/tools/atlas-generator"
+else
+    echo "Note: no out/atlas-generator (build_atlas_generator.sh): the package cannot prepare Hunter's Atlas maps" >&2
+fi
+# Discord Rich Presence (tools/bloodborne_rpc, by erezeth): built here from its source, shipped in
+# companions/ and off until the player lists it in companions.json (run.py start_companions).
+rpc="$dest/companions/Discord Rich Presence"
+mkdir -p "$rpc"
+clang++ -std=c++17 -O2 -DUNICODE -D_UNICODE -municode -mwindows -static \
+    tools/bloodborne_rpc/main.cpp -o "$rpc/BloodborneRPC.exe" -lkernel32 -luser32
+cp tools/bloodborne_rpc/companion.json tools/bloodborne_rpc/config.json "$rpc/"
+# Button prompt mods (Xbox by Dommo, PCBButtons by JinkiJinn) are edits of the game's own
+# menu/common.tpf.dcx, so they are not shipped: the launcher adds the player's own Nexus download.
+# Legacy CPU (Intel 3rd generation and older): the translation plan scripts/cpu_compat.py applies.
+mkdir -p "$dest/tools" && cp tools/legacy-cpu-plan.json "$dest/tools/"
+cp run.py LICENSE README.md packaging/windows/README-Windows.txt "$dest/"
+mkdir -p "$dest/docs"
+if [[ -d ../docs/images ]]; then
+    cp -r ../docs/images "$dest/docs/"
+elif [[ -d ../custom/docs/images ]]; then
+    cp -r ../custom/docs/images "$dest/docs/"
+elif [[ -d docs/images ]]; then
+    cp -r docs/images "$dest/docs/"
+fi
+if [[ -d fsr4_shaders ]]; then cp -r fsr4_shaders "$dest/"; fi
+# Shader pre-build catalog (scripts/shader_catalog.py): records only, no game code or SPIR-V.
+if [[ -d shader_catalog ]]; then cp -r shader_catalog "$dest/"; fi
+# DLSS (NVIDIA RTX): the MSVC-built bridge and NVIDIA's runtime, next to bb-probe.exe
+# (packaging/windows/build_dlss.sh). Without them the DLSS option stays unavailable.
+if [[ -f out/bbport_dlss.dll && -f out/nvngx_dlss.dll ]]; then
+    cp out/bbport_dlss.dll out/nvngx_dlss.dll "$dest/bin/"
+    cp out/nvngx_dlssg.dll "$dest/bin/"
+    mkdir -p "$dest/licenses" && cp out/NVIDIA-DLSS-LICENSE.txt "$dest/licenses/"
+    cp gpu/dlss_bridge/LICENSE.txt "$dest/licenses/bbport_dlss-LICENSE.txt"
+    # The Streamline backend (BB_DLSS_BACKEND=streamline; NGX stays the default) in its own
+    # folder, so its nvngx_dlss.dll never replaces the NGX bridge's.
+    if [[ -d out/streamline ]]; then
+        cp -r out/streamline "$dest/bin/"
+    fi
+else
+    echo "DLSS bridge not built (packaging/windows/build_dlss.sh): no DLSS in this package" >&2
+fi
+# Seamless co-op hosts: the shadNet server with the PS4-framing STUN fix
+# (packaging/windows/build_coop_server.sh). Without it hosts use BBSC's own shadnet.exe, which
+# drops this port's P2P signaling, so guests never join; BB_PACKAGE_NO_COOP_SERVER=1 allows that.
+if [[ -f out/coop-server/shadnet.exe ]]; then
+    cp -r out/coop-server "$dest/bin/"
+elif [[ ${BB_PACKAGE_NO_COOP_SERVER:-} == 1 ]]; then
+    echo "Co-op server not built (BB_PACKAGE_NO_COOP_SERVER=1): hosts use BBSC's" >&2
+else
+    echo "Co-op server not built: run packaging/windows/build_coop_server.sh (seamless co-op guests" >&2
+    echo "can't join a host on BBSC's shadnet.exe), or set BB_PACKAGE_NO_COOP_SERVER=1" >&2
+    exit 1
+fi
+# Online co-op: the libraries compiled in (wepoll, cpp-httplib) and the MSYS2 DLLs it loads.
+mkdir -p "$dest/licenses"
+cp gpu/third_party/wepoll/LICENSE "$dest/licenses/wepoll-LICENSE.txt"
+cp gpu/third_party/httplib/LICENSE "$dest/licenses/cpp-httplib-LICENSE.txt"
+cp packaging/windows/licenses/*.txt "$dest/licenses/"
+# Where The Hunter's Dream backend comes from (Awaken's port of bbhost's network code, GPL-3.0).
+cp gpu/bbnet/THD-PORT.md "$dest/licenses/online-code-NOTICE.md"
+cp gpu/bbnet/SHADNET-PORT.md "$dest/licenses/shadps4-network-NOTICE.md"
+for package in protobuf abseil-cpp openssl miniupnpc zlib; do
+    license=/clang64/share/licenses/$package/LICENSE
+    if [[ -f $license ]]; then cp "$license" "$dest/licenses/$package-LICENSE.txt"; fi
+done
+find "$dest" -name __pycache__ -prune -exec rm -r {} +
+# Nothing from the game itself may ship: its archives (.dcx and what they hold) and executables.
+game_files=$(find "$dest" -type f \( -iname '*.dcx' -o -iname '*.tpf' -o -iname '*bnd' -o -iname '*.bdt' \
+    -o -iname '*.bhd' -o -iname '*.prx' -o -iname '*.sprx' -o -iname 'eboot.bin' -o -iname 'param.sfo' \))
+if [[ -n $game_files ]]; then
+    echo "Game files in the package (players supply their own):" >&2
+    echo "$game_files" >&2
+    exit 1
+fi
+mkdir -p dist
+rm -f "dist/$name.zip"
+# Zip entries need forward slashes: Windows PowerShell's Compress-Archive writes backslashes,
+# which other unzip tools (Linux, Proton) turn into flat files named "bbport-windows\_internal\..."
+# (issue #75).
+"$venv/Scripts/python.exe" - out/stage "dist/$name.zip" "$name" <<'PY'
+from pathlib import Path
+import sys, zipfile
+
+stage, archive, name = Path(sys.argv[1]), Path(sys.argv[2]), sys.argv[3]
+with zipfile.ZipFile(archive, 'w', zipfile.ZIP_DEFLATED) as package:
+    for path in sorted((stage / name).rglob('*')):
+        if path.is_file():
+            package.write(path, path.relative_to(stage).as_posix())
+PY
+
+# Refresh dist/$name, keeping what players create there (saves, settings, mods), and
+# only while nothing runs from it: deleting a running launcher's files breaks it.
+play=dist/$name
+running=$(powershell -NoProfile -Command \
+    "@(Get-Process | Where-Object { \$_.Path -like '$(cygpath -w "$PWD/$play")\\*' }).Count" | tr -d '\r')
+if [[ ${BB_PACKAGE_NO_REFRESH:-0} == 1 ]]; then
+    echo "Staging complete; build_dist.py will swap in the fully extracted package."
+elif [[ ${running:-0} != 0 ]]; then
+    echo "$play is in use ($running processes): not refreshed; the zip is ready." >&2
+else
+    mkdir -p "$play"
+    find "$play" -mindepth 1 -maxdepth 1 ! -name user ! -name mods ! -name bbport.ini \
+        ! -name mods.json ! -name patches.json ! -name atlas -exec rm -rf {} +
+    cp -r "$dest/." "$play/"
+fi
+du -sh "$dest" "dist/$name.zip"

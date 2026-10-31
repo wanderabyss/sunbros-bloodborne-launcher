@@ -1,0 +1,270 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+// bbport: ray-traced screen effects (vk_rt_screen_effect.h), one thread per output pixel
+// (`scale` depth pixels each way: 2 for the game's half-size SSAO target, 1 for its full-size
+// shadow mask). The view position comes from the game's depth, the normal from the depth too
+// (the neighbour with the smaller depth step on each axis, so edges keep their own surface).
+// Ray directions are rotated per pixel and frame (interleaved gradient noise and the R2
+// sequence), for the temporal filter to average.
+// - Ambient occlusion: `rays` cosine-weighted rays over the hemisphere find the closest opaque
+//   geometry within `radius`; a hit at t occludes by 1 - (t / radius)^2.
+// - SHADOW (moon): `rays` rays towards the moon (FrameConstants.light) within a cone of tangent
+//   `radius` (soft edges), up to `reach` metres; any opaque hit shadows. Surfaces facing away
+//   from the moon are left to the game's own lighting.
+// Rays see opaque geometry (masks 0x01, 0x08) and see-through geometry (0x02, 0x10: foliage, fences, grates)
+// as its coverage (rt_common.glsl Coverage, learned by rt_check.comp; half when not known yet):
+// each of its triangles blocks a ray with that chance (a hash of the triangle, the pixel and the
+// frame), which the temporal filter averages into partial shade. TraceScreenAlpha: where the hit
+// on see-through geometry is on screen and not hidden, the game's own depth there is its alpha
+// test (the shapes of leaves, bars and gates): drawn there, it blocks; seen through, it does not.
+// Out: R the unoccluded / lit fraction (1: open), G the pixel's view depth for the filter.
+// Sky, and no moon: 1.
+#version 460
+#extension GL_EXT_ray_query : require
+#extension GL_EXT_samplerless_texture_functions : require
+#extension GL_GOOGLE_include_directive : require
+#include "rt_common.glsl"
+
+layout(local_size_x = 8, local_size_y = 8) in;
+
+layout(binding = 0) uniform texture2D depth_tex; // D32, 0 near .. 1 far (D3D projection)
+layout(binding = 1) uniform accelerationStructureEXT scene;
+layout(binding = 2, rg16f) uniform writeonly image2D out_image; // result, view depth
+
+layout(push_constant) uniform Constants {
+    uint64_t frame; // FrameConstants
+    float radius;   // AO: reach in metres; SHADOW: cone tangent
+    uint rays;
+    uint mask;      // instance mask: 0x01 opaque geometry, 0x02 alpha-tested
+    uint scale;     // depth pixels per output pixel, each way
+    float reach;    // SHADOW: ray length, metres
+    uint trace_flags; // TraceClosestAo
+    uint64_t stats; // CoverageStats
+};
+
+// AO: the closest hit within the radius, weighted 1 - (h/R)^2 (BB_RT_AO_CLOSEST=1), instead
+// of a ray of random length R*sqrt(xi) that stops at its first hit.
+const uint TraceClosestAo = 1u;
+// Rays for half the pixels, a checkerboard that alternates each frame; the others store -1 (no
+// sample: rt_filter.comp's temporal pass keeps their history).
+const uint TraceCheckerboard = 2u;
+// See-through hits on screen tested against the game's depth (above); toggle bit 58 clears it.
+const uint TraceScreenAlpha = 4u;
+
+vec3 ViewPosition(FrameConstants f, ivec2 pixel, float depth) {
+    const vec2 uv = (vec2(pixel) + 0.5) / f.size - f.jitter / f.size;
+    const vec2 ndc = vec2(uv.x * 2.0 - 1.0, 1.0 - uv.y * 2.0);
+    const float z = f.proj.w / min(depth - f.proj.z, -1e-8);
+    return vec3(ndc.x * z / f.proj.x, ndc.y * z / f.proj.y, z);
+}
+
+uint Hash(uvec3 v) {
+    v = v * 1664525u + 1013904223u;
+    v.x += v.y * v.z;
+    v.y += v.z * v.x;
+    v.z += v.x * v.y;
+    v ^= v >> 16u;
+    return v.x + v.y * v.z;
+}
+
+float Depth(ivec2 p, ivec2 size);
+
+// A see-through hit at view position `h` against the game's depth (rt_check.comp's comparison):
+// 1 the game drew it there (blocks), 0 the game drew farther there (seen through a gap), -1 off
+// screen or hidden behind something nearer (unknown).
+int ScreenAlpha(FrameConstants f, vec3 h) {
+    if (h.z < 0.05) {
+        return -1;
+    }
+    const vec2 ndc = vec2(h.x * f.proj.x, h.y * f.proj.y) / h.z;
+    const vec2 uv = vec2(ndc.x * 0.5 + 0.5, 0.5 - ndc.y * 0.5);
+    if (any(lessThan(uv, vec2(0.0))) || any(greaterThanEqual(uv, vec2(1.0)))) {
+        return -1;
+    }
+    const ivec2 size = ivec2(f.size);
+    const ivec2 q = clamp(ivec2(uv * f.size + f.jitter - 0.5), ivec2(0), size - 1);
+    const float d = Depth(q, size);
+    const float z = d >= 1.0 ? 1e30 : f.proj.w / min(d - f.proj.z, -1e-8);
+    const float tolerance = h.z * 0.01 + 0.02;
+    return abs(z - h.z) <= tolerance ? 1 : z > h.z ? 0 : -1;
+}
+
+// A ray against the scene: the distance to what it hits, or -1. See-through candidates count
+// with their structure's coverage, or the game's depth where they are on screen.
+float Trace(FrameConstants f, vec3 origin, vec3 dir, float reach, uint flags, uvec2 pixel,
+            uint salt) {
+    rayQueryEXT query;
+    rayQueryInitializeEXT(query, scene, flags, mask, origin, 0.0, dir, reach);
+    while (rayQueryProceedEXT(query)) {
+        if (rayQueryGetIntersectionTypeEXT(query, false) ==
+            gl_RayQueryCandidateIntersectionTriangleEXT) {
+            const uint slot = rayQueryGetIntersectionInstanceCustomIndexEXT(query, false);
+            const int seen = (trace_flags & TraceScreenAlpha) != 0u
+                                 ? ScreenAlpha(f, origin + dir * rayQueryGetIntersectionTEXT(query, false))
+                                 : -1;
+            if (seen >= 0) {
+                if (seen == 1) {
+                    rayQueryConfirmIntersectionEXT(query);
+                }
+                continue;
+            }
+            const uint triangle = rayQueryGetIntersectionPrimitiveIndexEXT(query, false) ^
+                                  (slot << 20);
+            // A shader that discards before its coverage is known: half.
+            const float coverage = Coverage(CoverageStats(stats), slot, 0.5);
+            if (float(Hash(uvec3(pixel, triangle ^ salt)) & 0xFFFFu) < coverage * 65536.0) {
+                rayQueryConfirmIntersectionEXT(query);
+            }
+        }
+    }
+    return rayQueryGetIntersectionTypeEXT(query, true) == gl_RayQueryCommittedIntersectionNoneEXT
+               ? -1.0
+               : rayQueryGetIntersectionTEXT(query, true);
+}
+
+float Depth(ivec2 p, ivec2 size) {
+    return texelFetch(depth_tex, clamp(p, ivec2(0), size - 1), 0).r;
+}
+
+// Sample k of the R2 sequence, shifted by `noise`: the fractions kept as 32-bit integers (the
+// float product lost them after a few hours of frames, leaving u at 0 or 0.5).
+vec2 R2(uint k, float noise) {
+    const uvec2 q = uvec2(k) * uvec2(3242174889u, 2447445414u);
+    return fract(vec2(noise) + vec2(q) * (1.0 / 4294967296.0));
+}
+
+vec3 Orthogonal(vec3 n) {
+    return normalize(abs(n.x) < 0.9 ? cross(n, vec3(1, 0, 0)) : cross(n, vec3(0, 1, 0)));
+}
+
+void main() {
+    FrameConstants f = FrameConstants(frame);
+    const ivec2 size = ivec2(f.size);
+    const ivec2 out_pixel = ivec2(gl_GlobalInvocationID.xy);
+    if (any(greaterThanEqual(out_pixel, imageSize(out_image)))) {
+        return;
+    }
+    const ivec2 pixel = min(out_pixel * int(scale) + int(scale / 2u), size - 1);
+    const float depth = Depth(pixel, size);
+    if (depth >= 1.0) {
+        imageStore(out_image, out_pixel, vec4(1.0, 0.0, 0.0, 0.0));
+        return;
+    }
+    const vec3 p = ViewPosition(f, pixel, depth);
+    // Normal: on each axis the neighbour closer in depth (no smearing across edges).
+    const float dl = Depth(pixel - ivec2(1, 0), size), dr = Depth(pixel + ivec2(1, 0), size);
+    const float du = Depth(pixel - ivec2(0, 1), size), dd = Depth(pixel + ivec2(0, 1), size);
+    const vec3 px = abs(dr - depth) < abs(dl - depth)
+                        ? ViewPosition(f, pixel + ivec2(1, 0), dr) - p
+                        : p - ViewPosition(f, pixel - ivec2(1, 0), dl);
+    const vec3 py = abs(dd - depth) < abs(du - depth)
+                        ? ViewPosition(f, pixel + ivec2(0, 1), dd) - p
+                        : p - ViewPosition(f, pixel - ivec2(0, 1), du);
+    vec3 n = normalize(cross(py, px));
+    if (dot(n, p) > 0.0) {
+        n = -n; // towards the camera
+    }
+    // Pixels without a ray store their depth negated: the filters' depth tests then leave them
+    // out, so their "lit" does not bleed into shadowed neighbours at creases.
+    if (any(isnan(n))) {
+        imageStore(out_image, out_pixel, vec4(1.0, -p.z, 0.0, 0.0));
+        return;
+    }
+    // Off the surface by its depth's precision, so the ray does not hit its own triangle.
+    const vec3 origin = p + n * (0.002 * p.z + 0.01);
+    const float noise = fract(52.9829189 * fract(dot(vec2(out_pixel), vec2(0.06711056, 0.00583715))));
+    const uint count = clamp(rays, 1u, 16u);
+#ifdef SHADOW
+    const vec3 lw = f.light.xyz;
+    if (dot(lw, lw) < 0.5) {
+        imageStore(out_image, out_pixel, vec4(1.0, -p.z, 0.0, 0.0));
+        return;
+    }
+    // Towards the moon, in view space (rays are traced there).
+    const vec3 l = normalize(vec3(dot(f.view[0].xyz, lw), dot(f.view[1].xyz, lw),
+                                  dot(f.view[2].xyz, lw)));
+    // Facing away from the moon (or grazing it): the game's lighting (N.L) has it dark already;
+    // no ray, and no acne where a ray would skim the surface.
+    if (dot(n, l) < 0.03) {
+        imageStore(out_image, out_pixel, vec4(1.0, -p.z, 0.0, 0.0));
+        return;
+    }
+    if ((trace_flags & TraceCheckerboard) != 0u &&
+        ((uint(out_pixel.x + out_pixel.y) + f.frame_index) & 1u) != 0u) {
+        imageStore(out_image, out_pixel, vec4(-1.0, p.z, 0.0, 0.0));
+        return;
+    }
+    const vec3 t = Orthogonal(l);
+    const vec3 b = cross(l, t);
+    float lit = 0.0;
+    for (uint i = 0; i < count; ++i) {
+        const vec2 u = R2(f.frame_index * count + i, noise);
+        const float r = radius * sqrt(u.x);
+        const float phi = 6.28318530718 * u.y;
+        const vec3 dir = normalize(l + t * (r * cos(phi)) + b * (r * sin(phi)));
+        if (Trace(f, origin, dir, reach, gl_RayFlagsTerminateOnFirstHitEXT, uvec2(out_pixel),
+                  f.frame_index * 16u + i) < 0.0) {
+            lit += 1.0;
+        }
+    }
+    imageStore(out_image, out_pixel, vec4(lit / float(count), p.z, 0.0, 0.0));
+#elif defined(REFLECTION)
+    if ((trace_flags & TraceCheckerboard) != 0u &&
+        ((uint(out_pixel.x + out_pixel.y) + f.frame_index) & 1u) != 0u) {
+        imageStore(out_image, out_pixel, vec4(-1.0, p.z, 0.0, 0.0));
+        return;
+    }
+    const vec3 v = normalize(p);
+    const vec3 r = reflect(v, n);
+    if (dot(r, n) < 0.01) {
+        imageStore(out_image, out_pixel, vec4(0.0, -p.z, 0.0, 0.0));
+        return;
+    }
+    // Hybrid planar/ray-traced reflection pass for wet surfaces & puddles:
+    // Central Yharnam and Fishing Hamlet wet cobblestones
+    const float max_reach = reach > 0.0 ? reach : 50.0;
+    const float hit = Trace(f, origin, r, max_reach, gl_RayFlagsNoneEXT, uvec2(out_pixel),
+                            f.frame_index * 16u);
+    // Schlick Fresnel approximation for water (F0 ~ 0.04)
+    const float nv = clamp(dot(n, -v), 0.0, 1.0);
+    const float fresnel = 0.04 + 0.96 * pow(1.0 - nv, 5.0);
+    float reflection_val = 0.0;
+    if (hit >= 0.0) {
+        // Shorter hit distance gives brighter, crisper specular reflection
+        reflection_val = clamp(1.0 - (hit / max_reach), 0.1, 1.0) * fresnel;
+    } else {
+        // Fallback to ambient / sky reflection when no local geometry is intersected
+        reflection_val = 0.15 * fresnel;
+    }
+    imageStore(out_image, out_pixel, vec4(reflection_val, p.z, 0.0, 0.0));
+#else
+    const vec3 t = Orthogonal(n);
+    const vec3 b = cross(n, t);
+    float occlusion = 0.0;
+    // A ray R*sqrt(xi) long hits with probability 1 - (h/R)^2 when the closest hit is at h: the
+    // closest hit's weight on average, with shorter rays that stop at their first hit.
+    const bool closest = (trace_flags & TraceClosestAo) != 0u;
+    const float length_noise = float(Hash(uvec3(out_pixel, 0x9E3779B9u)) & 0xFFFFu) / 65536.0;
+    for (uint i = 0; i < count; ++i) {
+        const uint k = f.frame_index * count + i;
+        const vec2 u = R2(k, noise);
+        const float r = sqrt(u.x);
+        const float phi = 6.28318530718 * u.y;
+        const vec3 dir = normalize(t * (r * cos(phi)) + b * (r * sin(phi)) + n * sqrt(1.0 - u.x));
+        if (closest) {
+            const float hit = Trace(f, origin, dir, radius, gl_RayFlagsNoneEXT, uvec2(out_pixel),
+                                    f.frame_index * 16u + i);
+            if (hit >= 0.0) {
+                const float h = hit / radius;
+                occlusion += 1.0 - h * h;
+            }
+        } else {
+            const float xi = fract(length_noise + float(k * 2654435769u) * (1.0 / 4294967296.0));
+            if (Trace(f, origin, dir, radius * sqrt(xi), gl_RayFlagsTerminateOnFirstHitEXT,
+                      uvec2(out_pixel), f.frame_index * 16u + i) >= 0.0) {
+                occlusion += 1.0;
+            }
+        }
+    }
+    imageStore(out_image, out_pixel, vec4(1.0 - occlusion / float(count), p.z, 0.0, 0.0));
+#endif
+}
