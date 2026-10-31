@@ -95,6 +95,7 @@ The verified 3.2.6 recovery ZIP passes package/native/launcher/ABI checks. Its c
 
 [Features](../../features.md) · [Build/tests](../../build.md) · [Release notes](../../Release_Notes.md).
 
+
 ## Full logs and recovery diagnostics
 
 Launch the 3.2.6 baseline with process environment `BB_FPS_LOG=1` and `BB_VIDEOOUT_BACKPRESSURE=0`; these are environment variables, not new INI keys. Verify `VideoOut admission: mode=observe only`, flag zero and zero gated calls. The first default-on 3.2.5 test lost the GPU; the gate remains opt-in pending hardware investigation.

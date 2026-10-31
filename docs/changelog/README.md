@@ -1,5 +1,6 @@
 # Changelog
 
+- [4.2.10 — Check now answers on the Updates page](changelog-2026-10-30-4.2.10.md)
 - [4.2.9 — Updates from the new repository; GPL v3 licence files](changelog-2026-10-30-4.2.9.md)
 - [4.2.8 — Co-op bells back to normal outside co-op](changelog-2026-10-30-4.2.8.md)
 - [4.2.7 — My settings; Download BBSC back on the Co-op page](changelog-2026-10-30-4.2.7.md)

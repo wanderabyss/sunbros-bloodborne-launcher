@@ -2347,24 +2347,31 @@ class LauncherBackend(QObject):
 
     @Slot(bool)
     def checkForUpdates(self, manual=True):
+        # A manual check answers in the Updates card's status line (Settings) and in the notice
+        # (Home): the notice alone was invisible from Settings, where Check now is.
+        def tell(message):
+            if manual:
+                self._updateProgress.emit(message)
+                self.workerNotice.emit(message)
+
         def work():
             try:
                 version, url, page = core.latest_release()
                 if core.release_is_newer(version):
                     self.updateAvailable.emit(version, url or '', page)
+                    tell(f'Version {version.removeprefix("v")} is available (you have {core.VERSION}).')
                 else:
                     self.updateAvailable.emit('', '', '')  # forget a remembered one
-                    if manual:
-                        self.workerNotice.emit(f'You have the latest version ({core.VERSION}).')
+                    tell(f'You have the latest version ({core.VERSION}).')
             except urllib.request.HTTPError as error:
                 if error.code == 404:
-                    if manual:
-                        self.workerNotice.emit(f'Could not find a published release to compare with (you have {core.VERSION}).')
-                elif manual:
-                    self.workerNotice.emit(f'Could not check for updates: {error}')
+                    tell(f'Could not find a published release to compare with (you have {core.VERSION}).')
+                else:
+                    tell(f'Could not check for updates: {error}')
             except (OSError, ValueError, KeyError) as error:
-                if manual:
-                    self.workerNotice.emit(f'Could not check for updates: {error}')
+                tell(f'Could not check for updates: {error}')
+        if manual and not self._update_busy:
+            self._set_update_status('Checking for updates…')
         threading.Thread(target=work, daemon=True).start()
 
     @Slot(str, str, str)

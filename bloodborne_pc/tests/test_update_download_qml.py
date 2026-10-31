@@ -77,6 +77,35 @@ class BackgroundUpdateTests(unittest.TestCase):
             self.assertFalse(self.backend.updateBusy)
             self.assertIn('failed', self.backend.updateStatus)
 
+    def check_now(self, **latest):
+        """Check now with latest_release patched; returns the card's status lines in order."""
+        seen = []
+        self.backend.updateStateChanged.connect(lambda: seen.append(self.backend.updateStatus))
+        class ImmediateThread:
+            def __init__(self, target, **kwargs): self.target = target
+            def start(self): self.target()
+        with patch.object(module.core, 'latest_release', **latest), \
+             patch.object(module.threading, 'Thread', ImmediateThread), \
+             patch.object(self.backend, 'downloadUpdate'):
+            self.backend.checkForUpdates(True)
+        self.app.processEvents()
+        return seen
+
+    def test_check_now_answers_in_the_updates_card(self):
+        # Check now sits on Settings > Updates; its answer used to go only to the Home notice.
+        current = module.core.VERSION
+        seen = self.check_now(return_value=(f'v{current}', None, 'https://example.invalid/page'))
+        self.assertIn('Checking for updates…', seen)
+        self.assertEqual(self.backend.updateStatus, f'You have the latest version ({current}).')
+        self.assertEqual(self.backend.notice, f'You have the latest version ({current}).')
+        missing = module.urllib.request.HTTPError('https://example.invalid', 404, 'Not Found', {}, None)
+        self.check_now(side_effect=missing)
+        self.assertIn('Could not find a published release', self.backend.updateStatus)
+        self.check_now(side_effect=OSError('offline'))
+        self.assertEqual(self.backend.updateStatus, 'Could not check for updates: offline')
+        self.check_now(return_value=('v99.0.0', 'https://example.invalid/u.zip', 'https://example.invalid/page'))
+        self.assertTrue(self.backend.updateStatus.startswith('Version 99.0.0 is available'))
+
     def test_toggle_is_opt_in_and_starts_available_download(self):
         self.assertFalse(self.backend.app['download_updates'])
         with patch.object(self.backend, 'downloadUpdate') as download:

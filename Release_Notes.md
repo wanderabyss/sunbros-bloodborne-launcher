@@ -1,5 +1,18 @@
 # Release Notes
 
+## [4.2.10+build103026.213511] — 2026-10-30
+### Check now answers on the Updates page
+<!-- launcher:
+### Check now answers
+
+- **Check now** (Settings > Updates) shows "Checking for updates…" and then the answer right under the switches: you have the latest version, a new version is available, or why the check failed.
+-->
+
+4.2.10 is launcher only, on top of 4.2.9: a fix for Check now. Nothing in the game changes.
+
+- **Check now gave no answer on the Updates page:** the result went to the notice on the Home page only, so pressing Check now in Settings > Updates looked like it did nothing. The Updates card now says "Checking for updates…" when you press it, then the result: you have the latest version, version X is available, no published release was found, or why the check failed. Home still shows it too.
+- **While the release repository is private,** every check ends with "Could not find a published release to compare with": the launcher asks GitHub without signing in, so a private repository looks empty to it.
+
 ## [4.2.9+build103026.211310] — 2026-10-30
 ### Updates come from the new SunBro's Edition repository
 <!-- launcher:
