@@ -1,5 +1,18 @@
 # Release Notes
 
+## [4.2.11+build103026.220950] — 2026-10-30
+### Licence and art notes for the public source
+<!-- launcher:
+### Notes for the public source
+
+- Nothing in the launcher or the game changes. The source now carries NVIDIA's DLSS licence next to the DLSS files, and notes which launcher art comes from the game.
+-->
+
+4.2.11 changes no code: it prepares the source for the public repository, wanderabyss/sunbros_bblauncher.
+
+- **NVIDIA's licence next to the DLSS files:** `nvngx_dlss_310.9.1/` now holds `NVIDIA-DLSS-LICENSE.txt` beside `nvngx_dlss.dll` and `nvngx_dlssg.dll`. The package already shipped it in `licenses`.
+- **Launcher art from the game:** the trophy icons, the Bloodborne logo and title font, and the key art and blurred screenshots behind the launcher pages come from Bloodborne. They stay in the package, but the public source leaves them out; `launcher/assets/README.md` lists them and how to build with them. Without them the launcher runs with empty backgrounds and the default font.
+
 ## [4.2.10+build103026.213511] — 2026-10-30
 ### Check now answers on the Updates page
 <!-- launcher:

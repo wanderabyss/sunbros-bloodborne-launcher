@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "bloodborne-pc-custom"
-version = "4.2.10+build103026.213511"
+version = "4.2.11+build103026.220950"
 description = "Custom build of Bloodborne PC port with BBSC 0.0.2 co-op support, DLSS Frame Generation, Vulkan Ray Tracing, and release packaging tools."
 readme = "README.md"
 requires-python = ">=3.10"
