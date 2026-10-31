@@ -6,12 +6,12 @@ fork is based on [Supermedo's Windows port](https://github.com/Supermedo/bloodbo
 Mohammed Albarghouthi, which builds on [deadinside28's bbport](https://github.com/deadinside28/bloodborne_pc)
 and the [shadPS4](https://github.com/shadps4-emu/shadPS4) renderer.
 
-**Current version: 4.2.0** (NVIDIA DLSS: the automatic DLSS model follows NVIDIA's defaults per
-quality mode, and DLSS 4.5 and DLSS 5 are measured at 4K). 4.1.0 brought the new launcher, 4.0.0
-save backups, HDR brightness controls, DLSS 5 neural rendering through the community route and FSR
-4.1.1 on Windows. See the [release notes](../Release_Notes.md), the
-[4.2.0 changelog](../docs/changelog/changelog-2026-10-29-4.2.0.md) and
-[DLSS 4.5 vs DLSS 5 at 4K](../docs/dlss-4.2.0-comparison.md).
+**Current version: 4.2.8** (BBSC's co-op bells turn back into the vanilla bells outside co-op).
+4.2.7 brought Save settings, a tidier Visuals page and a co-op connection check, 4.2.6 seamless
+co-op hosting, 4.2.0 NVIDIA's default DLSS models with DLSS 4.5 and DLSS 5 measured at 4K, 4.1.0
+the new launcher and 4.0.0 save backups, HDR brightness controls, DLSS 5 neural rendering through
+the community route and FSR 4.1.1 on Windows. See the [release notes](../Release_Notes.md), the
+[4.2.8 changelog](../docs/changelog/changelog-2026-10-30-4.2.8.md) and [DLSS 4.5 vs DLSS 5 at 4K](../docs/dlss-4.2.0-comparison.md).
 
 > **No game files are included.** You need your own dump of Bloodborne. This project is not
 > affiliated with Sony Interactive Entertainment or FromSoftware.
@@ -21,7 +21,7 @@ save backups, HDR brightness controls, DLSS 5 neural rendering through the commu
 ## Download
 
 From the [latest release](https://github.com/wanderabyss/sunbros_bblauncher/releases/latest), download
-**`bbport-windows-<version>.zip`** (for example `bbport-windows-4.2.0.zip`; its SHA-256 is in the
+**`bbport-windows-<version>.zip`** (for example `bbport-windows-4.2.8.zip`; its SHA-256 is in the
 release notes) and extract the whole archive. The two **Source code** downloads are for developers.
 Previews of upcoming features are marked *Pre-release* on the
 [releases page](https://github.com/wanderabyss/sunbros_bblauncher/releases).
@@ -108,7 +108,7 @@ What changed in each release: [Release Notes](../Release_Notes.md) and [Changelo
 
 1. Right-click **`bbport-windows-<version>.zip`** and choose **Extract All**. Put the
    `bbport-windows-<version>` folder somewhere permanent, such as
-   `C:\Games\Bloodborne\bbport-windows-4.2.0`. Do not run the game
+   `C:\Games\Bloodborne\bbport-windows-4.2.8`. Do not run the game
    from inside the zip.
 2. Double-click **Bloodborne.exe**. The setup wizard opens on a new install; **Skip setup** goes
    straight to the launcher.
@@ -127,7 +127,7 @@ What changed in each release: [Release Notes](../Release_Notes.md) and [Changelo
 
 ```text
 C:\Games\Bloodborne\
-├── bbport-windows-4.2.0\
+├── bbport-windows-4.2.8\
 │   ├── Bloodborne.exe
 │   └── bin\bb-probe.exe
 └── CUSA03173\                 ← the Game folder
