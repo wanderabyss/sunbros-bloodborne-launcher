@@ -1,5 +1,19 @@
 # Release Notes
 
+## [4.2.13+build103026.224141] — 2026-10-30
+### Issue templates, contributing and security guides
+<!-- launcher:
+### Issue templates and guides
+
+- Bug reports on GitHub now ask for your version, graphics card and last_run.log. Questions go to Discussions. Nothing in the launcher or the game changes.
+-->
+
+4.2.13 changes no code: it gets the repository ready for players and contributors.
+
+- **Bug reports:** a form asks for the version, graphics card and driver, play mode, what happened and `last_run.log`; feature requests have their own form, and questions go to Discussions.
+- **CONTRIBUTING.md and SECURITY.md:** how to report, build, test and send a change, and how to report a security problem privately.
+- **README:** badges for the latest release, downloads, licence and platform, and a social preview image (`docs/images/social-preview.png`) for links shared on Discord, Reddit or X.
+
 ## [4.2.12+build103026.222830] — 2026-10-30
 ### The repository is now sunbros-bloodborne-launcher
 <!-- launcher:

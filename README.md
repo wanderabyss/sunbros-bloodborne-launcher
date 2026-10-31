@@ -1,5 +1,7 @@
 # SunBro's Edition: Bloodborne PC Launcher
 
+[![Latest release](https://img.shields.io/github/v/release/wanderabyss/sunbros-bloodborne-launcher?label=release)](https://github.com/wanderabyss/sunbros-bloodborne-launcher/releases/latest) [![Downloads](https://img.shields.io/github/downloads/wanderabyss/sunbros-bloodborne-launcher/total)](https://github.com/wanderabyss/sunbros-bloodborne-launcher/releases) [![License: GPL-3.0](https://img.shields.io/github/license/wanderabyss/sunbros-bloodborne-launcher)](LICENSE) ![Windows 10 and 11](https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-blue)
+
 <table>
 <tr>
 <td width="200" valign="middle"><img src="docs/images/sunbros-logo.png" width="180" alt="SunBro's Edition logo"/></td>
@@ -7,7 +9,7 @@
 </tr>
 </table>
 
-**v4.2.12:** The repository is now wanderabyss/sunbros-bloodborne-launcher. [Changelog](docs/changelog/changelog-2026-10-30-4.2.12.md) · [All versions](docs/changelog/README.md) · [Release notes](Release_Notes.md) · [DLSS 4.5 vs DLSS 5 at 4K](docs/dlss-4.2.0-comparison.md)
+**v4.2.13:** Issue templates, contributing and security guides, and README badges. [Changelog](docs/changelog/changelog-2026-10-30-4.2.13.md) · [All versions](docs/changelog/README.md) · [Release notes](Release_Notes.md) · [DLSS 4.5 vs DLSS 5 at 4K](docs/dlss-4.2.0-comparison.md)
 
 <a href="docs/media/launcher-4.2.7-tour.mp4"><img src="docs/images/launcher-4.2.7-tour.webp" width="100%" alt="Tour of the 4.2.7 launcher: Home, Visuals presets with their ? tips and Save settings, Online, Co-op, Dossier, Workshop, Settings and the what's-new sheet"/></a>
 
