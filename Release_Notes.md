@@ -1,5 +1,19 @@
 # Release Notes
 
+## [4.2.9+build103026.211310] — 2026-10-30
+### Updates come from the new SunBro's Edition repository
+<!-- launcher:
+### Updates from the new repository
+
+- **Updates and release notes** now come from github.com/wanderabyss/sunbros_bblauncher, the new home of SunBro's Edition with its full source. Settings > Releases and the update notice open it too.
+-->
+
+4.2.9 is launcher only, on top of 4.2.8: releases move to a new repository, and the licence files now say GPL v3. Nothing in the game changes.
+
+- **Releases from wanderabyss/sunbros_bblauncher:** the update check, the update download, **Settings > Releases**, and the release-notes and changelog links in the update sheet all use the new repository, which also holds the complete source. Earlier versions keep checking the old address, so install 4.2.9 once by hand to keep getting update notices.
+- **Licence:** the port as a whole is GPL-3.0-or-later (parts of it are GPL-3.0-or-later, the rest GPL-2.0-or-later), so `LICENSE` is now the GPL v3 text. The GPL v2 text is in `licenses\GPL-2.0.txt`.
+- **Player guide:** says the current version and uses it in the install examples.
+
 ## [4.2.8+build103026.192936] — 2026-10-30
 ### Co-op bells back to normal outside co-op
 <!-- launcher:
