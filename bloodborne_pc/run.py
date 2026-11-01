@@ -13,6 +13,7 @@ import os
 from pathlib import Path
 import re
 import shutil
+import struct
 import subprocess
 import sys
 
@@ -126,6 +127,30 @@ def wait_for(pid):
 def no_console():
     """Started without a console (the launcher): console programs must not open their own."""
     return 0 if ctypes.windll.kernel32.GetConsoleWindow() else subprocess.CREATE_NO_WINDOW
+
+
+def sojin_saves(game, original_game, user_dir):
+    """Saves holding a Sojin Chikage weapon the game no longer has (pc_sojin_chikage off and no mod
+    with it) would not load it: before the game starts, its weapons become the Chikages they were
+    made from (scripts/sojin/save_tool.py; the originals go to a backup beside the save folder)."""
+    try:
+        sys.path.insert(0, str(PORT / 'scripts'))
+        from sojin import save_tool, weapon
+        ids = [struct.pack('<I', v) for v in save_tool.SOJIN]
+        holding = sorted({path.parent for path in user_dir.glob('savedata/*/*/*/userdata00*')
+                          if any(i in path.read_bytes() for i in ids)})
+        if not holding:
+            return
+        weapon.set_game(Path(original_game) / 'dvdroot_ps4')
+        params = Path(game) / 'dvdroot_ps4' / weapon.GAMEPARAM
+        if weapon.has_weapon(params.read_bytes()):
+            return
+    except (OSError, ValueError, KeyError, ImportError, struct.error) as error:
+        print(f'Sojin Chikage: saves not checked ({error})', file=sys.stderr)
+        return
+    for folder in holding:
+        print(f'Sojin Chikage is off: its weapons in {folder} become Chikages', file=sys.stderr)
+        run_script('sojin/save_tool.py', folder, '--before-start', optional=True)
 
 
 def run_script(name, *args, capture=False, optional=False):
@@ -634,6 +659,7 @@ def main():
             online_overrides(env, user_dir)
         else:
             env.pop('BB_NET_BACKEND', None)
+        sojin_saves(game, original_game, user_dir)
         dlss5_environment(env, config, probe.parent)
         this = ['--run'] if getattr(sys, 'frozen', False) else [str(Path(__file__).resolve())]
         restart = [sys.executable, *this, '--after', str(os.getpid()), *args]

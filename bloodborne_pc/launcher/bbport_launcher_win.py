@@ -269,6 +269,8 @@ ENHANCEMENTS = [
                            'Фонари: повышение уровня и хранилище у каждого фонаря'), False),
     ('pc_boss_rematches', ('Boss rematches at their lamps (experimental; back up your saves)',
                            'Повторные бои с боссами у их фонарей (эксперимент; сохраните копию сохранений)'), False),
+    ('pc_sojin_chikage', ('Sojin Chikage: a twin-blade Chikage from the Bath Messengers (every player in a session needs it)',
+                          'Сёдзин Тикагэ: парный Тикагэ у Посланников в Сне охотника (нужен всем игрокам в сессии)'), False),
 ]
 INI_FLAGS = {'sharpen', 'object_motion', 'show_fps', 'mouse_camera', 'mouse_invert_y', 'mouse_menu', 'mouse_hide_cursor', 'frame_gen_fit_display', 'rt_shadow_half', 'rt_secondary_lights', 'rt_reflections', 'hdr',
              *(k for k, _t, _o in EFFECTS + EXTRAS + CHEATS + TWEAKS + ENHANCEMENTS + ATLAS)}
