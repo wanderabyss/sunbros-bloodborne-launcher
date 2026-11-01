@@ -570,6 +570,104 @@ def keep_pc_menu_text(layers, generated, out):
     return [*layers, (PC_MENU_TEXT_LAYER, folder)]
 
 
+# Sojin Chikage's layer (enhancements.py pc_sojin_chikage) adds rows to the gameparam and names to
+# every item text. A player's mod above it with its own copy of either (ShopEdit's gameparam, a
+# text mod) would hide the weapons, and a save holding one would not load them. The rows and
+# names are added to that copy instead, in a layer on top; the shop rows go to the ranges the
+# Bath Messengers' talk script on top opens (ShopEdit's own shop, or the game's five stages).
+SOJIN_LAYER = 'sojin-chikage'
+SOJIN_MERGE_LAYER = 'sojin-chikage-merge'
+SOJIN_PARAM = ('dvdroot_ps4', 'param', 'gameparam', 'gameparam.parambnd.dcx')
+SOJIN_TALK = ('dvdroot_ps4', 'script', 'talk', 'm21_00_00_00.talkesdbnd.dcx')
+SOJIN_TEXT = 'item.msgbnd.dcx'
+SOJIN_OWN = {('dvdroot_ps4', 'chr', 'c0000.anibnd.dcx'), ('dvdroot_ps4', 'parts', 'wp_a_1062.partsbnd.dcx'),
+             ('dvdroot_ps4', 'parts', 'wp_a_1062_l.partsbnd.dcx')}
+
+
+def sojin_identity():
+    here = Path(__file__).resolve().parent
+    digest = hashlib.sha256()
+    for path in [here / 'fromsoft.py', here / 'esd.py', *sorted((here / 'sojin').glob('*.py'))]:
+        try:
+            digest.update(path.read_bytes())
+        except OSError:
+            pass
+    return f'sojin-merge 1 {digest.hexdigest()[:16]}'
+
+
+def keep_sojin(layers, game, out):
+    """`layers`, with one more on top when a layer above Sojin Chikage's replaces the gameparam,
+    the Hunter's Dream talk script or an item text: those files with the weapons added. A mod
+    that already has the weapons (the stand-alone Sojin Chikage mod) is used as it is, and one
+    replacing the moveset or model files is only reported."""
+    names = [name for name, _root in layers]
+    if SOJIN_LAYER not in names:
+        return layers
+    above = layers[names.index(SOJIN_LAYER) + 1:]
+    owners = {}   # game path, case-folded -> (game path, file, layer): the last layer wins
+    talk = None   # the talk script on top, from any layer
+    for name, root in layers:
+        for relative, source in mod_files(root):
+            parts = tuple(p.casefold() for p in relative.parts)
+            if parts == SOJIN_TALK:
+                talk = source
+            if name == SOJIN_LAYER or (name, root) not in above:
+                continue
+            if parts == SOJIN_PARAM or (len(parts) == 4 and parts[1] == 'msg' and parts[3] == SOJIN_TEXT):
+                owners[relative.as_posix().casefold()] = (relative, source, name)
+            elif parts in SOJIN_OWN:
+                print(f'Mods: {name} replaces {relative.as_posix()}, which Sojin Chikage also makes; the '
+                      'mod\'s copy is used and the weapon may not work', file=sys.stderr)
+    if not owners:
+        return layers
+    talk = talk or Path(game) / Path(*SOJIN_TALK)
+    folder = Path(out) / SOJIN_MERGE_LAYER
+    stamp_file = folder / 'stamp.txt'
+    lines = [sojin_identity()]
+    for source in [talk, *(owners[key][1] for key in sorted(owners))]:
+        info = source.stat()
+        lines.append(f'{source}\t{info.st_size}\t{int(info.st_mtime)}')
+    stamp = '\n'.join(lines) + '\n'
+    try:
+        previous = stamp_file.read_text(encoding='utf-8')
+    except OSError:
+        previous = None
+    if previous == stamp and folder.is_dir():
+        return [*layers, (SOJIN_MERGE_LAYER, folder)]
+    # Only this function's own files are here: nothing in it is a link into the game.
+    if folder.is_dir() and not is_link(folder):
+        shutil.rmtree(folder)
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from sojin import weapon
+    weapon.set_game(Path(game) / 'dvdroot_ps4')
+    made = 0
+    for key in sorted(owners):
+        relative, source, name = owners[key]
+        data = source.read_bytes()
+        try:
+            if relative.name.casefold() == SOJIN_TEXT:
+                data = weapon.add_text(data)
+            elif weapon.has_weapon(data):
+                print(f'Mods: {name} already has Sojin Chikage; its {relative.as_posix()} is used as it is',
+                      file=sys.stderr)
+                continue
+            else:
+                data = weapon.add_params(data, talk.read_bytes())
+        except (weapon.SojinError, OSError, ValueError, KeyError, IndexError, struct.error) as error:
+            print(f'Mods: Sojin Chikage not added to {name}\'s {relative.as_posix()} ({error}); the weapon '
+                  'is missing while that mod is on', file=sys.stderr)
+            continue
+        target = folder / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(data)
+        made += 1
+        print(f'Mods: Sojin Chikage added to {name}\'s {relative.as_posix()}', file=sys.stderr)
+    if not made:
+        return layers
+    stamp_file.write_text(stamp, encoding='utf-8')
+    return [*layers, (SOJIN_MERGE_LAYER, folder)]
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('game', type=Path)
@@ -621,6 +719,10 @@ def main():
         layers = keep_pc_menu_text(layers, generated, args.out)
     except (OSError, ValueError) as error:
         print(f'Mods: PC menu strings not merged ({error})', file=sys.stderr)
+    try:
+        layers = keep_sojin(layers, args.game, args.out)
+    except (OSError, ValueError) as error:
+        print(f'Mods: Sojin Chikage not merged ({error})', file=sys.stderr)
     print(build_overlay(args.game, args.out, layers, args.owner_pid))
 
 

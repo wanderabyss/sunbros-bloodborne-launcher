@@ -1,5 +1,21 @@
 # Release Notes
 
+## [4.2.15+build110126.130659] — 2026-11-01
+### Sojin Chikage, a twin-blade Chikage at the Bath Messengers
+<!-- launcher:
+### Sojin Chikage
+
+- A new weapon: switch on **Sojin Chikage** on the Mods page. The Bath Messengers sell it, its Uncanny and its Lost version for 10,000 Blood Echoes each. Normal mode is the Chikage's katana; transformed, it fights with two blood blades and has three abilities: Blood Rhythm, Blood Crescent and Bankai (R1, then L1 mid-swing). Every player in a co-op session needs it on.
+-->
+
+4.2.15 adds an optional weapon, made from your own game files at start (off by default; the release ships no game files).
+
+- **Three weapons:** Sojin Chikage, Uncanny Sojin Chikage and Lost Sojin Chikage, with that Chikage's stats, scaling, upgrades and gem slots. The Bath Messengers sell each at +0 for 10,000 Blood Echoes from the start; with ShopEdit on, they are in ShopEdit's shop.
+- **Moves:** the Chikage's katana in normal mode; the Blade of Mercy's twin-blade moveset with a blood hit on every cut in trick mode, balanced to the Chikage's transformed damage per second. The blades drain 0.4 % HP a second while drawn.
+- **Abilities:** Blood Rhythm (up to five stacks, +4 % damage each), Blood Crescent (a blood wave on the second R2) and Bankai (R1, then L1 mid-swing: 20 % of your HP for 30 s of +15 % damage, more bleed and a heal on every hit). HUD icons show them.
+- **Your saves:** switched off, the launcher turns the weapons in your saves into the matching Chikage before the game starts, with a backup beside the save folder.
+- **If you used the stand-alone Sojin Chikage mod:** remove it from the mods folder; its weapon carries over as Lost Sojin Chikage.
+
 ## [4.2.14+build103026.235301] — 2026-10-30
 ### DLSS 4.5 and DLSS 5 side by side in the README
 <!-- launcher:

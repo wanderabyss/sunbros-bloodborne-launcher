@@ -30,6 +30,12 @@ engine/maiden_events.cpp and engine/dream_mirror_layout.cpp.
                                               (boss_rematches.py). Brings the lamps' menu with it;
                                               the permanent defeat flags and first-kill rewards are
                                               left alone.
+  pc_sojin_chikage      (BB_PC_SOJIN)         Sojin Chikage, the twin-blade Chikage (sojin/weapon.py):
+                                              three weapons (normal, Uncanny, Lost) the Bath
+                                              Messengers sell at +0 for 10,000 Blood Echoes. Every
+                                              player in a session needs it on. mods.py adds its rows
+                                              to a mod's own gameparam (ShopEdit, ...); run.py turns
+                                              the weapons in a save into Chikages when it is off.
   pc_menu               (BB_PC_MENU)          the in-game PC menu's assets (menu_assets.py): its
                                               sections in the options movie and its strings in
                                               every language. On by default: it only adds rows.
@@ -57,6 +63,7 @@ FEATURES = {
     'pc_enhanced_lamps': ('BB_PC_LAMPS', 'enhanced-lamps', 'Lamps: Level Up and Storage'),
     # After the lamps: its Central Yharnam talk archive adds the rematch to the lamp menu.
     'pc_boss_rematches': ('BB_PC_REMATCHES', 'boss-rematches', 'Boss rematches at their lamps (experimental)'),
+    'pc_sojin_chikage': ('BB_PC_SOJIN', 'sojin-chikage', 'Sojin Chikage (twin-blade Chikage)'),
     'pc_menu': ('BB_PC_MENU', 'pc-menu', 'In-game PC menu (System > PC Settings)'),
 }
 # Keep the original System menu. The launcher owns the PC graphics/settings controls;
@@ -65,7 +72,7 @@ DEFAULT_ON = set()
 # Still a first test: the launcher labels its toggle experimental; none in the overlay.
 EXPERIMENTAL = {'pc_boss_rematches'}
 # Bumped when a rewrite changes, so every install makes its files again.
-VERSION = 'enhancements 5'  # 5: rematches for every boss with a lamp
+VERSION = 'enhancements 6'  # 6: Sojin Chikage
 
 
 def sha256(data):
@@ -413,13 +420,24 @@ def boss_rematches(dvdroot, keys=()):
     return files
 
 
+def sojin_chikage(dvdroot):
+    """The weapon's files (sojin/weapon.py), or none when the dump is not the one it knows."""
+    from sojin import weapon
+    try:
+        return {Path(relative): data for relative, data in weapon.make(dvdroot).items()}
+    except (weapon.SojinError, OSError, ValueError, KeyError, IndexError, struct.error) as error:
+        print(f'Enhancements: Sojin Chikage left out ({error})', file=sys.stderr)
+        return {}
+
+
 def pc_menu(dvdroot):
     import menu_assets
     return menu_assets.make(dvdroot, log=lambda line: print(f'Enhancements: {line}', file=sys.stderr))
 
 
 MAKERS = {'pc_two_invaders': two_invaders, 'pc_mirror_appearance': dream_mirror, 'pc_rebirth': rebirth,
-          'pc_enhanced_lamps': enhanced_lamps, 'pc_boss_rematches': boss_rematches, 'pc_menu': pc_menu}
+          'pc_enhanced_lamps': enhanced_lamps, 'pc_boss_rematches': boss_rematches,
+          'pc_sojin_chikage': sojin_chikage, 'pc_menu': pc_menu}
 # Makers whose files depend on which other features are on (their stamp names those features).
 COMBINED = {'pc_enhanced_lamps': ('pc_rebirth',), 'pc_boss_rematches': ('pc_rebirth', 'pc_two_invaders')}
 
@@ -456,6 +474,8 @@ def generator():
             digest.update((here / name).read_bytes())
         except OSError:
             pass
+    for path in sorted((here / 'sojin').glob('*.py')):
+        digest.update(path.read_bytes())
     return f'{VERSION} {digest.hexdigest()[:16]}'
 
 

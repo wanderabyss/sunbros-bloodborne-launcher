@@ -9,7 +9,7 @@
 </tr>
 </table>
 
-**v4.2.14:** The README shows DLSS 4.5 and DLSS 5 side by side. [Changelog](docs/changelog/changelog-2026-10-30-4.2.14.md) · [All versions](docs/changelog/README.md) · [Release notes](Release_Notes.md) · [DLSS 4.5 vs DLSS 5 at 4K](docs/dlss-4.2.0-comparison.md)
+**v4.2.15:** Sojin Chikage, a twin-blade Chikage the Bath Messengers sell (Mods page, off by default). [Changelog](docs/changelog/changelog-2026-11-01-4.2.15.md) · [All versions](docs/changelog/README.md) · [Release notes](Release_Notes.md) · [DLSS 4.5 vs DLSS 5 at 4K](docs/dlss-4.2.0-comparison.md)
 
 <a href="docs/media/launcher-4.2.7-tour.mp4"><img src="docs/images/launcher-4.2.7-tour.webp" width="100%" alt="Tour of the 4.2.7 launcher: Home, Visuals presets with their ? tips and Save settings, Online, Co-op, Dossier, Workshop, Settings and the what's-new sheet"/></a>
 

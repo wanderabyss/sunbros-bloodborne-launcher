@@ -6,8 +6,8 @@ fork is based on [Supermedo's Windows port](https://github.com/Supermedo/bloodbo
 Mohammed Albarghouthi, which builds on [deadinside28's bbport](https://github.com/deadinside28/bloodborne_pc)
 and the [shadPS4](https://github.com/shadps4-emu/shadPS4) renderer.
 
-**Current version: 4.2.14** (the README shows DLSS 4.5 and DLSS 5 side by side; no code changes).
-See the [release notes](../Release_Notes.md), the [4.2.14 changelog](../docs/changelog/changelog-2026-10-30-4.2.14.md),
+**Current version: 4.2.15** (Sojin Chikage, a twin-blade Chikage the Bath Messengers sell).
+See the [release notes](../Release_Notes.md), the [4.2.15 changelog](../docs/changelog/changelog-2026-11-01-4.2.15.md),
 [all versions](../docs/changelog/README.md) and [DLSS 4.5 vs DLSS 5 at 4K](../docs/dlss-4.2.0-comparison.md).
 
 > **No game files are included.** You need your own dump of Bloodborne. This project is not
@@ -18,7 +18,7 @@ See the [release notes](../Release_Notes.md), the [4.2.14 changelog](../docs/cha
 ## Download
 
 From the [latest release](https://github.com/wanderabyss/sunbros-bloodborne-launcher/releases/latest), download
-**`bbport-windows-<version>.zip`** (for example `bbport-windows-4.2.14.zip`; its SHA-256 is in the
+**`bbport-windows-<version>.zip`** (for example `bbport-windows-4.2.15.zip`; its SHA-256 is in the
 release notes) and extract the whole archive. The two **Source code** downloads are for developers.
 Previews of upcoming features are marked *Pre-release* on the
 [releases page](https://github.com/wanderabyss/sunbros-bloodborne-launcher/releases).
@@ -89,6 +89,13 @@ the guide. They are made from your own game files at start, which stay unchanged
   editor, the developers' unused "Put on Disguise".
 - **Two invaders** (`pc_two_invaders`) in Mensis, Mergo's Loft, the Nightmare Frontier and the
   Old Hunters' areas. Every player in a session needs it on.
+- **Sojin Chikage** (`pc_sojin_chikage`): the Chikage reforged as twin blades. Normal mode is
+  the Chikage's katana; trick mode is the Blade of Mercy's twin-blade moveset with a blood hit
+  on every cut, plus Blood Rhythm, Blood Crescent and Bankai. The Bath Messengers sell it, its
+  Uncanny and its Lost version at +0 for 10,000 Blood Echoes each (in ShopEdit's shop when
+  ShopEdit is on). Every player in a session needs it on. Switched off, the launcher turns
+  the weapons in your saves into the Chikages they were made from (a backup stays beside the
+  save folder).
 
 **Also**
 - Online play (beta): messages, bloodstains and ghosts through
@@ -105,7 +112,7 @@ What changed in each release: [Release Notes](../Release_Notes.md) and [Changelo
 
 1. Right-click **`bbport-windows-<version>.zip`** and choose **Extract All**. Put the
    `bbport-windows-<version>` folder somewhere permanent, such as
-   `C:\Games\Bloodborne\bbport-windows-4.2.14`. Do not run the game
+   `C:\Games\Bloodborne\bbport-windows-4.2.15`. Do not run the game
    from inside the zip.
 2. Double-click **Bloodborne.exe**. The setup wizard opens on a new install; **Skip setup** goes
    straight to the launcher.
@@ -124,7 +131,7 @@ What changed in each release: [Release Notes](../Release_Notes.md) and [Changelo
 
 ```text
 C:\Games\Bloodborne\
-├── bbport-windows-4.2.14\
+├── bbport-windows-4.2.15\
 │   ├── Bloodborne.exe
 │   └── bin\bb-probe.exe
 └── CUSA03173\                 ← the Game folder
@@ -233,6 +240,7 @@ page take precedence:
 | Rebirth | `pc_rebirth=1` | `BB_PC_REBIRTH=1` |
 | Hunter's Dream mirror | `pc_mirror_appearance=1` | `BB_PC_MIRROR=1` |
 | Two invaders | `pc_two_invaders=1` | `BB_PC_TWO_INVADERS=1` |
+| Sojin Chikage | `pc_sojin_chikage=1` | `BB_PC_SOJIN=1` |
 | Mouse camera | `mouse_camera=0` turns it off | `BB_MOUSE_CAMERA=0` |
 | Mouse flick that switches lock-on targets (mouse counts; higher needs a bigger flick) | `mouse_flick_threshold=300`, `0` turns it off | `BB_MOUSE_DEBUG=1` logs it |
 | Mouse pointer in the game's menus | `mouse_menu=0` turns it off | `BB_MOUSE_MENU=0` |
@@ -252,7 +260,7 @@ page take precedence:
 - Character creation could show a blank or ghosted preview on the first visit; 1.6.12 and 1.6.13
   previews include a fix that still needs confirming in play. Backing out and choosing New Game again
   restores it.
-- Rebirth and two invaders have not been tested in play yet.
+- Rebirth and two invaders have not been tested in play yet; Sojin Chikage not in co-op yet.
 - Keep the frame cap at 120 FPS or lower. The sprint fix removes the known half-speed sprint
   above it, but higher caps are not tested yet.
 - Areas and effects beyond the shader catalog (so far, after the Blood-starved Beast) still
