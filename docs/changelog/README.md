@@ -1,5 +1,6 @@
 # Changelog
 
+- [4.2.16 — Sojin Chikage balance: Bankai is earned, the twin blades match the Chikage](changelog-2026-11-01-4.2.16.md)
 - [4.2.15 — Sojin Chikage, a twin-blade Chikage at the Bath Messengers](changelog-2026-11-01-4.2.15.md)
 - [4.2.14 — DLSS 4.5 and DLSS 5 side by side in the README](changelog-2026-10-30-4.2.14.md)
 - [4.2.13 — Issue templates, contributing and security guides](changelog-2026-10-30-4.2.13.md)

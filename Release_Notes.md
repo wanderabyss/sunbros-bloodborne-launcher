@@ -1,5 +1,25 @@
 # Release Notes
 
+## [4.2.16+build110126.171450] — 2026-11-01
+### Sojin Chikage balance: Bankai is earned, the twin blades match the Chikage
+<!-- launcher:
+### Sojin Chikage balance
+
+- Bankai now needs full Blood Rhythm and comes in three forms: Awakening (R1, then L1 mid-swing from the katana), Crimson Moon (R2 R2) and Blood Ward (L2). Bleed comes slower, the twin blades stagger and tire you like the Chikage's transformed form, and Bankai works only with the blood blades out.
+-->
+
+4.2.16 rebalances the Sojin Chikage after play tests. Switch it on as before (Mods page); the weapon is rebuilt from your game files the first time you start 4.2.16.
+
+- **Twin blades:** damage per second stays the Chikage's transformed form's. Their stagger and stamina damage now take the same 65 % as their damage, and their stamina costs are 1.25x the Blade of Mercy's, so a combo tires you as the Chikage's does. The drain is 0.6 % HP a second while drawn.
+- **Bleed:** 15 per twin hit (was 20); blood loss from the Sojin weapons deals 6 % of the enemy's max HP + 50 (the Chikage's own stays 10 % + 100). The transform back to the katana builds 20 (was 30).
+- **Blood Rhythm:** +4 % damage per stack, up to five; no extra bleed. The stacks drop 3 s after your last hit (was 5).
+- **Bankai needs full Blood Rhythm** (the red icon), and stays ready 4 s after it. Three forms, each paying in HP; without full Rhythm the moves are the plain moves and cost nothing:
+  - **Awakening** (R1, then L1 mid-swing from the katana): about 20 % of your current HP for 30 s of +10 % damage, +5 bleed and a small heal on every hit, with the blood blades out. No extra drain.
+  - **Crimson Moon** (R2 R2): about 10 % for 1.2 s of x1.6 damage and +15 bleed over the finisher and its Blood Crescent.
+  - **Blood Ward** (L2): about 10 % for 20 s of 20 % less damage taken.
+- **Costs** come in 1 % steps of your max HP, are never lethal and are free only below 5 % HP. They cannot be won back by rally (before, the move's own hit regained them at once). The Bankai shockwave deals 40 % of the attack rating.
+- **Normal mode** is unchanged: the Chikage's katana at the Chikage's numbers.
+
 ## [4.2.15+build110126.130659] — 2026-11-01
 ### Sojin Chikage, a twin-blade Chikage at the Bath Messengers
 <!-- launcher:

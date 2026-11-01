@@ -7,10 +7,14 @@ Inserts exactly the events of abilities.TAE_EVENTS (abilities-notes.md section 3
   * 41100 (trick R2 finisher, attack judge 510): type 318 (12130, 0, 591, 0), frames 19-20
     -> behaviour 102030591, Blood Crescent.
   * 33300 (judge 395) and 33310 (judge 390), the transform attacks into trick mode:
-    10 x type 66 (2030110 .. 2030119) frames 14-15 (HP cost bands, highest first),
-    3 x type 401 (2030100, 2030101, 2030103) frames 15-18 (20 s buffs),
-    type 318 (9, 0, 396, 0) frames 16-17 (shockwave), and the two FFX type 96
+    20 x type 66 (2030110 .. 2030129) frames 14-15 (HP cost bands, highest first),
+    2 x type 67 starters of the 30 s effects, 2030107 and 2030108 frames 15-16, valid only with
+    full Blood Rhythm, type 318 (9, 0, 396, 0) frames 16-17 (shockwave), and the two FFX type 96
     (252060, 220, 0) frames 16-31 and (7119, 12130, 0) frames 17-32.
+  * 41100 again (Crimson Moon): 10 x type 66 cost bands (every other one, half the cost) frames
+    14-15 and 2 x type 67 starters (2030137, 2030138) frames 15-16; 46000 (L2, attack 930, Blood
+    Ward): the same 10 cost bands frames 10-11 and starter 2030139 frames 11-12. All valid only with
+    full Blood Rhythm.
 Each new event is appended to the animation's event list and gets an event group of its own, as
 the game does for these types (every 318 event in the game sits in a group of type 2; 66 / 96 /
 401 events sit in groups of their own type, one event per group in Blade of Mercy's animations).
@@ -37,7 +41,7 @@ FPS = 30.0
 # event types sit in groups of their own type.
 GROUP_TYPE = {318: 2, 66: 66, 67: 67, 96: 96, 401: 401}
 # Attack judge each target animation must carry (a157 copies these from a113).
-EXPECT_JUDGE = {41100: 510, 33300: 395, 33310: 390}
+EXPECT_JUDGE = {41100: 510, 33300: 395, 33310: 390, 46000: 930}
 ATTACK_EVENT = 1
 
 

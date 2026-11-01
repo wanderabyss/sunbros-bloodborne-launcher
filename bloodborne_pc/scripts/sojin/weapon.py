@@ -6,7 +6,8 @@ Three weapons, as the Chikage has: Sojin Chikage, Uncanny Sojin Chikage and Lost
 each with that Chikage's stats, scaling, upgrades and gem slots, +0 to +10. Normal mode is
 Chikage's katana moveset; trick mode (L1) is Blade of Mercy's twin-blade moveset with a blood hit
 on every cut and three abilities (abilities.py): Blood Rhythm, Blood Crescent and Bankai. The
-twin attacks keep 65 % of Blade of Mercy's motion values, so their damage per second is the
+twin attacks keep 65 % of Blade of Mercy's motion values (damage, stagger and stamina damage) and
+pay 1.25x its stamina costs, so their damage and stagger per second and damage per stamina are the
 Chikage's transformed form's; the abilities give the edge. The Bath Messengers sell each at +0
 for 10,000 Blood Echoes, in every range their talk script opens (the five price stages).
 
@@ -48,9 +49,15 @@ RHYTHM_FIRST = 2030001              # Blood Rhythm stack 1, on every trick-mode 
 BLOOD_HIT = 6400                    # Chikage's trick-mode blood hit
 BLOOD_ATTRIBUTE = 4                 # Chikage's trick-mode attack attribute
 # The twin moveset's hits come about 1.5x as often as Chikage's transformed ones and Blade of
-# Mercy's motion values were set for its own low attack: twin attacks keep 65 % of them.
+# Mercy's motion values were set for its own low attack: twin attacks keep 65 % of them. That
+# goes for their stagger (poise) and stamina damage too, which Blade of Mercy sets for its own
+# poise base of 5 against the Chikage's 15: unscaled, the twin blades staggered 1.5x as fast.
 TWIN_MV_SCALE = 0.65
-TWIN_MV_FIELDS = ("atkPhysCorrection", "atkMagCorrection", "atkFireCorrection", "atkThunCorrection")
+TWIN_MV_FIELDS = ("atkPhysCorrection", "atkMagCorrection", "atkFireCorrection", "atkThunCorrection",
+                  "atkStamCorrection", "atkSuperArmorCorrection")
+# Blade of Mercy's stamina costs are a light weapon's: at them the twin chain did 27 % more damage
+# per stamina than Chikage's transformed one. x1.25 brings it to Chikage's (4.0 MV a point).
+TWIN_STAMINA_SCALE = 1.25
 MODEL, CHIKAGE_MODEL = 1062, 1063   # 1062: a model number no weapon uses
 # Model part sockets (character dummy poly; -1 hidden), per form: Hang, normal (A), trick (B).
 #   0 katana: right hand in normal mode, hung at Blade of Mercy's point (400; Chikage's own 412
@@ -105,14 +112,40 @@ def label(name, level):
 
 
 def bleeds(judge):
-    """Trick-mode attacks that carry the blood hit, as Chikage's own: the transform attacks and
-    every trick-mode attack except close range (700) and the falling attack's landing (741)."""
-    return judge in (390, 395, 930) or (400 <= judge < 800 and judge not in (700, 741))
+    """Trick-mode attacks that carry the blood hit, as Chikage's own: the transform attack back
+    (790/795) and every trick-mode attack except close range (700) and the falling attack's landing
+    (741). Not the transform attack into trick mode (390/395): it is Bankai, and its blood hit with
+    the shockwave's made one Bankai bleed a full-HP enemy out."""
+    return judge == 930 or (400 <= judge < 800 and judge not in (700, 741))
 
 
 def twin_mv(value):
     """A twin attack's motion value (%) from Blade of Mercy's, rounded half up."""
     return int(value * TWIN_MV_SCALE + 0.5)
+
+
+def twin_stamina(value):
+    """A twin attack's stamina cost from Blade of Mercy's, rounded half up."""
+    return int(value * TWIN_STAMINA_SCALE + 0.5)
+
+
+def row_sources(mercy_judges, chikage_judges, judges):
+    """{judge: (source variation, source judge)} for every behaviour row of variation 2030: Blade
+    of Mercy's table (its trick mode, and rows other animations may use, such as the close-range
+    ones), each judge the combined moveset attacks with from its source, and the normal-mode rows
+    the moveset leaves unused from Chikage's table, as the moveset is Chikage's there."""
+    table = {j: (VAR_MERCY, j) for j in mercy_judges}
+    for j in mercy_judges:
+        if j < 390 and j in chikage_judges:
+            table[j] = (VAR_CHIKAGE, j)
+    table.update(judges)
+    return table
+
+
+def is_twin(judge, src_var, judges):
+    """A twin-blade attack: from Blade of Mercy's table, and one the moveset attacks with or a
+    trick-mode cut (its unused dodge attacks too, so they never hit harder than the rest)."""
+    return src_var == VAR_MERCY and (judge in judges or bleeds(judge))
 
 
 _MOVESET = None
@@ -208,7 +241,7 @@ def add_params(param_raw, talk_raw):
     """`param_raw` (a gameparam.parambnd.dcx) with the weapons, their moveset's behaviour and
     attack rows, the abilities and the shop rows (in the ranges `talk_raw` opens) added. Rows
     that are there already are left as they are; SojinError when the ids are taken."""
-    from abilities import add_abilities, TWIN_BLOOD_HIT, TWIN_DRAIN
+    from abilities import add_abilities, TWIN_BLOOD_HIT, BACK_BLOOD_HIT, TWIN_DRAIN
     _tae, judges = moveset()
     defs = load_paramdefs()
     gp = _open(param_raw)
@@ -233,16 +266,13 @@ def add_params(param_raw, talk_raw):
     if any(sort + level in sorts for _n, _f, _s, sort in VARIANTS for level in LEVELS):
         raise SojinError("sort ids taken")
 
-    # Behaviour variation 2030: Blade of Mercy's table (its trick mode, and rows other animations
-    # use, such as the visceral attacks), then each judge the combined moveset attacks with from
-    # its source: normal mode from Chikage's table, trick mode from Blade of Mercy's.
+    # Behaviour variation 2030 (row_sources): normal mode from Chikage's table, trick mode from
+    # Blade of Mercy's.
     def rows_of(var):
         return {b.get(r, "behaviorJudgeId"): r for r in b.rows if b.get(r, "variationId") == var}
     by_var = {VAR_CHIKAGE: rows_of(VAR_CHIKAGE), VAR_MERCY: rows_of(VAR_MERCY)}
-    sources = dict(by_var[VAR_MERCY])
-    for judge, (src_var, src_judge) in judges.items():
-        sources[judge] = by_var[src_var][src_judge]
-    for judge, src in sorted(sources.items()):
+    for judge, (src_var, src_judge) in sorted(row_sources(by_var[VAR_MERCY], by_var[VAR_CHIKAGE], judges).items()):
+        src = by_var[src_var][src_judge]
         if b.get(src, "refType") != 0:
             raise SojinError(f"behaviour {src} is not an attack")
         src_atk, new_atk = b.get(src, "refId"), VAR * 1000 + judge
@@ -252,13 +282,14 @@ def add_params(param_raw, talk_raw):
         b.set(new, "behaviorJudgeId", judge)   # a renumbered source (790/795 from 395/390)
         b.set(new, "refId", new_atk)
         a.add(new_atk, src_atk, "Sojin Chikage: " + a.name(src_atk))
-        if judges.get(judge, (None,))[0] == VAR_MERCY:   # a twin attack of the combined moveset
+        if is_twin(judge, src_var, judges):
             for f in TWIN_MV_FIELDS:
                 a.set(new_atk, f, twin_mv(a.get(new_atk, f)))
+            b.set(new, "stamina", twin_stamina(b.get(new, "stamina")))
         if bleeds(judge):
             if a.get(new_atk, "spEffectId1") not in (-1, BLOOD_HIT):
                 raise SojinError(f"attack {judge} has another spEffectId1")
-            a.set(new_atk, "spEffectId1", BLOOD_HIT if judge in (790, 795) else TWIN_BLOOD_HIT)
+            a.set(new_atk, "spEffectId1", BACK_BLOOD_HIT if judge in (790, 795) else TWIN_BLOOD_HIT)
             if judge not in (790, 795):  # transform back to normal: Chikage keeps the cut's own attribute
                 a.set(new_atk, "atkAttribute", BLOOD_ATTRIBUTE)
 
@@ -400,7 +431,7 @@ def verify(files, base_param):
     def check(ok, what):
         if not ok:
             raise SojinError(f"check failed: {what}")
-    from abilities import TWIN_BLOOD_HIT, TWIN_DRAIN
+    from abilities import TWIN_BLOOD_HIT, BACK_BLOOD_HIT, TWIN_DRAIN
     tae, judges = moveset()
     defs = load_paramdefs()
     gp, orig = _open(files[GAMEPARAM]), _open(base_param)
@@ -412,7 +443,7 @@ def verify(files, base_param):
     check(changed == {n for n, _st in PARAMS}, f"only the expected params changed ({sorted(changed)})")
     w0, w = P(orig, *PARAMS[0]), P(gp, *PARAMS[0])
     g, s = P(gp, *PARAMS[1]), P(gp, *PARAMS[2])
-    b, a, a0 = P(gp, *PARAMS[3]), P(gp, *PARAMS[4]), P(orig, *PARAMS[4])
+    b, a, a0, b0 = P(gp, *PARAMS[3]), P(gp, *PARAMS[4]), P(orig, *PARAMS[4]), P(orig, *PARAMS[3])
     for name, first, source, sort in VARIANTS:
         for level in LEVELS:
             new, chik = first + level * 100, source + level * 100
@@ -432,24 +463,30 @@ def verify(files, base_param):
     mercy = {b.get(r, "behaviorJudgeId") for r in b.rows if b.get(r, "variationId") == VAR_MERCY}
     check({b.get(r, "behaviorJudgeId") for r in mine} == mercy | set(judges) | ABILITY_JUDGES, "judge set")
     bl = P(gp, *PARAMS[6])
-    for judge, (src_var, src_judge) in judges.items():   # each judge's hits are its source's
-        new_atk, src_atk = VAR * 1000 + judge, src_var * 1000 + src_judge
+    def judges_of(var):
+        return {b0.get(r, "behaviorJudgeId"): r for r in b0.rows if b0.get(r, "variationId") == var}
+    table = row_sources(judges_of(VAR_MERCY), judges_of(VAR_CHIKAGE), judges)
+    for judge, (src_var, src_judge) in table.items():   # each judge's hits, values and cost are its source's
+        new_atk, src = VAR * 1000 + judge, 100000000 + src_var * 1000 + src_judge
+        src_atk, twin = b0.get(src, "refId"), is_twin(judge, src_var, judges)
         for h in range(4):
             for k in (1, 2):
                 f = f"hit{h}_DmyPoly{k}"
                 check(a.get(new_atk, f) == a0.get(src_atk, f), f"attack {judge} {f}")
         for f in TWIN_MV_FIELDS:
-            want = twin_mv(a0.get(src_atk, f)) if src_var == VAR_MERCY else a0.get(src_atk, f)
+            want = twin_mv(a0.get(src_atk, f)) if twin else a0.get(src_atk, f)
             check(a.get(new_atk, f) == want, f"attack {judge} {f}")
+        want = twin_stamina(b0.get(src, "stamina")) if twin else b0.get(src, "stamina")
+        check(b.get(100000000 + VAR * 1000 + judge, "stamina") == want, f"behaviour {judge} stamina")
     for r in mine:
         j, atk = b.get(r, "behaviorJudgeId"), b.get(r, "refId")
         if j in ABILITY_JUDGES:
             check(b.get(r, "refType") == 1 and atk in bl.rows, f"ability {j}")
             continue
         check(atk == VAR * 1000 + j and atk in a.rows, f"behaviour {j}")
-        check((a.get(atk, "spEffectId1") in (BLOOD_HIT, TWIN_BLOOD_HIT)) == bleeds(j), f"blood hit {j}")
+        check((a.get(atk, "spEffectId1") in (BACK_BLOOD_HIT, TWIN_BLOOD_HIT)) == bleeds(j), f"blood hit {j}")
         if bleeds(j):
-            check(a.get(atk, "spEffectId1") == (BLOOD_HIT if j in (790, 795) else TWIN_BLOOD_HIT), f"blood hit {j}")
+            check(a.get(atk, "spEffectId1") == (BACK_BLOOD_HIT if j in (790, 795) else TWIN_BLOOD_HIT), f"blood hit {j}")
         check((a.get(atk, "spEffectId0") == RHYTHM_FIRST) == bleeds(j), f"Blood Rhythm hook {j}")
     for suffix in ("", "_l"):
         m = Bnd4(dcx_decompress(files[f"parts/wp_a_{MODEL}{suffix}.partsbnd.dcx"]))
