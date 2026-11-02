@@ -7,7 +7,7 @@ name = "bloodborne-pc-custom"
 version = "4.2.19+build110126.162920"
 description = "Custom build of Bloodborne PC port with BBSC 0.0.2 co-op support, DLSS Frame Generation, Vulkan Ray Tracing, and release packaging tools."
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 license = "GPL-3.0-or-later"
 authors = [
     { name = "Jgamrot / BBSC / bbport contributors" }
@@ -18,7 +18,7 @@ dependencies = [
     "PySide6_Essentials>=6.12.0",
     "shiboken6>=6.12.0",
     "pyinstaller>=6.0",
-    "pillow>=10.0.0",
+    "pillow>=13.0.0",
     "certifi>=2024.2.2",
     "psutil>=5.9.0",
     "packaging>=23.0",
@@ -47,7 +47,7 @@ dev = [
 
 [tool.ruff]
 line-length = 120
-target-version = "py310"
+target-version = "py311"
 exclude = [
     ".git",
     ".venv",
