@@ -483,10 +483,11 @@ bool Dlss5Unavailable(const Values& v, const char* gpu, const char* fps, char* t
     } else if (const char* problem = v.dlss5_problem.load()) {
         std::snprintf(text, size, "%s", problem);
     } else if (v.dlss5_backend == Dlss5None) {
-        // No setup guide is shipped while the community bridge (route A) is paused.
+        // run.py sets up the community route (BB_DLSS5_ROUTE_A) only for a start with dlss5=on,
+        // so a start with it off has no backend: the launcher's switch is the way in.
         std::snprintf(text, size,
-                      "waiting for NVIDIA: no DLSS 5 for RTX 40 in this driver yet, and the "
-                      "community bridge is paused in this build");
+                      "switch DLSS 5 on in the launcher (Visuals > Neural rendering): the "
+                      "community route is set up when the game starts");
     } else {
         return false;
     }

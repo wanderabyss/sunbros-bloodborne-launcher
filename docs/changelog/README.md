@@ -1,5 +1,6 @@
 # Changelog
 
+- [4.2.20 — DLSS 5 setup: the launcher spots ReShade's standard build](changelog-2026-11-02-4.2.20.md)
 - [4.2.19 — Thunderwright's Kirkhammer gets a rune-iron head](changelog-2026-11-01-4.2.19.md)
 - [4.2.18 — Thunderwright's Kirkhammer balance: split damage, Arcane 25; damage log](changelog-2026-11-01-4.2.18.md)
 - [4.2.17 — Hunter's Arsenal: Thunderwright's Kirkhammer joins the Sojin Chikage](changelog-2026-11-01-4.2.17.md)

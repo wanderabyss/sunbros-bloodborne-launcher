@@ -133,6 +133,27 @@ class ReshadeAppsTests(unittest.TestCase):
             self.assertTrue(core.reshade_loads_here(bin_dir, apps))
             self.assertTrue(core.reshade_loads_here(bin_dir, Path(folder) / 'missing.ini'))
 
+    LIMITED_LOG = ("20:20:47:938 [ 9836] | WARN  | Skipped loading add-on from 'C:\\x\\bin\\dlss5-bridge.addon64' "
+                   "because this build of ReShade has only limited add-on functionality.\n")
+
+    def test_status_and_start_warning_name_reshades_standard_build(self):
+        with tempfile.TemporaryDirectory() as folder, \
+                mock.patch.object(core, 'reshade_loads_here', return_value=True), \
+                mock.patch.object(core, 'PORT_DIR', Path(folder)):
+            (Path(folder) / 'bin').mkdir()
+            bin_dir = make_bin(Path(folder) / 'bin')
+            self.assertFalse(core.reshade_addons_skipped(bin_dir))  # no log yet
+            (bin_dir / 'ReShade.log').write_text(self.LIMITED_LOG, encoding='utf-8')
+            self.assertTrue(core.reshade_addons_skipped(bin_dir))
+            self.assertIn('full add-on support', core.neural_runtime_text(bin_dir))
+            warning = core.dlss5_fps_warning(ON, nr_app())
+            self.assertIn("DLSS 5 won't take effect", warning)
+            self.assertIn('full add-on support', warning)
+            (bin_dir / 'ReShade.log').write_text('INFO | Loaded add-on "DLSS 5 Bridge"\n', encoding='utf-8')
+            self.assertFalse(core.reshade_addons_skipped(bin_dir))
+            self.assertEqual(core.neural_runtime_text(bin_dir),
+                             'Neural runtime: installed. dlss5-bridge and renodx-dlss5 add-ons found.')
+
 
 class NeuralRenderingQmlTests(unittest.TestCase):
     def test_group_has_status_fold_and_reset(self):

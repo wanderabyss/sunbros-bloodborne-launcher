@@ -1,5 +1,20 @@
 # Release Notes
 
+## [4.2.20+build110126.203708] — 2026-11-02
+### DLSS 5 setup: the launcher spots ReShade's standard build
+<!-- launcher:
+### DLSS 5 setup help
+
+- The launcher now warns when the last start's bin\ReShade.log says ReShade skipped the DLSS 5 add-ons: that is ReShade's standard build, and DLSS 5 needs the one "with full add-on support".
+- The DLSS 5 guide now lists the exact cards it is offered on and says it needs 60 FPS.
+-->
+
+4.2.20 helps players whose DLSS 5 setup looked right and still did nothing. A player's 4.2.19 log said "DLSS 5: on (community bridge)" while ReShade had skipped both add-ons: they had installed ReShade's standard build.
+
+- **Launcher warning:** when `bin\ReShade.log` from the last start says ReShade skipped add-ons ("only limited add-on functionality"), the DLSS 5 status and the start log say to install ReShade "with full add-on support". The warning goes after the next start with the right build.
+- **Clearer game messages:** a card that is offered DLSS 5 but whose DLSS did not load now logs `DLSS 5: not offered (DLSS did not load; …)`, not "this GPU". The in-game menu now says to switch DLSS 5 on in the launcher, not that the community bridge is paused.
+- **DLSS 5 guide** ([docs/dlss5-setup.md](docs/dlss5-setup.md)): the exact cards (desktop RTX 4080, 4090 and RTX 5070 Ti or faster), 60 FPS as a requirement, the launcher as the only way to switch it on, and troubleshooting rows for the standard ReShade build, "not offered" and F2 vs Home.
+
 ## [4.2.19+build110126.162920] — 2026-11-01
 ### Thunderwright's Kirkhammer gets a rune-iron head
 <!-- launcher:

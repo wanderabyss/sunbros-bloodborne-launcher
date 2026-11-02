@@ -189,7 +189,10 @@ TemporalUpscaler::TemporalUpscaler(const Instance& instance_, Scheduler& schedul
         const std::string gpu{instance.GetModelName()};
         const char* reason = nullptr;
         const bool eligible = BbDlss5Eligible(instance.GetVendorID(), gpu.c_str(), &reason);
-        BbSettings::ConfigureDlss5(eligible && dlss && dlss->Available(), reason, gpu.c_str(),
+        // A card offered DLSS 5 whose DLSS did not load says so, not "this GPU".
+        const bool dlss_ok = dlss && dlss->Available();
+        BbSettings::ConfigureDlss5(eligible && dlss_ok,
+                                   eligible && !dlss_ok ? "DLSS did not load" : reason, gpu.c_str(),
                                    dlss && dlss->NeuralRenderAvailable());
     }
     // Available unless BB_UPSCALER=none; on/off and the parameters are the menu's settings.

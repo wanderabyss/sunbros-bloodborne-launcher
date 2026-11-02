@@ -6,8 +6,8 @@ fork is based on [Supermedo's Windows port](https://github.com/Supermedo/bloodbo
 Mohammed Albarghouthi, which builds on [deadinside28's bbport](https://github.com/deadinside28/bloodborne_pc)
 and the [shadPS4](https://github.com/shadps4-emu/shadPS4) renderer.
 
-**Current version: 4.2.19** (Thunderwright's Kirkhammer gets a rune-iron head).
-See the [release notes](../Release_Notes.md), the [4.2.19 changelog](../docs/changelog/changelog-2026-11-01-4.2.19.md),
+**Current version: 4.2.20** (DLSS 5 setup: the launcher spots ReShade's standard build).
+See the [release notes](../Release_Notes.md), the [4.2.20 changelog](../docs/changelog/changelog-2026-11-02-4.2.20.md),
 [all versions](../docs/changelog/README.md) and [DLSS 4.5 vs DLSS 5 at 4K](../docs/dlss-4.2.0-comparison.md).
 
 > **No game files are included.** You need your own dump of Bloodborne. This project is not
@@ -18,7 +18,7 @@ See the [release notes](../Release_Notes.md), the [4.2.19 changelog](../docs/cha
 ## Download
 
 From the [latest release](https://github.com/wanderabyss/sunbros-bloodborne-launcher/releases/latest), download
-**`bbport-windows-<version>.zip`** (for example `bbport-windows-4.2.19.zip`; its SHA-256 is in the
+**`bbport-windows-<version>.zip`** (for example `bbport-windows-4.2.20.zip`; its SHA-256 is in the
 release notes) and extract the whole archive. The two **Source code** downloads are for developers.
 Previews of upcoming features are marked *Pre-release* on the
 [releases page](https://github.com/wanderabyss/sunbros-bloodborne-launcher/releases).
@@ -122,7 +122,7 @@ What changed in each release: [Release Notes](../Release_Notes.md) and [Changelo
 
 1. Right-click **`bbport-windows-<version>.zip`** and choose **Extract All**. Put the
    `bbport-windows-<version>` folder somewhere permanent, such as
-   `C:\Games\Bloodborne\bbport-windows-4.2.19`. Do not run the game
+   `C:\Games\Bloodborne\bbport-windows-4.2.20`. Do not run the game
    from inside the zip.
 2. Double-click **Bloodborne.exe**. The setup wizard opens on a new install; **Skip setup** goes
    straight to the launcher.
@@ -141,7 +141,7 @@ What changed in each release: [Release Notes](../Release_Notes.md) and [Changelo
 
 ```text
 C:\Games\Bloodborne\
-├── bbport-windows-4.2.19\
+├── bbport-windows-4.2.20\
 │   ├── Bloodborne.exe
 │   └── bin\bb-probe.exe
 └── CUSA03173\                 ← the Game folder

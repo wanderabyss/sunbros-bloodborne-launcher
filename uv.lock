@@ -81,7 +81,7 @@ wheels = [
 
 [[package]]
 name = "bloodborne-pc-custom"
-version = "4.2.19+build110126.162920"
+version = "4.2.20+build110126.203708"
 source = { editable = "." }
 dependencies = [
     { name = "certifi" },

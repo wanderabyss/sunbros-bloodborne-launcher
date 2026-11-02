@@ -427,7 +427,30 @@ def neural_runtime_text(bin_dir=None):
     if not reshade_loads_here(bin_dir):
         return ("Neural runtime: installed, add-ons found, but ReShade isn't set to load for this "
                 "folder: add bin\\bb-probe.exe in ReShade's setup.")
+    if reshade_addons_skipped(bin_dir):
+        return f'Neural runtime: installed, add-ons found, but {RESHADE_LIMITED_TEXT}'
     return 'Neural runtime: installed. dlss5-bridge and renodx-dlss5 add-ons found.'
+
+
+# ReShade's standard build logs this for every add-on it skips; only the build "with full add-on
+# support" loads dlss5-bridge and renodx-dlss5 (a player's 4.2.19 start, 2026-11-01: "DLSS 5: on
+# (community bridge)" in the game's log, neither add-on loaded).
+RESHADE_LIMITED_ADDONS = 'only limited add-on functionality'
+RESHADE_LIMITED_TEXT = ("the last start's bin\\ReShade.log says ReShade skipped them: this is ReShade's "
+                        "standard build. Install the one \"with full add-on support\" from reshade.me "
+                        "(pick bin\\bb-probe.exe, then Vulkan).")
+
+
+def reshade_addons_skipped(bin_dir=None):
+    """Whether the last start's bin\\ReShade.log says ReShade skipped add-ons because it is the
+    standard build. Read only; False without a log. The next start rewrites the log, so the
+    warning goes once the full build is installed."""
+    log = Path(bin_dir or PORT_DIR / 'bin') / 'ReShade.log'
+    try:
+        with log.open(encoding='utf-8', errors='replace') as handle:
+            return any(RESHADE_LIMITED_ADDONS in line for line in handle)
+    except OSError:
+        return False
 
 
 def reshade_loads_here(bin_dir=None, apps_ini=None):
@@ -888,6 +911,9 @@ def dlss5_fps_warning(ini, app):
         # run.py turns DLSS 5 off for the same reason (dlss5_environment).
         return ("DLSS 5 stays off: ReShade isn't set to load for this folder's bin\\bb-probe.exe. "
                 "Add it in ReShade's setup (each version's folder needs its own entry).")
+    if all(status.values()) and reshade_addons_skipped():
+        # The game still reports "DLSS 5: on": nothing before the start can tell ReShade's builds apart.
+        return f"DLSS 5 won't take effect: {RESHADE_LIMITED_TEXT}"
     mode = effective_fps_mode(app)
     if mode == '60':
         return dlss5_output_warning(ini, app)

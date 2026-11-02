@@ -249,12 +249,10 @@ int main() {
     assert(std::string{text}.find("crashed") != std::string::npos);
     settings.dlss5_problem = nullptr;
     assert(Dlss5Unavailable(settings, "", "60", text, sizeof(text)));
-    assert(std::string{text}.rfind("waiting for NVIDIA", 0) == 0);
-    // No setup guide ships while the community bridge is paused: the text must not name one.
-    assert(std::string{text}.find("dlss5-setup") == std::string::npos);
+    assert(std::string{text}.rfind("switch DLSS 5 on in the launcher", 0) == 0);
     settings.dlss5_backend = Dlss5Bridge;
     assert(!Dlss5Unavailable(settings, "", "60", text, sizeof(text)));
-    // Without run.py's BB_DLSS5_ROUTE_A=1 (which it never sets while the bridge is paused) an
+    // Without run.py's BB_DLSS5_ROUTE_A=1 (only for a start with dlss5=on) an
     // eligible card with dlss5=on has no backend and is not reported active.
     if (!std::getenv("BB_DLSS5_ROUTE_A")) {
         settings.dlss5 = true;

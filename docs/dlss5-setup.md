@@ -1,6 +1,6 @@
 # Setting up DLSS 5 neural rendering yourself
 
-Updated **2026-10-29** for **4.0.0**. DLSS 5 neural rendering runs through a **community route**:
+Updated **2026-11-02** for **4.2.19**. DLSS 5 neural rendering runs through a **community route**:
 ReShade with two add-ons, plus NVIDIA's neural rendering runtime. **The port does not ship,
 download or check any of these files**; you add them yourself, at your own risk. Without them,
 everything else in the port works as usual and DLSS 5 stays off.
@@ -13,10 +13,10 @@ everything else in the port works as usual and DLSS 5 stays off.
 
 | | Needed | Notes |
 |---|---|---|
-| Graphics card | NVIDIA GeForce **RTX 40** (4080 / 4090 class recommended) or **RTX 50** | Neural rendering costs about 6–7 ms a frame at 1440p and 14–16 ms at 4K on an RTX 4090. |
+| Graphics card | Desktop NVIDIA GeForce **RTX 4080, 4080 SUPER, 4090 or 4090 D**, or **RTX 5070 Ti or faster** | Only these cards are offered DLSS 5. Not offered: RTX 4060 and 4070 (all variants), 5060, 5070, laptop GPUs and workstation cards; the game's log then says `DLSS 5: not offered (...)`. Neural rendering costs about 6–7 ms a frame at 1440p and 14–16 ms at 4K on an RTX 4090. |
 | Driver | A current NVIDIA Game Ready driver | |
-| Port | **4.0.0** or newer, with **DLSS** as the upscaler | The add-ons build on the game's own DLSS call. |
-| [ReShade](https://reshade.me/) | **6.8 or newer, the build "with full add-on support"** | Tested: 6.8.0. Installed for Vulkan (a global layer under `C:\ProgramData\ReShade`). |
+| Port | **4.0.0** or newer, with **DLSS** as the upscaler and the frame rate at **60 FPS** | The add-ons build on the game's own DLSS call. At any other frame rate DLSS 5 stays off. |
+| [ReShade](https://reshade.me/) | **6.8 or newer, the build "with full add-on support"** | Tested: 6.8.0. Installed for Vulkan (a global layer under `C:\ProgramData\ReShade`). **Not the standard build** from the main download button: it skips both add-ons. |
 | dlss5-bridge add-on | `dlss5-bridge.addon64` (+ its `dlss5-bridge.cfg`) | From [NIGos/dlss5-bridge](https://github.com/NIGos/dlss5-bridge). Tested: 1.4.13-pre8. |
 | renodx-dlss5 add-on | `renodx-dlss5.addon64` | From the [RenoDX](https://github.com/clshortfuse/renodx) project. Tested: v2.5. It holds the neural rendering look settings. |
 | NVIDIA neural rendering runtime | `nvngx_dlssnr.dll` | NVIDIA's DLSS 5 runtime. Use a copy you are entitled to; the port does not say where to get one. |
@@ -44,7 +44,8 @@ The launcher checks for exactly three of them: `nvngx_dlssnr.dll`, `dlss5-bridge
 ## Step by step
 
 1. **Close** the launcher and the game.
-2. **Install ReShade** (the add-on support build). In its installer, choose
+2. **Install ReShade "with full add-on support".** On reshade.me it is a separate download link,
+   not the main download button; the standard build loads no DLSS 5 add-on. In its installer, choose
    this package's `bin\bb-probe.exe` (for example `bbport-windows-4.2.4\bin\bb-probe.exe`), then
    **Vulkan** as the rendering API. When it offers effect packs you can skip them all: the add-ons
    don't need any. This adds `bb-probe.exe` to ReShade's app list,
@@ -67,7 +68,7 @@ The launcher checks for exactly three of them: `nvngx_dlssnr.dll`, `dlss5-bridge
    `bb-probe.exe` isn't listed, DLSS 5 stays off (from 4.2.4): the launcher warns, and the game's
    log says `DLSS 5: off - ReShade is not set to load for bin\bb-probe.exe`. Earlier versions
    logged "DLSS 5: on" even though the add-ons never loaded.
-6. **Pick settings that hold 60 FPS.** The easiest is the **DLSS 5 ready** preset (marked
+6. **Pick settings that hold 60 FPS.** DLSS 5 needs the frame rate at **60 FPS**; at 120 or uncapped it stays off. The easiest is the **DLSS 5 ready** preset (marked
    **★ DLSS 5** on RTX 40 and 50 cards with 12 GB or more; **★ DLSS 4** marks Remastered, the
    sharpest picture without DLSS 5):
    - up to 1440p output: your output, DLSS Quality, ray tracing High;
@@ -76,10 +77,15 @@ The launcher checks for exactly three of them: `nvngx_dlssnr.dll`, `dlss5-bridge
      frame generation on an RTX 4090. In 4.2.0's tests in dense foliage (Forbidden Woods) it
      mostly held 60 → 120, with dips ([results](dlss-4.2.0-comparison.md)).
 
-   DLSS 5 is tuned for a fixed **60 FPS** base. Other rates and native-4K output show a warning.
+   Native-4K output shows a warning: it rarely holds 60 FPS with DLSS 5.
 7. **Play.** Before each start the launcher writes `NeuralUplift=1` and your look settings into
    `bin\ReShade.ini` under `[RenoDX.DLSS5]`. ReShade has to have written that file once (step 2's
    first start does it). The game's log and menu should report **"DLSS 5: on (community bridge)"**.
+   That line only means the files and ReShade's app list are in place: `bin\ReShade.log` must also
+   show both add-ons loaded, and `bin\dlss5-bridge.log` appears once the bridge runs.
+
+Switch DLSS 5 on in the **launcher**. The in-game menu can switch it off, but not on: the community
+route is set up only when the game starts with DLSS 5 already on.
 
 ## Look settings
 
@@ -111,9 +117,14 @@ app list.
 
 | You see | Cause and fix |
 |---|---|
+| `DLSS 5: not offered (needs a GeForce RTX 4080, 4090 or newer)`, `(not offered on laptop GPUs)` or `(needs a GeForce RTX 5070 Ti or faster)` | This graphics card is not offered DLSS 5 (see What you need). |
+| `DLSS 5: not offered (DLSS did not load; …)` | The card is offered DLSS 5, but DLSS itself did not start: update the NVIDIA driver and check `bin\bbport_dlss.dll` and `bin\nvngx_dlss.dll` are there. |
+| `bin\ReShade.log` says `Skipped loading add-on … because this build of ReShade has only limited add-on functionality`; ReShade's Add-ons tab shows the same; no `dlss5-bridge.log` | You installed ReShade's standard build. Download the one **"with full add-on support"** from reshade.me and install it the same way (`bin\bb-probe.exe`, Vulkan). From 4.2.20 the launcher warns about this after a start. The game still logs "DLSS 5: on": it cannot tell ReShade's builds apart. |
+| The launcher says DLSS 5 stays off at 120 FPS or uncapped; the in-game menu says `needs a fixed 60 FPS` | Set the frame rate to 60 FPS. |
 | "missing in bin: …" in the status line or log | Copy the named file(s) into `bin\`, next to `bb-probe.exe`. |
 | Status says `bb-probe.exe` is not in ReShade's app list, or the log says `DLSS 5: off - ReShade is not set to load for bin\bb-probe.exe` | Run the ReShade installer again and pick this package's `bin\bb-probe.exe`. A new package folder needs this again: the path changed. |
 | `dlss5-bridge.log` says nothing ever called DLSS | Set the upscaler to DLSS. Also check that log is from `bb-probe.exe`: the launcher's GPU check, `bb-gpu-capabilities.exe`, loads ReShade too and never calls DLSS. |
+| Nothing opens with F2 | F2 is the key in the tested `ReShade.ini`. A `ReShade.ini` that ReShade wrote itself uses **Home**. |
 | The look settings don't change anything | Check that `bin\ReShade.ini` exists and has a `[RenoDX.DLSS5]` section after a start; if it doesn't, start the game once so ReShade writes it, then start again. |
 | Under 60 FPS at 4K | Use DLSS 5 ready (2560 × 1440 output). Or turn on NR upscaling with DLSS Performance: on an RTX 4090 it held 60 → 120 with ray tracing Ultra and frame generation (4.2.4's runs), but it was no sharper than 2560 × 1440 output; Balanced and Quality miss 60. |
 | The game won't start or crashes on start | Switch DLSS 5 off to confirm it's the add-ons, then update ReShade, the add-ons and the NVIDIA driver. |
