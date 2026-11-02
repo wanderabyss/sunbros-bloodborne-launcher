@@ -36,7 +36,8 @@ class SaveToolTests(unittest.TestCase):
 
 class FeatureTests(unittest.TestCase):
     def test_switch_and_maker(self):
-        self.assertEqual(enhancements.FEATURES['pc_sojin_chikage'][:2], ('BB_PC_SOJIN', 'sojin-chikage'))
+        # Hunter's Arsenal (both new weapons) keeps the Sojin Chikage's key, so the switch carries over.
+        self.assertEqual(enhancements.FEATURES['pc_sojin_chikage'][:2], ('BB_PC_SOJIN', 'hunters-arsenal'))
         self.assertIn('pc_sojin_chikage', enhancements.MAKERS)
         self.assertEqual(enhancements.enabled({}, {'BB_PC_SOJIN': '1'}), ['pc_sojin_chikage'])
         self.assertNotIn('pc_sojin_chikage', enhancements.enabled({}, {}))

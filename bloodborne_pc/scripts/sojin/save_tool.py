@@ -41,6 +41,8 @@ def sort_part(sort_id):
 
 
 SOJIN_SORT_PARTS = {sort_part(s + lv): lv for s in SOJIN_SORTS for lv in LEVELS}
+# In the backup folder's name (thunderwright/save_tool.py runs this converter on its own ids).
+BACKUP_TAG = "sojin-chikage"
 
 CHAR_SIZE, SYS_SIZE = 0x140000, 0x40000
 LIVE_ROOT = r"C:\Games\Bloodborne\user"
@@ -465,10 +467,10 @@ def backup(folder, paths, data, beside=False):
     if under(folder, LIVE_ROOT) and not beside and os.path.isdir(LIVE_BACKUPS):
         # The live save's backup goes beside the earlier save backups, outside the save folder
         # (nothing the game or an emulator lists, and a redeploy can't touch it).
-        base, name = LIVE_BACKUPS, f"{stamp} before sojin-chikage removal"
+        base, name = LIVE_BACKUPS, f"{stamp} before {BACKUP_TAG} removal"
     else:
         # A long name (>= 32 characters) keeps the save-directory search of the PC port from listing it.
-        base, name = os.path.dirname(folder), f"{os.path.basename(folder)} sojin-chikage backup {stamp}"
+        base, name = os.path.dirname(folder), f"{os.path.basename(folder)} {BACKUP_TAG} backup {stamp}"
     dest = os.path.join(base, name)
     k = 1
     while os.path.exists(dest):

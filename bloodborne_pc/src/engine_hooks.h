@@ -87,6 +87,10 @@ int bb_read(uint64_t address, void *out, size_t n);
 void bb_on_main_frame(void (*tick)(void));
 /* Installs that hook when something registered; returns 1 when it went in. */
 int bb_main_frame_install(void);
+/* The number of ticks registered, and a call that runs them all: for code that already owns the
+ * frame-time manager's entry (Hunter's Atlas lamp travel), where bb_main_frame_install is refused. */
+int bb_main_frame_ticks(void);
+void bb_main_frame_run(void);
 
 /* Why the last hook was refused (static text). */
 const char *bb_hooks_error(void);

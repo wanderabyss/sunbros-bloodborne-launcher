@@ -148,13 +148,22 @@ static void game_tick(void) {
     ((Warp)(base+0x132e050))(0,destination);
     printf("Atlas: native lamp travel queued to %d\n",destination);
 }
+static void (*extra_tick)(void);
 static int64_t ATLAS_ABI frame_bridge(void *self) {
-    game_tick();return original_frame(self);
+    game_tick();if(extra_tick)extra_tick();return original_frame(self);
 }
 static int guard(uintptr_t rva,BbCode code,uint64_t size) {
     return rva<=size && code.n<=size-rva && bb_code_is((const void*)(base+rva),code);
 }
 #endif
+int runtime_atlas_on_frame(void (*tick)(void)) {
+#ifdef _WIN32
+    if(!travel_ready || !tick)return 0;
+    extra_tick=tick;return 1;
+#else
+    (void)tick;return 0;
+#endif
+}
 void runtime_atlas_state_bind(void *image,uint64_t size) {
     state_ready=travel_ready=0;base=(uintptr_t)image;
     if(!image || size<0x553e880)return;

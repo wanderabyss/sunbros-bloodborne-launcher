@@ -130,27 +130,31 @@ def no_console():
 
 
 def sojin_saves(game, original_game, user_dir):
-    """Saves holding a Sojin Chikage weapon the game no longer has (pc_sojin_chikage off and no mod
-    with it) would not load it: before the game starts, its weapons become the Chikages they were
-    made from (scripts/sojin/save_tool.py; the originals go to a backup beside the save folder)."""
-    try:
-        sys.path.insert(0, str(PORT / 'scripts'))
-        from sojin import save_tool, weapon
-        ids = [struct.pack('<I', v) for v in save_tool.SOJIN]
-        holding = sorted({path.parent for path in user_dir.glob('savedata/*/*/*/userdata00*')
-                          if any(i in path.read_bytes() for i in ids)})
-        if not holding:
-            return
-        weapon.set_game(Path(original_game) / 'dvdroot_ps4')
-        params = Path(game) / 'dvdroot_ps4' / weapon.GAMEPARAM
-        if weapon.has_weapon(params.read_bytes()):
-            return
-    except (OSError, ValueError, KeyError, ImportError, struct.error) as error:
-        print(f'Sojin Chikage: saves not checked ({error})', file=sys.stderr)
-        return
-    for folder in holding:
-        print(f'Sojin Chikage is off: its weapons in {folder} become Chikages', file=sys.stderr)
-        run_script('sojin/save_tool.py', folder, '--before-start', optional=True)
+    """Saves holding a Hunter's Arsenal weapon the game no longer has (pc_sojin_chikage off and no
+    mod with it) would not load it: before the game starts, Sojin Chikage weapons become the
+    Chikages they were made from and Thunderwright's Kirkhammers the Kirkhammer
+    (scripts/sojin/save_tool.py, scripts/thunderwright/save_tool.py; the originals go to a backup
+    beside the save folder). Each weapon is checked on its own: a mod may carry one of them."""
+    sys.path.insert(0, str(PORT / 'scripts'))
+    for label, package, becomes in (('Sojin Chikage', 'sojin', 'Chikages'),
+                                    ("Thunderwright's Kirkhammer", 'thunderwright', 'Kirkhammers')):
+        try:
+            weapon = __import__(f'{package}.weapon', fromlist=['weapon'])
+            ids = [struct.pack('<I', v) for v in weapon.WEAPON_IDS]
+            holding = sorted({path.parent for path in user_dir.glob('savedata/*/*/*/userdata00*')
+                              if any(i in path.read_bytes() for i in ids)})
+            if not holding:
+                continue
+            weapon.set_game(Path(original_game) / 'dvdroot_ps4')
+            params = Path(game) / 'dvdroot_ps4' / weapon.GAMEPARAM
+            if weapon.has_weapon(params.read_bytes()):
+                continue
+        except (OSError, ValueError, KeyError, ImportError, struct.error) as error:
+            print(f'{label}: saves not checked ({error})', file=sys.stderr)
+            continue
+        for folder in holding:
+            print(f"{label} is off: its weapons in {folder} become {becomes}", file=sys.stderr)
+            run_script(f'{package}/save_tool.py', folder, '--before-start', optional=True)
 
 
 def run_script(name, *args, capture=False, optional=False):
@@ -642,6 +646,9 @@ def main():
             env.setdefault('BB_JUMP_DT', '1')
         elif jump_fix_setting == '0' or env.get('BB_JUMP_DT') == '0':
             env['BB_JUMP_DT'] = '0'
+        # Damage log (src/damage_log.c): every HP change in last_run.log, for weapon balancing.
+        if (env.get('BB_DAMAGE_LOG') or ini_value(config, 'damage_log') or '0') == '1':
+            env['BB_DAMAGE_LOG'] = '1'
 
         # The in-game restart starts this script again once this process is gone.
         # GPU caches (shaders, pipelines) beside the saves; read before main(), so set here.

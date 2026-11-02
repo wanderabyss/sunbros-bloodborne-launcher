@@ -2,6 +2,7 @@
  * PC features installed through the engine hooks (engine_features.h). The features themselves
  * (in-game PC menu, enhancements, keyboard and mouse) add themselves to these lists. */
 #include "engine_features.h"
+#include "damage_log.h"
 #include "engine_hooks.h"
 #include "jump_decay.h"
 #include "key_prompts.h"
@@ -10,6 +11,7 @@
 #include "occlusion_queries.h"
 #include "pc_menu.h"
 #include "rebirth.h"
+#include "runtime_atlas_state.h"
 
 #include <stddef.h>
 #include <stdio.h>
@@ -29,15 +31,26 @@ static int menu_pointer_install(void) {
 
 static const Install installs[] = {bb_pc_menu_install, bb_rebirth_install, bb_mouse_camera_install,
                                    bb_key_prompts_install, menu_pointer_install,
-                                   bb_occlusion_queries_install, bb_jump_decay_install};
+                                   bb_occlusion_queries_install, bb_jump_decay_install,
+                                   bb_damage_log_install};
 static const Frame frames[] = {bb_pc_menu_frame, bb_menu_pointer_frame};
 
 int bb_engine_install(void) {
     int hooks = 0;
     for (size_t i = 0; i < sizeof(installs) / sizeof(*installs); ++i)
         if (installs[i]) hooks += installs[i]();
-    /* The main-thread tick, when a feature registered one (bb_on_main_frame). */
-    return hooks + bb_main_frame_install();
+    /* The main-thread tick, when a feature registered one (bb_on_main_frame). Hunter's Atlas lamp
+     * travel hooks the same function's entry first; the ticks then ride its hook. Until 4.2.18
+     * this refusal was silent, and every tick (the damage log's printing among them) never ran. */
+    if (!bb_main_frame_ticks()) return hooks;
+    if (bb_main_frame_install()) return hooks + 1;
+    if (runtime_atlas_on_frame(bb_main_frame_run)) {
+        puts("Engine hooks: the main-thread tick runs on Hunter's Atlas's frame hook");
+        return hooks;
+    }
+    printf("Engine hooks: main-thread tick not installed (%s); its %d features do nothing each frame\n",
+           bb_hooks_error(), bb_main_frame_ticks());
+    return hooks;
 }
 
 void bb_engine_frame(void) {

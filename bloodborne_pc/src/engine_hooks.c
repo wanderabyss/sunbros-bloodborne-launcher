@@ -151,9 +151,13 @@ void bb_on_main_frame(void (*tick)(void)) {
     if (tick && g_tick_count < MAX_TICKS) g_ticks[g_tick_count++] = tick;
 }
 
-static BB_GUEST_ABI void main_frame(void) {
+void bb_main_frame_run(void) {
     for (int i = 0; i < g_tick_count; ++i) g_ticks[i]();
 }
+
+int bb_main_frame_ticks(void) { return g_tick_count; }
+
+static BB_GUEST_ABI void main_frame(void) { bb_main_frame_run(); }
 
 int bb_main_frame_install(void) {
     if (!g_tick_count) return 0;

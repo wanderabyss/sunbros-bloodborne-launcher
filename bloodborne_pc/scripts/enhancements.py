@@ -30,12 +30,18 @@ engine/maiden_events.cpp and engine/dream_mirror_layout.cpp.
                                               (boss_rematches.py). Brings the lamps' menu with it;
                                               the permanent defeat flags and first-kill rewards are
                                               left alone.
-  pc_sojin_chikage      (BB_PC_SOJIN)         Sojin Chikage, the twin-blade Chikage (sojin/weapon.py):
-                                              three weapons (normal, Uncanny, Lost) the Bath
-                                              Messengers sell at +0 for 10,000 Blood Echoes. Every
-                                              player in a session needs it on. mods.py adds its rows
-                                              to a mod's own gameparam (ShopEdit, ...); run.py turns
-                                              the weapons in a save into Chikages when it is off.
+  pc_sojin_chikage      (BB_PC_SOJIN)         Hunter's Arsenal, two new trick weapons the Bath
+                                              Messengers sell at +0 for 10,000 Blood Echoes: the
+                                              Sojin Chikage, a twin-blade Chikage (sojin/weapon.py,
+                                              normal, Uncanny and Lost), and Thunderwright's
+                                              Kirkhammer, a bolt Kirkhammer whose blows send
+                                              lightning along the ground (thunderwright/weapon.py).
+                                              The key is the Sojin Chikage's from 4.2.15, so a
+                                              player who had it on keeps both. Every player in a
+                                              session needs it on. mods.py adds their rows to a
+                                              mod's own gameparam (ShopEdit, ...); run.py turns the
+                                              weapons in a save into the Chikages and the Kirkhammer
+                                              they were made from when it is off.
   pc_menu               (BB_PC_MENU)          the in-game PC menu's assets (menu_assets.py): its
                                               sections in the options movie and its strings in
                                               every language. On by default: it only adds rows.
@@ -63,7 +69,7 @@ FEATURES = {
     'pc_enhanced_lamps': ('BB_PC_LAMPS', 'enhanced-lamps', 'Lamps: Level Up and Storage'),
     # After the lamps: its Central Yharnam talk archive adds the rematch to the lamp menu.
     'pc_boss_rematches': ('BB_PC_REMATCHES', 'boss-rematches', 'Boss rematches at their lamps (experimental)'),
-    'pc_sojin_chikage': ('BB_PC_SOJIN', 'sojin-chikage', 'Sojin Chikage (twin-blade Chikage)'),
+    'pc_sojin_chikage': ('BB_PC_SOJIN', 'hunters-arsenal', "Hunter's Arsenal (Sojin Chikage, Thunderwright's Kirkhammer)"),
     'pc_menu': ('BB_PC_MENU', 'pc-menu', 'In-game PC menu (System > PC Settings)'),
 }
 # Keep the original System menu. The launcher owns the PC graphics/settings controls;
@@ -72,7 +78,7 @@ DEFAULT_ON = set()
 # Still a first test: the launcher labels its toggle experimental; none in the overlay.
 EXPERIMENTAL = {'pc_boss_rematches'}
 # Bumped when a rewrite changes, so every install makes its files again.
-VERSION = 'enhancements 6'  # 6: Sojin Chikage
+VERSION = 'enhancements 7'  # 7: Hunter's Arsenal (Thunderwright's Kirkhammer beside the Sojin Chikage)
 
 
 def sha256(data):
@@ -420,14 +426,25 @@ def boss_rematches(dvdroot, keys=()):
     return files
 
 
-def sojin_chikage(dvdroot):
-    """The weapon's files (sojin/weapon.py), or none when the dump is not the one it knows."""
-    from sojin import weapon
+def hunters_arsenal(dvdroot):
+    """Both weapons' files: the Sojin Chikage's (sojin/weapon.py), then Thunderwright's Kirkhammer
+    (thunderwright/weapon.py) made on top of them, since both rewrite the gameparam, c0000.anibnd
+    and the item texts. A weapon the dump does not allow is left out; the other one stays."""
+    from sojin import weapon as sojin
+    from thunderwright import weapon as thunderwright
+    files = {}
     try:
-        return {Path(relative): data for relative, data in weapon.make(dvdroot).items()}
-    except (weapon.SojinError, OSError, ValueError, KeyError, IndexError, struct.error) as error:
+        files = dict(sojin.make(dvdroot))
+    except (sojin.SojinError, OSError, ValueError, KeyError, IndexError, struct.error) as error:
         print(f'Enhancements: Sojin Chikage left out ({error})', file=sys.stderr)
-        return {}
+    try:
+        msgs = {relative.split('/')[1]: data for relative, data in files.items()
+                if relative.startswith('msg/') and relative.endswith('/item.msgbnd.dcx')}
+        files.update(thunderwright.make(dvdroot, param_raw=files.get(thunderwright.GAMEPARAM),
+                                         anibnd_raw=files.get(thunderwright.ANIBND), msgs=msgs or None))
+    except (thunderwright.ThunderwrightError, OSError, ValueError, KeyError, IndexError, struct.error) as error:
+        print(f"Enhancements: Thunderwright's Kirkhammer left out ({error})", file=sys.stderr)
+    return {Path(relative): data for relative, data in files.items()}
 
 
 def pc_menu(dvdroot):
@@ -437,7 +454,7 @@ def pc_menu(dvdroot):
 
 MAKERS = {'pc_two_invaders': two_invaders, 'pc_mirror_appearance': dream_mirror, 'pc_rebirth': rebirth,
           'pc_enhanced_lamps': enhanced_lamps, 'pc_boss_rematches': boss_rematches,
-          'pc_sojin_chikage': sojin_chikage, 'pc_menu': pc_menu}
+          'pc_sojin_chikage': hunters_arsenal, 'pc_menu': pc_menu}
 # Makers whose files depend on which other features are on (their stamp names those features).
 COMBINED = {'pc_enhanced_lamps': ('pc_rebirth',), 'pc_boss_rematches': ('pc_rebirth', 'pc_two_invaders')}
 
@@ -469,12 +486,12 @@ def generator():
     here = Path(__file__).resolve().parent
     digest = hashlib.sha256()
     for name in ('enhancements.py', 'menu_assets.py', 'fromsoft.py', 'esd.py', 'enhanced_lamps.py',
-                 'boss_rematches.py', 'emevd.py', 'pc_menu_messages.tsv'):
+                 'boss_rematches.py', 'emevd.py', 'ps4_texture.py', 'flver.py', 'pc_menu_messages.tsv'):
         try:
             digest.update((here / name).read_bytes())
         except OSError:
             pass
-    for path in sorted((here / 'sojin').glob('*.py')):
+    for path in [*sorted((here / 'sojin').glob('*.py')), *sorted((here / 'thunderwright').glob('*.py'))]:
         digest.update(path.read_bytes())
     return f'{VERSION} {digest.hexdigest()[:16]}'
 

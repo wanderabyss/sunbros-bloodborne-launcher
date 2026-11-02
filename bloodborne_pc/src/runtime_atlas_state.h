@@ -21,6 +21,10 @@ int runtime_atlas_travel_request(const BbAtlasTravelDestination *destination);
 /* 0 idle, 1 queued, 2 loading, 3 arrived, -1 rejected, -2 timed out. */
 int runtime_atlas_travel_status(void);
 int runtime_atlas_travel_supported(void);
+/* Lamp travel takes the entry of the frame-time manager's update (image offset 0x2034770), which
+ * the engine hooks' once-a-frame tick (engine_hooks.h bb_on_main_frame) also wants. While travel
+ * owns it, `tick` runs there each frame after travel's own. Returns 1 when it will. */
+int runtime_atlas_on_frame(void (*tick)(void));
 #ifdef __cplusplus
 }
 #endif

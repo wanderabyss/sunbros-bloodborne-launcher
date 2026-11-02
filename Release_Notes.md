@@ -1,5 +1,65 @@
 # Release Notes
 
+## [4.2.19+build110126.162920] — 2026-11-01
+### Thunderwright's Kirkhammer gets a rune-iron head
+<!-- launcher:
+### Thunderwright's rune-iron head
+
+- Thunderwright's Kirkhammer (Hunter's Arsenal) now has a hammer head of its own: the stone block becomes dark iron with Elder Futhark runes and a Norse braid, and the runes glow lightning blue. The plain Kirkhammer keeps its stone.
+-->
+
+4.2.19 gives Thunderwright's Kirkhammer (Hunter's Arsenal, Mods page) its own look. The weapon is remade from your own game files the first time you start 4.2.19; the release still ships no game files.
+
+- **Rune-iron hammer head:** the Kirkhammer's stone block becomes dark forged iron, keeping its old rust and blood. On both broad faces, the Healing Church's inscription is replaced by Elder Futhark runes engraved and inlaid in dull, worn silver: ᚦᚢᚾᚱᚨᛉ (*Þunraz*, the old Germanic name for Thor) down the middle, with the whole futhark on either side, framed by a Norse braid. A braided band runs down the narrow side. The shape is the Kirkhammer's, and so is the sword.
+- **The plain Kirkhammer is unchanged:** Thunderwright's Kirkhammer now uses a model of its own (a copy of the Kirkhammer's), so the two never share textures.
+- **The runes glow:** the runes, the futhark and the braid shine lightning blue-white, in the dark too, with the game's own bloom. The hammer uses one of the game's own glowing materials (the one glowing enemies use), with a glow texture made from the same rune design.
+
+## [4.2.18+build110126.140854] — 2026-11-01
+### Thunderwright's Kirkhammer balance and storm look; damage log
+<!-- launcher:
+### Thunderwright's Kirkhammer balance
+
+- Thunderwright's Kirkhammer now splits its damage (150 physical + 110 bolt at +10, was 210 + 180), needs Arcane 25 (was 12), and Static Draw's free charge lasts 4 s (was 10 s).
+- Its hammer now looks like a storm hammer: Bolt Paper's glow wraps the head in hammer form, and both transforms flash with a bolt at the head. Thunder Chariot calls lightning down from the sky.
+- New for weapon testing: with `damage_log=1` in bbport.ini, every hit you land or take goes into the game's log (last_run.log) with its damage.
+-->
+
+4.2.18 brings Thunderwright's Kirkhammer in line, as 4.2.16 did for the Sojin Chikage. In 4.2.17 it kept the Kirkhammer's whole physical and added its full bolt on top, about 1.7 times the Kirkhammer's attack, and almost any Strength build could use it.
+
+- **Damage split, not added:** physical 75 at +0 / 150 at +10 (the Kirkhammer's 105 / 210), bolt 55 / 110 (was 90 / 180). The same scaling: Strength and Arcane, no Skill.
+- **Arcane 25:** needs Strength 16, Skill 10 and **Arcane 25** (was 12). Below Arcane 25 the game's penalty for unmet requirements cuts its attack.
+- **Static Draw:** the free charge on the transform back to the sword lasts **4 s** (was 10 s). Thunder Chariot's charge, for a Quicksilver Bullet, still lasts 10 s.
+- The lightning lines, the hammer's 76 % physical and the half-bolt sword hits are unchanged (they now work from the smaller numbers).
+- **Storm hammer look (Mjölnir-style):** in hammer form the head carries Bolt Paper's glow on top of the charged Tonitrus's crackle, and both transforms (into the hammer, and Static Draw back to the sword) flash with a Tiny Tonitrus bolt at the hammer head. **Thunder Chariot** (the charged R2 and its follow-up) also calls a bolt down from the sky onto the slam: the Fishing Hamlet fishman priests' lightning, whose effects Hunter's Arsenal adds to the effects every map loads (from your own game files). Looks only: no damage, no cost.
+- The Sojin Chikage is unchanged. Hunter's Arsenal remakes its files at the next start; saves holding the weapon keep it.
+
+**Damage log** (for balancing weapons): it is off unless `damage_log=1` is in `bbport.ini` (or `BB_DAMAGE_LOG=1` is set).
+
+- **What it logs:** every HP change of you and of the enemies you hit, as lines starting `Damage log` in `last_run.log`: the time in seconds since the game started, who took how much, HP before and after, and kills and deaths. Enemies are numbered in the order you first hit them, with their max HP. Your heals (vials, rally, regeneration) are summed into one line once a second passes without one.
+- **How:** each character's HP is read every frame, so every hit shows whatever the game does to apply it. Hunter's Atlas lamp travel had kept the port's per-frame features from running (the damage log, the mouse camera's flick check, running-jump smoothing); they now run with it.
+- **What it does not know:** which attack did it. Hits are separate lines in the order they land, so a hammer slam and its lightning line's strikes come as one line each, a moment apart.
+- It changes nothing in the game; only game 1.09's HP writes are hooked, and each is checked before it is.
+
+## [4.2.17+build110126.234029] — 2026-11-01
+### Hunter's Arsenal: Thunderwright's Kirkhammer joins the Sojin Chikage
+<!-- launcher:
+### Hunter's Arsenal
+
+- The Sojin Chikage's switch on the Mods page is now **Hunter's Arsenal**, with a second new weapon: **Thunderwright's Kirkhammer**, a Kirkhammer charged with bolt. Every hammer blow sends Tiny Tonitrus's lightning along the ground, and the charged R2 sends three lines for a Quicksilver Bullet and overcharges you for 10 s. The Bath Messengers sell it for 10,000 Blood Echoes. If you had the Sojin Chikage on, both weapons are on.
+-->
+
+4.2.17 adds a second weapon to the Sojin Chikage's switch, now called **Hunter's Arsenal** (Mods page, off by default; made from your own game files at start, the release ships no game files). If you had the Sojin Chikage on, Hunter's Arsenal is on with both weapons. The Sojin Chikage itself is unchanged.
+
+- **Thunderwright's Kirkhammer:** a Kirkhammer reforged with bolt. It scales with Strength and Arcane (Arcane as strongly as Strength, no Skill) and needs Strength 16, Skill 10 and Arcane 12. Bolt 90 at +0, 180 at +10, on the Kirkhammer's physical 105 / 210. Papers cannot be applied, as on every weapon with a built-in element. The Bath Messengers sell it at +0 for 10,000 Blood Echoes from the start; with ShopEdit on, in ShopEdit's shop.
+- **Sword mode:** the Kirkhammer's sword, with half of each hit added as bolt.
+- **Hammer mode:** crackles with the charged Tonitrus's lightning and hits as bolt: 76 % of the Kirkhammer's physical plus the full bolt. Every blow sends Tiny Tonitrus's lightning along the ground, in three sizes you can tell apart:
+  - a short line on every R1 (and its rolling, backstep and dash forms) and on both transform attacks;
+  - a line twice as long on every uncharged R2;
+  - **Thunder Chariot**, the charged R2: three full-length lines. It takes one Quicksilver Bullet and overcharges you as the charged Tonitrus does (bolt x1.7 +40) for 10 s.
+- **Static Draw:** the transform attack back to the sword sends a short line and charges you the same way, for free.
+- **Your saves:** switched off, the launcher turns Thunderwright's Kirkhammer in your saves into a Kirkhammer of the same level (and the Sojin weapons into their Chikages, as before), with a backup beside the save folder.
+- **If you used the stand-alone Thunderwright or Hunter's Arsenal mod:** take it out of the mods folder and switch on Hunter's Arsenal; the weapon carries over.
+
 ## [4.2.16+build110126.171450] — 2026-11-01
 ### Sojin Chikage balance: Bankai is earned, the twin blades match the Chikage
 <!-- launcher:
