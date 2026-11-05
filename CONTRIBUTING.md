@@ -9,3 +9,5 @@ Bug reports, fixes and features are welcome.
 5. **Open a pull request** against `main` saying what changed, why, and how it was tested. Accepted changes ship in the next release.
 
 Contributions are accepted under the [LICENSE](LICENSE) (GPL-3.0-or-later). Code taken from other projects must keep its author and licence and be listed under *Third-party packages* in the [player guide](bloodborne_pc/README.md#third-party-packages).
+
+By taking part you agree to the [code of conduct](CODE_OF_CONDUCT.md).
