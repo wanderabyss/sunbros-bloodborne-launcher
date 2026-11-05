@@ -9,7 +9,7 @@
 
 ## 3.2.9 final — 3.2.9+build102726.105142
 
-- Co-op UI correction is confirmed by the user. Retain the renderer/cache changes below and keep admission blocking off.
+- Co-op UI correction is confirmed. Retain the renderer/cache changes below and keep admission blocking off.
 - Replace the FPS presets' existing four horizontal-momentum damping writes with `0.95 ** (30 / fps)` at fixed 60/90/120/144 FPS. The lists previously held the same 90 FPS value for all four rates. Require a matching movement instruction/original vector and precisely the expected four writes.
 - Keep 30 FPS and external FPS replacements intact. Add `running_jump_fix=0` / `BB_RUNNING_JUMP_FIX=0` for comparison. No jump-height multiplier is introduced.
 - Leave uncapped unchanged, with a diagnostic explaining that measured frame time is required. An arbitrary 120 FPS value would change momentum incorrectly at other achieved rates.

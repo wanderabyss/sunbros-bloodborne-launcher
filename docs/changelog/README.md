@@ -1,5 +1,6 @@
 # Changelog
 
+- [4.2.21 — NG+7 world: full NG+7 enemies from the first beast, every Caryll Rune](changelog-2026-11-06-4.2.21.md)
 - [4.2.20 — DLSS 5 setup: the launcher spots ReShade's standard build](changelog-2026-11-02-4.2.20.md)
 - [4.2.19 — Thunderwright's Kirkhammer gets a rune-iron head](changelog-2026-11-01-4.2.19.md)
 - [4.2.18 — Thunderwright's Kirkhammer balance: split damage, Arcane 25; damage log](changelog-2026-11-01-4.2.18.md)

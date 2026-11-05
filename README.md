@@ -9,7 +9,7 @@
 </tr>
 </table>
 
-**v4.2.20:** DLSS 5 setup help: the launcher spots ReShade's standard build (DLSS 5 needs the one with full add-on support), and the [DLSS 5 guide](docs/dlss5-setup.md) lists the exact cards and the 60 FPS requirement. [Changelog](docs/changelog/changelog-2026-11-02-4.2.20.md) · [All versions](docs/changelog/README.md) · [Release notes](Release_Notes.md) · [DLSS 4.5 vs DLSS 5 at 4K](docs/dlss-4.2.0-comparison.md)
+**v4.2.21:** NG+7 world: one switch puts any character, new or old, against every enemy at full NG+7 strength from the first beast, and the Hunter's Dream hands over every Caryll Rune. The save keeps its real cycle. [Changelog](docs/changelog/changelog-2026-11-06-4.2.21.md)
 
 <a href="docs/media/launcher-4.2.7-tour.mp4"><img src="docs/images/launcher-4.2.7-tour.webp" width="100%" alt="Tour of the 4.2.7 launcher: Home, Visuals presets with their ? tips and Save settings, Online, Co-op, Dossier, Workshop, Settings and the what's-new sheet"/></a>
 

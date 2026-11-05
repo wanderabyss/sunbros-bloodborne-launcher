@@ -8,6 +8,7 @@
 #include "key_prompts.h"
 #include "menu_pointer.h"
 #include "mouse_camera.h"
+#include "ng_plus.h"
 #include "occlusion_queries.h"
 #include "pc_menu.h"
 #include "rebirth.h"
@@ -29,7 +30,7 @@ static int menu_pointer_install(void) {
     return 0;
 }
 
-static const Install installs[] = {bb_pc_menu_install, bb_rebirth_install, bb_mouse_camera_install,
+static const Install installs[] = {bb_pc_menu_install, bb_rebirth_install, bb_ng_plus_install, bb_mouse_camera_install,
                                    bb_key_prompts_install, menu_pointer_install,
                                    bb_occlusion_queries_install, bb_jump_decay_install,
                                    bb_damage_log_install};

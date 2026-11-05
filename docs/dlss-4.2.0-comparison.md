@@ -125,7 +125,7 @@ With depth of field on, DLAA with M missed the 60 cap (55.4 FPS, 1% low 29.5; th
 | DLSS 5 Quality (NR upscaling) | M → K | 50.6 → 56.8 | 29.2 → 29.6 | 29.0 → 20.2 | 18.74 → 16.55 | 11.39 → 9.85 | 360 → 372 |
 | DLSS 5 Balanced | M → K | 54.3 → 60.0 | 29.3 → 55.7 | 14.9 → 54.5 | 16.93 → 15.11 | 10.82 → 9.14 | 338 → 347 |
 
-**The "DLSS 5 ready" preset (NR upscaling off, Cinematic, local structure 2.00: the settings the user confirmed work) at 1440p output on the 4K display, after the fix:**
+**The "DLSS 5 ready" preset (NR upscaling off, Cinematic, local structure 2.00: the settings confirmed to work) at 1440p output on the 4K display, after the fix:**
 
 | Config | Model | Game FPS | 1% low | 0.1% low | FT SD ms | Shown FPS | GPU busy ms | Eval ms | Power W | MHz | °C | VRAM game / card MiB | Game CPU (cores) | Errors |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|

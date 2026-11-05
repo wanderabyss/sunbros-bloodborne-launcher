@@ -42,6 +42,12 @@ engine/maiden_events.cpp and engine/dream_mirror_layout.cpp.
                                               mod's own gameparam (ShopEdit, ...); run.py turns the
                                               weapons in a save into the Chikages and the Kirkhammer
                                               they were made from when it is off.
+  pc_ng_plus_7          (BB_PC_NG7)           NG+7 world: enemies at their NG+7 strength from the
+                                              first beast, in any character (src/ng_plus.c does
+                                              this; the save keeps its real cycle, so off is the
+                                              character as it was). The Hunter's Dream hands over
+                                              every Caryll Rune once, best tier and the six oath
+                                              runes, through the game's own item lots.
   pc_menu               (BB_PC_MENU)          the in-game PC menu's assets (menu_assets.py): its
                                               sections in the options movie and its strings in
                                               every language. On by default: it only adds rows.
@@ -70,6 +76,7 @@ FEATURES = {
     # After the lamps: its Central Yharnam talk archive adds the rematch to the lamp menu.
     'pc_boss_rematches': ('BB_PC_REMATCHES', 'boss-rematches', 'Boss rematches at their lamps (experimental)'),
     'pc_sojin_chikage': ('BB_PC_SOJIN', 'hunters-arsenal', "Hunter's Arsenal (Sojin Chikage, Thunderwright's Kirkhammer)"),
+    'pc_ng_plus_7': ('BB_PC_NG7', 'ng-plus-7', 'NG+7 world and every Caryll Rune'),
     'pc_menu': ('BB_PC_MENU', 'pc-menu', 'In-game PC menu (System > PC Settings)'),
 }
 # Keep the original System menu. The launcher owns the PC graphics/settings controls;
@@ -78,7 +85,7 @@ DEFAULT_ON = set()
 # Still a first test: the launcher labels its toggle experimental; none in the overlay.
 EXPERIMENTAL = {'pc_boss_rematches'}
 # Bumped when a rewrite changes, so every install makes its files again.
-VERSION = 'enhancements 7'  # 7: Hunter's Arsenal (Thunderwright's Kirkhammer beside the Sojin Chikage)
+VERSION = 'enhancements 8'  # 8: NG+7 world's rune gift
 
 
 def sha256(data):
@@ -447,6 +454,51 @@ def hunters_arsenal(dvdroot):
     return {Path(relative): data for relative, data in files.items()}
 
 
+# --- NG+7 world: every Caryll Rune ------------------------------------------------------------
+#
+# Shops sell no gems, so the Hunter's Dream gives the runes: a new event in m21_00_00_00 awards
+# each one's own item lot (category gem, one item, certain), once. The world half is src/ng_plus.c.
+NG7_IN = '5b809fa46c1bb419f5b69e3613051deee4b5eca034bd92f699d60d79193863cc'
+NG7_OUT = '8ca832766e9c44ccb31865f6bc57afd8f2c7ae41b22b381993081259874bb298'
+NG7_EVENT, NG7_FLAG = 12100970, 12100971  # used by no event file of the game
+# The best tier's lot of each rune (GemGenParam 100003..104001), then the six oath runes
+# (200000..200050). A lot whose flag is set gives nothing: a rune already found is not given twice.
+RUNE_LOTS = (2605000, 200530070, 200500100, 200520110, 200520100, 56000, 200500090, 200500080,
+             200530060, 200520090, 200520080, 200500070, 200530050, 200520070, 200520060,
+             200530040, 200530030, 200520050, 200500060, 200500050, 3401800,
+             34020, 17000, 35010, 43120, 3401850, 43020)
+
+
+def ng_plus_7_script(data):
+    from emevd import Emevd
+    if sha256(data) != NG7_IN:
+        raise Skip('not the 1.09 event script')
+    script = Emevd(data)
+    gift = []
+    for lot in RUNE_LOTS:  # a moment apart, so the item messages queue up
+        gift += [(2003, 4, struct.pack('<i', lot)), (1001, 0, struct.pack('<f', 0.1))]
+    script.append_initialized_event(NG7_EVENT, [
+        (1003, 2, struct.pack('<BBBxi', 0, 1, 0, NG7_FLAG)),  # end if the flag is on
+        (1001, 0, struct.pack('<f', 3.0)),                    # the player has arrived
+        *gift,
+        (2003, 2, struct.pack('<iB3x', NG7_FLAG, 1)),
+    ])
+    out = script.to_bytes()
+    if sha256(out) != NG7_OUT:
+        raise Skip('the rewrite came out unexpected')
+    return out
+
+
+def ng_plus_7(dvdroot):
+    relative = Path('event') / 'm21_00_00_00.emevd.dcx'
+    try:
+        packed = (dvdroot / relative).read_bytes()
+        return {relative: dcx_compress(ng_plus_7_script(dcx_decompress(packed)), template=packed)}
+    except (OSError, FormatError, Skip, ValueError) as error:
+        print(f'Enhancements: NG+7 world: off ({error})', file=sys.stderr)
+        return {}
+
+
 def pc_menu(dvdroot):
     import menu_assets
     return menu_assets.make(dvdroot, log=lambda line: print(f'Enhancements: {line}', file=sys.stderr))
@@ -454,7 +506,7 @@ def pc_menu(dvdroot):
 
 MAKERS = {'pc_two_invaders': two_invaders, 'pc_mirror_appearance': dream_mirror, 'pc_rebirth': rebirth,
           'pc_enhanced_lamps': enhanced_lamps, 'pc_boss_rematches': boss_rematches,
-          'pc_sojin_chikage': hunters_arsenal, 'pc_menu': pc_menu}
+          'pc_sojin_chikage': hunters_arsenal, 'pc_ng_plus_7': ng_plus_7, 'pc_menu': pc_menu}
 # Makers whose files depend on which other features are on (their stamp names those features).
 COMBINED = {'pc_enhanced_lamps': ('pc_rebirth',), 'pc_boss_rematches': ('pc_rebirth', 'pc_two_invaders')}
 

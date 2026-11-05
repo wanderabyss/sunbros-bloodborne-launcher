@@ -85,6 +85,10 @@ the guide. They are made from your own game files at start, which stay unchanged
 - **Lamps: Level Up and Storage** (`pc_enhanced_lamps`): every lit lamp also offers the game's
   own level-up and storage screens, once you have used the Doll and the storage box.
 - **Rebirth in the Nightmare** (`pc_rebirth`): reallocate your stats at the Altar of Despair.
+- **NG+7 world** (`pc_ng_plus_7`): every enemy at its full NG+7 strength and echoes from the
+  first beast, in any character, new or old. Your save keeps its real cycle, so switching it off
+  puts the character back. The Hunter's Dream also hands you every Caryll Rune once (the best tier
+  of each, and the six oath runes). For everything else, ShopEdit sells it for free.
 - **Hunter's Dream mirror** (`pc_mirror_appearance`): the workshop mirror opens the appearance
   editor, the developers' unused "Put on Disguise".
 - **Two invaders** (`pc_two_invaders`) in Mensis, Mergo's Loft, the Nightmare Frontier and the
@@ -251,6 +255,7 @@ page take precedence:
 | Hunter's Dream mirror | `pc_mirror_appearance=1` | `BB_PC_MIRROR=1` |
 | Two invaders | `pc_two_invaders=1` | `BB_PC_TWO_INVADERS=1` |
 | Hunter's Arsenal (Sojin Chikage, Thunderwright's Kirkhammer) | `pc_sojin_chikage=1` | `BB_PC_SOJIN=1` |
+| NG+7 world and every Caryll Rune | `pc_ng_plus_7=1` | `BB_PC_NG7=1` |
 | Mouse camera | `mouse_camera=0` turns it off | `BB_MOUSE_CAMERA=0` |
 | Mouse flick that switches lock-on targets (mouse counts; higher needs a bigger flick) | `mouse_flick_threshold=300`, `0` turns it off | `BB_MOUSE_DEBUG=1` logs it |
 | Mouse pointer in the game's menus | `mouse_menu=0` turns it off | `BB_MOUSE_MENU=0` |

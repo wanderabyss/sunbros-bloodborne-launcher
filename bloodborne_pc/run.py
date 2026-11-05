@@ -425,6 +425,8 @@ def main():
         print("Hunter's Atlas: on in the settings, but its maps are not prepared (launcher: Prepare maps)")
     # Rebirth's runtime half acts only with the altar's rewritten script in place.
     env['BB_PC_REBIRTH_ACTIVE'] = '1' if any(Path(f).name == 'rebirth' for f in generated) else '0'
+    # NG+7 world's runtime half: with the Hunter's Dream's rune gift in place.
+    env['BB_PC_NG7_ACTIVE'] = '1' if any(Path(f).name == 'ng-plus-7' for f in generated) else '0'
     env['BB_PC_MENU_QUIT'] = '1' if menu and all(
         (menu / 'dvdroot_ps4/menu' / name).is_file() for name in ('title.gfx', 'title_dlc.gfx')) else '0'
     # Ultrawide outputs (wider than 16:9): the menu movies with full-screen backdrops widened and

@@ -244,7 +244,7 @@ TWEAKS = [
 ]
 # PC enhancements (scripts/enhancements.py, after bbhost): game files made at start; off is the
 # game as it shipped. BB_PC_MIRROR / BB_PC_TWO_INVADERS / BB_PC_REBIRTH / BB_PC_LAMPS /
-# BB_PC_REMATCHES override them.
+# BB_PC_REMATCHES / BB_PC_NG7 override them.
 # Hunter's Atlas (MikeTat1988/HuntersAtlas, scripts/atlas.py): the full-screen map, its maps made
 # once from the player's game (Mods & Patches > Prepare maps).
 ATLAS = [
@@ -271,6 +271,8 @@ ENHANCEMENTS = [
                            'Повторные бои с боссами у их фонарей (эксперимент; сохраните копию сохранений)'), False),
     ('pc_sojin_chikage', ("Hunter's Arsenal: Sojin Chikage and Thunderwright's Kirkhammer from the Bath Messengers (every player in a session needs it)",
                           'Арсенал охотника: Сёдзин Тикагэ и Киркхаммер Громовержца у Посланников в Сне охотника (нужен всем игрокам в сессии)'), False),
+    ('pc_ng_plus_7', ("NG+7 world: enemies at full NG+7 strength from the start, every Caryll Rune in the Hunter's Dream (the save keeps its real cycle)",
+                      'Мир НГ+7: враги на полной силе НГ+7 с самого начала, все руны Кэрилла в Сне охотника (в сохранении остаётся настоящий цикл)'), False),
 ]
 INI_FLAGS = {'sharpen', 'object_motion', 'show_fps', 'mouse_camera', 'mouse_invert_y', 'mouse_menu', 'mouse_hide_cursor', 'frame_gen_fit_display', 'rt_shadow_half', 'rt_secondary_lights', 'rt_reflections', 'hdr',
              *(k for k, _t, _o in EFFECTS + EXTRAS + CHEATS + TWEAKS + ENHANCEMENTS + ATLAS)}

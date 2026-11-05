@@ -42,6 +42,12 @@ class SettingsTests(unittest.TestCase):
         self.assertEqual(enhancements.enabled({**menu_off, 'pc_two_invaders': '1'}, {'BB_PC_TWO_INVADERS': '0'}), [])
         self.assertEqual(enhancements.enabled(menu_off, {'BB_PC_MIRROR': '1'}), ['pc_mirror_appearance'])
 
+    def test_ng_plus_7_is_a_switch_that_stays_off(self):
+        self.assertEqual(enhancements.FEATURES['pc_ng_plus_7'][:2], ('BB_PC_NG7', 'ng-plus-7'))
+        self.assertIn('pc_ng_plus_7', enhancements.MAKERS)
+        self.assertNotIn('pc_ng_plus_7', enhancements.enabled({}, {}))
+        self.assertEqual(enhancements.enabled({}, {'BB_PC_NG7': '1'}), ['pc_ng_plus_7'])
+
     def test_the_injected_menu_requires_explicit_opt_in(self):
         self.assertEqual(enhancements.enabled({}, {}), [])
         self.assertEqual(enhancements.enabled({}, {'BB_PC_MENU': '0'}), [])
@@ -107,6 +113,36 @@ class RealGameTests(unittest.TestCase):
         archive = Bnd4(dcx_decompress(next(iter(files.values()))))
         altar = archive.files[archive.index('t242307.esd')]
         self.assertEqual(hashlib.sha256(altar).hexdigest(), enhancements.REBIRTH_OUT)
+
+    def test_ng_plus_7_gives_each_rune_once_from_its_own_lot(self):
+        from emevd import Emevd
+        from sojin import bbparam
+        with tempfile.TemporaryDirectory() as folder:
+            made = enhancements.make(GAME, folder, ['pc_ng_plus_7'])
+            self.assertEqual([m.name for m in made], ['ng-plus-7'])
+            packed = (made[0] / 'dvdroot_ps4/event/m21_00_00_00.emevd.dcx').read_bytes()
+        script = Emevd(dcx_decompress(packed))
+        rows = script.event_instructions(enhancements.NG7_EVENT)
+        self.assertEqual(rows[0][:2], (1003, 2))  # ends at once when the runes were given
+        self.assertEqual(rows[-1], (2003, 2, struct.pack('<iB3x', enhancements.NG7_FLAG, 1)))
+        lots = [struct.unpack('<i', args)[0] for bank, code, args in rows if (bank, code) == (2003, 4)]
+        self.assertEqual(lots, list(enhancements.RUNE_LOTS))
+        self.assertEqual(len(set(lots)), 27)
+        bbparam.GAME = f"{(GAME / 'dvdroot_ps4').as_posix()}/"
+        defs = bbparam.load_paramdefs()
+        _, params = bbparam.open_bnd(GAME / 'dvdroot_ps4/param/gameparam/gameparam.parambnd.dcx')
+
+        def param(name, kind):
+            index = next(i for i, n in enumerate(params.names) if n.endswith('\\' + name))
+            return bbparam.Param(params.files[index], defs[kind])
+
+        item_lots = param('ItemLotParam.param', 'ITEMLOT_PARAM_ST')
+        gems = param('GemGenParam.param', 'GEM_GEN_PARAM_ST')
+        for lot in lots:
+            self.assertEqual(item_lots.get(lot, 'lotItemCategory01'), 8, lot)  # a gem, the only item
+            self.assertEqual(item_lots.get(lot, 'lotItemCategory02'), 0, lot)
+            self.assertGreater(item_lots.get(lot, 'getItemFlagId'), 0, lot)  # given only once
+            self.assertEqual(gems.get(item_lots.get(lot, 'lotItemId01'), 'equipableSegmentBody'), 1, lot)
 
     def test_rewrites_match_bbhost_and_are_reused(self):
         with tempfile.TemporaryDirectory() as folder:

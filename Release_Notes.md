@@ -1,5 +1,22 @@
 # Release Notes
 
+## [4.2.21+build110626.120000] — 2026-11-06
+### NG+7 world: full NG+7 enemies from the first beast, every Caryll Rune
+<!-- launcher:
+### NG+7 world
+
+- New switch in Mods & Patches: every enemy at full NG+7 strength and echoes from the first beast, in any character.
+- Your save keeps its real cycle, so switching it off puts the character back.
+- The Hunter's Dream hands over every Caryll Rune once: the best tier of each, and the six oath runes.
+-->
+
+4.2.21 adds **NG+7 world** (`pc_ng_plus_7`, off by default), for finishing the game at its highest difficulty without playing it eight times.
+
+- **Enemies:** the game keeps one cycle counter and about 70 places read it live, so the port holds it at 7 while you play. Health and attack reach the game's top multiplier (x1.2 over NG+1), echoes theirs (x2.5). No event or Lua script tests the counter, so nothing else in the world changes.
+- **Your save:** the save gets the character's real cycle, not 7, so switching off puts the character back. Beating the game with the switch on still adds a cycle to the real count.
+- **Runes:** shops sell no gems, so the Hunter's Dream hands over all 27 through the game's own item lots, a few seconds after you arrive. A rune you already found is not given twice. The Memory Altar still needs the Rune Workshop Tool.
+- **Items:** ShopEdit already sells every weapon, attire piece and other item for free; this switch adds no shop.
+
 ## [4.2.20+build110126.203708] — 2026-11-02
 ### DLSS 5 setup: the launcher spots ReShade's standard build
 <!-- launcher:
@@ -427,7 +444,7 @@
 - **Packaging:** cleans only the current package's staging folder, preventing another build's locked files from breaking packaging.
 - **Title/startup presentation:** generated copies of the original title movies zoom only their padded background artwork uniformly to fill a 16:9 screen, with a small top/bottom crop; menu commands stay in place and the original game files are untouched. Movie-only bitmap sampling uses linear filtering to reduce enlarged logo pixel steps. Gameplay/depth samplers retain their filtering. Other aspect ratios retain their existing title layout. `BB_TITLE_FILL=0` keeps the original title artwork framing.
 - **Unavailable graphics:** secondary-light and water-reflection rows now disable and dim the whole control, explicitly distinguishing saved On requests from active effects. Implementation requirements. DLSS 5's paused backend is now explicitly shown as unavailable and the launcher control is disabled, including when an older settings file contains an On request. Ordinary DLSS upscaling and frame generation remain separate selectable features.
-- **In-game menus:** the injected Achievements / PC Graphics / PC Display / PC Effects / PC Settings sections are off by default; use the launcher for PC settings. `BB_PC_MENU=1` explicitly restores the older menu. The local test package includes the user-supplied Nerkuu Exit Game 1.01 XML as a separate title-only patch, enabled by default. That third-party XML requires the author's permission before public redistribution.
+- **In-game menus:** the injected Achievements / PC Graphics / PC Display / PC Effects / PC Settings sections are off by default; use the launcher for PC settings. `BB_PC_MENU=1` explicitly restores the older menu. The local test package includes the supplied Nerkuu Exit Game 1.01 XML as a separate title-only patch, enabled by default. That third-party XML requires the author's permission before public redistribution.
 - **Applying the fix:** open the 3.3.1 launcher, select Remastered again, then restart the game. Existing saved preferences are not silently rewritten on upgrade.
 - **Runtime validation:** the supplied 3.3.1 log now confirms 60 game FPS and 120 accepted-image FPS with increasing DLSS-generated counts during gameplay. Title-only frames have no captured 3D scene to interpolate. The title-fill and bitmap-filtering follow-up still needs visual confirmation in the new package; smoothing does not add detail absent from the original logo bitmaps.
 - Follow-up validation: 103 focused Python/QML tests and 65 subtests pass; 5 optional game-fixture tests skipped. Distribution: `bbport-windows-3.3.1`.
@@ -443,7 +460,7 @@
 ### Exit wording and package refresh
 
 - Generated message archives now say **Exit to desktop**, **Save your progress and exit to desktop.**, and **Save your progress and exit to desktop?** The original game archives remain unchanged. The wording follows the desktop-exit opt-out and does not add PC menu sections.
-- The user confirmed the hidden in-game exit works. Its previous return-to-title wording is replaced in the new package.
+- The hidden in-game exit was confirmed working. Its previous return-to-title wording is replaced in the new package.
 - Windows build extraction completes in a temporary folder before the playable package is swapped into place, with rollback on swap failure and settings/save preservation. This avoids opening an EXE while its Qt/Shiboken files are still extracting, which can trigger the classic Tk fallback. Its background is bundled launcher/art/hero.png, not a cached screenshot.
 
 ---
@@ -481,7 +498,7 @@
 
 - Reduce Atlas drawing work with a worker-built spatial index and reuse mapped ImGui upload buffers with growth headroom, retaining draw order and upload synchronization.
 - Add bounded device-wide VRAM-pressure response for RT, compatible driver-cache checkpoints, invalid-key pruning and separate session-local motion deferral reporting. Preserve recent/dynamic geometry protections. Admission blocking stays off.
-- Fix duplicate co-op name/password/server editors. The user confirmed the refreshed co-op UI is correct; search focus and settings reload regressions pass.
+- Fix duplicate co-op name/password/server editors. The refreshed co-op UI is confirmed correct; search focus and settings reload regressions pass.
 - Correct existing horizontal-momentum damping for fixed 60/90/120/144 FPS against 30 FPS decay, with executable/data guards. Disable via `running_jump_fix=0` or `BB_RUNNING_JUMP_FIX=0`. Vertical impulse is unchanged. Uncapped needs a measured-frame-time hook and remains unchanged; physical jump-distance equivalence still needs gameplay comparison.
 - Resolve Pyrefly optional-value diagnostics in patch generation and tests with explicit narrowing and required XML attributes.
 - Local renderer CPU/GPU, co-op/navigation and patch regressions pass. Supplied 3.2.9 gameplay showed zero capture exclusions and no PresentImage call reaching 50 ms; identical-route gains, genuine VRAM-pressure recovery and jump distances remain unverified.

@@ -44,11 +44,12 @@ original_game=$game
 generated=()
 # The in-game PC menu adds its rows only when its files were made, and the title's Quit Game
 # only when both title movies have its line.
-export BB_PC_MENU_ASSETS=0 BB_PC_MENU_QUIT=0 BB_PC_REBIRTH_ACTIVE=0
+export BB_PC_MENU_ASSETS=0 BB_PC_MENU_QUIT=0 BB_PC_REBIRTH_ACTIVE=0 BB_PC_NG7_ACTIVE=0
 while IFS= read -r folder; do
     folder=${folder%$'\r'}
     [[ -n $folder ]] && generated+=(--generated "$folder")
     [[ ${folder##*/} == rebirth ]] && BB_PC_REBIRTH_ACTIVE=1  # the altar's script is in place
+    [[ ${folder##*/} == ng-plus-7 ]] && BB_PC_NG7_ACTIVE=1  # the Dream's rune gift is in place
     if [[ ${folder##*/} == pc-menu ]]; then
         BB_PC_MENU_ASSETS=1
         [[ -f $folder/dvdroot_ps4/menu/title.gfx && -f $folder/dvdroot_ps4/menu/title_dlc.gfx ]] && BB_PC_MENU_QUIT=1
