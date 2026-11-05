@@ -6,8 +6,8 @@ fork is based on [Supermedo's Windows port](https://github.com/Supermedo/bloodbo
 Mohammed Albarghouthi, which builds on [deadinside28's bbport](https://github.com/deadinside28/bloodborne_pc)
 and the [shadPS4](https://github.com/shadps4-emu/shadPS4) renderer.
 
-**Current version: 4.2.20** (DLSS 5 setup: the launcher spots ReShade's standard build).
-See the [release notes](../Release_Notes.md), the [4.2.20 changelog](../docs/changelog/changelog-2026-11-02-4.2.20.md),
+**Current version: 4.3.0** (spatial sound for the game's 7.1 mix, and HDR paper white up to 800 nits).
+See the [release notes](../Release_Notes.md), the [4.3.0 changelog](../docs/changelog/changelog-2026-11-05-4.3.0.md),
 [all versions](../docs/changelog/README.md) and [DLSS 4.5 vs DLSS 5 at 4K](../docs/dlss-4.2.0-comparison.md).
 
 > **No game files are included.** You need your own dump of Bloodborne. This project is not
@@ -39,7 +39,7 @@ Previews of upcoming features are marked *Pre-release* on the
 **Graphics & Visuals**
 - **Vulkan Ray Tracing**: Real-time Ray-Traced Ambient Occlusion (RTAO) and directional Moon Shadows. Ray-traced water reflections and dynamic secondary lights are not implemented.
 - **RTG-5 Anti-Ghosting**: 3×3 color neighborhood history clamp in `rt_filter.comp` eliminating ghost trails on fast-moving casters and dynamic cloaks.
-- **True HDR (Rec. 2020)**: Native `VK_COLOR_SPACE_HDR10_ST2084_EXT` support with SMPTE ST 2084 PQ EOTF and custom luminance tonemapping for Bloodborne's deep blacks and incandescent firelight. **HDR paper white**, **peak brightness** (up to 4000 nits, or the display's) and **highlight boost** are set in **Visuals > Display & frame rate > HDR output** (`hdr_white_nits`, `hdr_peak_nits`, `hdr_highlight_boost`).
+- **HDR10 (Rec. 2020)**: `VK_COLOR_SPACE_HDR10_ST2084_EXT` output with the SMPTE ST 2084 PQ curve. The game renders SDR, and bright areas are expanded at the final step, so detail the game clipped doesn't come back. **HDR paper white** (up to 800 nits), **peak brightness** (up to 4000 nits, or the display's) and **highlight boost** are set in **Visuals > Display & frame rate > HDR output** (`hdr_white_nits`, `hdr_peak_nits`, `hdr_highlight_boost`).
 - **Profile-Guided Optimization (PGO) & ThinLTO**: Binaries compiled with Clang ThinLTO and profile-guided optimization ingesting 108B execution counts across 18,203 functions from in-game tours.
 - NVIDIA DLSS (GeForce RTX 20 series and newer), AMD FSR 3.1, FSR 4 and FSR 4.1.1 (experimental on Windows, through [fsr4vk](https://github.com/dvj5411/fsr4vk): **Visuals > Upscaling > Download FSR 4.1.1**; up to 1080p output on NVIDIA), native-resolution TAA, DLSS and FSR 3.1 Frame Generation, and NVIDIA Reflex low latency (On / Boost).
 - **DLSS 5 neural rendering** (community route, RTX 40 / 50): with your own `nvngx_dlssnr.dll`,
@@ -85,6 +85,8 @@ the guide. They are made from your own game files at start, which stay unchanged
 - **Lamps: Level Up and Storage** (`pc_enhanced_lamps`): every lit lamp also offers the game's
   own level-up and storage screens, once you have used the Doll and the storage box.
 - **Rebirth in the Nightmare** (`pc_rebirth`): reallocate your stats at the Altar of Despair.
+- **Spatial sound:** with Dolby Atmos, Windows Sonic or DTS on under Windows' Spatial sound setting, the game's
+  7.1 channels go to their own speaker positions. With it off, a 5.1 or 7.1 output gets them directly.
 - **NG+7 world** (`pc_ng_plus_7`): every enemy at its full NG+7 strength and echoes from the
   first beast, in any character, new or old. Your save keeps its real cycle, so switching it off
   puts the character back. The Hunter's Dream also hands you every Caryll Rune once (the best tier
@@ -256,6 +258,8 @@ page take precedence:
 | Two invaders | `pc_two_invaders=1` | `BB_PC_TWO_INVADERS=1` |
 | Hunter's Arsenal (Sojin Chikage, Thunderwright's Kirkhammer) | `pc_sojin_chikage=1` | `BB_PC_SOJIN=1` |
 | NG+7 world and every Caryll Rune | `pc_ng_plus_7=1` | `BB_PC_NG7=1` |
+| Spatial sound (on when Windows has a format on) | | `BB_AUDIO_SPATIAL=0` turns it off |
+| Heap trace in `last_run.log` | | `BB_HEAP_TRACE=0` turns it off |
 | Mouse camera | `mouse_camera=0` turns it off | `BB_MOUSE_CAMERA=0` |
 | Mouse flick that switches lock-on targets (mouse counts; higher needs a bigger flick) | `mouse_flick_threshold=300`, `0` turns it off | `BB_MOUSE_DEBUG=1` logs it |
 | Mouse pointer in the game's menus | `mouse_menu=0` turns it off | `BB_MOUSE_MENU=0` |

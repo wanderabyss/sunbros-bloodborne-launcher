@@ -1,6 +1,6 @@
 # SunBro's Edition: Bloodborne PC feature catalog
 
-Updated **2026-10-31**, for **4.2.8** (the bells after seamless co-op are normal bells again), **4.2.7** (Save settings and a tidier Visuals page; Download BBSC on the Co-op page), **4.2.6** (seamless co-op hosting: the co-op server ships again), **4.2.5** (first start set for your PC) and **4.2.4** (★ DLSS 4 / ★ DLSS 5 preset suggestions; DLSS 5 stays off and says why when ReShade won't load it), on top of **4.0.0** (major release: save backups, HDR brightness controls, DLSS 5 neural rendering through the community route, FSR 4.1.1 on Windows, FSR 1 output upscale; on top of 3.4.0's DLSS roadmap). Based on Jgamrot 2.1 and BBSC 0.0.2. The supplied 3.2.9 renderer run has zero capture exclusions; the corrected co-op UI was confirmed. Identical-route performance, genuine VRAM-pressure recovery and jump-distance acceptance remain pending. See [build guide](build.md) and [current changelog](docs/changelog/changelog-2026-10-29-4.0.0.md).
+Updated **2026-11-05**, for **4.3.0** (spatial sound for the game's 7.1 mix; HDR paper white to 800 nits; heap trace), **4.2.21** (NG+7 world), **4.2.8** (the bells after seamless co-op are normal bells again), **4.2.7** (Save settings and a tidier Visuals page; Download BBSC on the Co-op page), **4.2.6** (seamless co-op hosting: the co-op server ships again), **4.2.5** (first start set for your PC) and **4.2.4** (★ DLSS 4 / ★ DLSS 5 preset suggestions; DLSS 5 stays off and says why when ReShade won't load it), on top of **4.0.0** (major release: save backups, HDR brightness controls, DLSS 5 neural rendering through the community route, FSR 4.1.1 on Windows, FSR 1 output upscale; on top of 3.4.0's DLSS roadmap). Based on Jgamrot 2.1 and BBSC 0.0.2. The supplied 3.2.9 renderer run has zero capture exclusions; the corrected co-op UI was confirmed. Identical-route performance, genuine VRAM-pressure recovery and jump-distance acceptance remain pending. See [build guide](build.md) and [current changelog](docs/changelog/changelog-2026-10-29-4.0.0.md).
 
 ## Capability overview
 
@@ -11,11 +11,22 @@ Fixed 60/90/120/144 FPS presets correct running-jump horizontal momentum against
 | Launcher | Qt Quick / PySide6 Command Center (`HomePage`), `VisualsStudio`, `DossierWorkspace` (6-axis `StatRadar`, trophy filters), `MultiplayerWorkspace` (`CoopSetupPanel`), `PreferencesPage`, HD Texture Pack builder, save backups (manual, automatic after play, restore with rollback), FSR 4.1.1 download, and opt-in background updater. | Home capsule describes requested settings, HD Texture Pack state, and target FPS. |
 | DLSS SR | ABI 3 bridge (SR, FG; DLSS 5 entry points reported unsupported), Auto/manual models per quality mode, mip bias −1 by default and mip-offset control. DLSS 5 neural rendering through the player's own ReShade + dlss5-bridge + renodx-dlss5 (community route), with the add-on's look settings in the launcher. | RTX 4090 at 4K measured in 4.2.0 (every tier with K, M and L, frame generation, DLSS 5; [results](docs/dlss-4.2.0-comparison.md)); other GPUs not tested. |
 | Frame generation | DLSS-G and FSR fallback, display fitting, HUD-less inputs and output counters. | RTX 4090 HDR + DLSS 2× ran for 18 min 46 s of telemetry; transitions, fallback and other GPUs remain open. |
-| HDR | BT.2020/PQ, 10-bit RGB output after FG and overlay composition; paper white, peak brightness (to 4000 nits, or the display's) and highlight boost settings. | SDR-derived content; the new levels are GPU-tested, not yet checked on an HDR display. |
+| HDR | BT.2020/PQ, 10-bit RGB output after FG and overlay composition; paper white (to 800 nits), peak brightness (to 4000 nits, or the display's) and highlight boost settings. | SDR-derived content. Levels compared by eye on one OLED; not measured. |
+| Spatial sound | The main audio port's 8 channels go to static Windows spatial audio objects when a format is on, with a return to SDL if the stream ends. A 5.1 / 7.1 output gets them through SDL. | Checked with Dolby Atmos for Headphones. Speakers, Windows Sonic, DTS and an output change mid-game are not yet run. |
 | Ray tracing | RTAO, moon shadows, half-resolution option and custom reach. | Reflections/local-light shadows unavailable; visual/performance A/B pending. |
 | Reflex | Off / On / Boost, DLSS-FG coupling, publication-before-sleep ordering and queue/wait diagnostics. | Experimental admission blocking is off by default after a failed gated run; marker intervals are not input latency. |
 | Atlas | Bundled maps/art, live position, opt-in lamp travel, background geometry preparation, viewport culling and reused upload buffers. | The latest drawing optimizations require identical-route testing. |
 | Co-op | BBSC 0.0.2 relay/rejoin integration, public/private modes and backups. | Matching peer builds required; Chalice synchronization remains a roadmap item. |
+
+## 4.3.0 Spatial sound, HDR paper white to 800 nits, heap trace
+
+- The game mixes real 7.1: a capture of the main audio port had a separate signal in all eight channels. With Dolby Atmos for Headphones on, Windows still reports 2 channels, so the port now sends the channels to spatial audio objects itself (`BB_AUDIO_SPATIAL=0` turns it off).
+- `hdr_white_nits` goes up to 800, with 500, 600 and 800 in the launcher. Higher values leave less range for highlights below the peak.
+- When the game's heap rejects a free, `last_run.log` names the block, its heap and any earlier free of it (`BB_HEAP_TRACE=0` turns it off). `BB_AUDIO_DUMP_GUEST` captures the game's PCM before any downmix.
+
+## 4.2.21 NG+7 world
+
+- `pc_ng_plus_7` (`BB_PC_NG7`, off by default) holds the live cycle at 7, gives the save the character's real cycle, and awards every Caryll Rune once in the Hunter's Dream.
 
 ## 4.2.7 Save settings; Download BBSC on the Co-op page
 

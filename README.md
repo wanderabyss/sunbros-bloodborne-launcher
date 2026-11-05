@@ -5,15 +5,27 @@
 <table>
 <tr>
 <td width="200" valign="middle"><img src="docs/images/sunbros-logo.png" width="180" alt="SunBro's Edition logo"/></td>
-<td valign="middle">Custom Windows build based on Jgamrot's Bloodborne PC port 2.1 and BBSC 0.0.2, with a Qt Quick launcher, DLSS (and DLSS 5 neural rendering through the community route), FSR 3.1 / 4.1.1, frame generation, HDR10 and Vulkan ray tracing.</td>
+<td valign="middle">Custom Windows build based on Jgamrot's Bloodborne PC port 2.1 and BBSC 0.0.2, with a Qt Quick launcher, DLSS (and DLSS 5 neural rendering through the community route), FSR 3.1 / 4.1.1, frame generation, HDR10, spatial sound and Vulkan ray tracing.</td>
 </tr>
 </table>
 
-**v4.2.21:** NG+7 world: one switch puts any character, new or old, against every enemy at full NG+7 strength from the first beast, and the Hunter's Dream hands over every Caryll Rune. The save keeps its real cycle. [Changelog](docs/changelog/changelog-2026-11-06-4.2.21.md)
+**v4.3.0:** Spatial sound: with Dolby Atmos, Windows Sonic or DTS on in Windows, the game's real 7.1 mix now goes to its own speaker positions, not a stereo fold. HDR paper white goes up to 800 nits, and a rare memory crash now says which block it hit. [Changelog](docs/changelog/changelog-2026-11-05-4.3.0.md)
 
 <a href="docs/media/launcher-4.2.7-tour.mp4"><img src="docs/images/launcher-4.2.7-tour.webp" width="100%" alt="Tour of the 4.2.7 launcher: Home, Visuals presets with their ? tips and Save settings, Online, Co-op, Dossier, Workshop, Settings and the what's-new sheet"/></a>
 
 *The 4.2.7 launcher: Home, then Visuals (Ultra, Remastered DLSS 4 and DLSS 5 with their ? tips, Save settings), Online, Co-op, Dossier, Workshop, Settings and the what's-new sheet. [Watch the video (MP4, 1460 × 940, 30 FPS)](docs/media/launcher-4.2.7-tour.mp4). Rendered from the live launcher with an example hunter; FPS values are configured targets.*
+
+## Highlights
+
+- **DLSS 4.5, DLSS 5 and FSR 4.1.1:** model selection, frame generation, and DLSS 5 neural rendering through the community route with your own add-ons.
+- **Spatial sound:** the game's real 7.1 mix reaches Dolby Atmos, Windows Sonic and DTS channel by channel, or a 5.1 / 7.1 output directly.
+- **HDR10:** 10-bit BT.2020 / PQ output with paper white up to 800 nits, peak up to 4000 nits and highlight boost.
+- **Ray tracing:** ambient occlusion and moon shadows, with quality presets.
+- **NG+7 world:** one switch for full NG+7 enemies from the first beast and every Caryll Rune. Your save keeps its real cycle.
+- **Hunter's Arsenal and lamps:** Sojin Chikage and Thunderwright's Kirkhammer, plus Level Up and Storage at every lamp.
+- **Hunter's Atlas:** maps, your position on them and opt-in lamp travel.
+- **Seamless co-op and The Hunter's Dream online:** private or public, with BBSC 0.0.2.
+- **Save backups:** manual and automatic, with restore and rollback.
 
 ## Gameplay: DLSS 4.5 vs DLSS 5
 
@@ -57,10 +69,12 @@
 | Upscaling | DLSS model selection and Auto policy, DLSS mip bias −1 by default and live mip offset, FSR 3.1, FSR 4.1.1 on Windows through fsr4vk (experimental, one-click download; up to 1080p output on NVIDIA), FSR 1 EASU when the output is smaller than the display. |
 | DLSS 5 | Neural rendering through the player's own ReShade + dlss5-bridge + renodx-dlss5 (nothing shipped); one switch, the add-on's look settings, runtime status and a DLSS 5 ready preset sized to the output (★ DLSS 5, next to Remastered's ★ DLSS 4); stays off and says why when ReShade won't load it. [Setup guide](docs/dlss5-setup.md). |
 | Frame generation | DLSS-G through the NGX bridge (ABI 3: SR, FG and DLSS 5 entry points, the last unsupported until NVIDIA ships it); FSR fallback. HDR + DLSS 2× evaluation observed on RTX 4090. |
-| HDR output | **BT.2020 / ST 2084 PQ, 10-bit RGB** swapchain; final conversion shared by rendered and generated frames. Paper white, peak brightness (or the display's) and highlight boost settings; physical display calibration remains pending. |
+| HDR output | **BT.2020 / ST 2084 PQ, 10-bit RGB** swapchain; final conversion shared by rendered and generated frames. Paper white (to 800 nits), peak brightness (or the display's) and highlight boost settings. The picture is SDR expanded to HDR at the final step; physical display calibration remains pending. |
+| Spatial sound | The game's 7.1 mix goes to Windows spatial audio objects when Dolby Atmos, Windows Sonic or DTS is on, and to a 5.1 / 7.1 output directly otherwise. Checked with Dolby Atmos for Headphones; other formats and speakers are not yet tested. |
 | Ray tracing | Ambient occlusion and moon shadows, quality presets, half-resolution shadows and custom reach. Reflections and secondary-light shadows remain unavailable. |
-| Diagnostics | Runtime provider/fallback status, generation/presentation counters and Reflex marker intervals. |
+| Diagnostics | Runtime provider/fallback status, generation/presentation counters and Reflex marker intervals. A rejected memory free names its block in `last_run.log`. |
 | Hunter's Atlas | Bundled maps/art, position overlay and opt-in lamp travel. |
+| NG+7 world | Optional switch (`pc_ng_plus_7`): full NG+7 enemies and echoes from the first beast, and every Caryll Rune once. The save keeps its real cycle, so switching it off puts the character back. |
 | Multiplayer | Offline, The Hunter's Dream online and BBSC 0.0.2 seamless co-op; co-op caps game simulation at 60 FPS. |
 | Builds | MSYS2 native renderer, VS 2026 DLSS bridge, frozen launcher and ZIP packaging. |
 

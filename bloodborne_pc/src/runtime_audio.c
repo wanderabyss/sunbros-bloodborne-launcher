@@ -15,6 +15,7 @@
 #define _GNU_SOURCE
 #include "runtime.h"
 #include "runtime_menu_sound.h"
+#include "runtime_audio_spatial.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -47,11 +48,13 @@ typedef struct {
     int used, type, channels, out_channels, is_float, frames, sample_bytes, std_layout;
     int32_t volume[8];
     SDL_AudioStream *stream;
+    int spatial;               /* the game's mix goes to Windows spatial sound, not `stream` */
     uint64_t next_deadline_ns; /* next return of sceAudioOutOutput */
     int64_t adjust_ns; int window_min, window_count; /* queue level control */
     uint64_t last_output_us;
     pthread_mutex_t lock;
     FILE *dump;                     /* BB_AUDIO_DUMP: raw converted PCM per port */
+    FILE *guest_dump;               /* BB_AUDIO_DUMP_GUEST: the game's PCM as given, every channel */
     int stats;
     uint64_t stat_start_ns, stat_last_ns, stat_max_gap_ns; /* BB_AUDIO_STATS */
     unsigned stat_starved, stat_buffers; int stat_min_queued;
@@ -255,6 +258,14 @@ static ABI int32_t audio_init(void) {
     pthread_mutex_unlock(&table_lock);
     return r;
 }
+static void open_sdl_stream(Port *p) {
+    int out=p->channels;
+    if (device_channels>0 && device_channels<p->channels) out=device_channels;
+    SDL_AudioSpec spec={p->is_float ? SDL_AUDIO_F32 : SDL_AUDIO_S16, out, 48000};
+    p->stream=SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK,&spec,NULL,NULL);
+    if (p->stream) { p->out_channels=out; SDL_ResumeAudioStreamDevice(p->stream); }
+    else fprintf(stderr,"Runtime: SDL audio stream failed (%s); port %d uses the timer sink\n",SDL_GetError(),(int)(p-ports));
+}
 static ABI int32_t audio_open(int32_t user, int32_t type, int32_t index, uint32_t length, uint32_t freq, uint32_t param) {
     (void)user; (void)index;
     if (!initialized) return ERR_NOT_INIT;
@@ -278,12 +289,9 @@ static ABI int32_t audio_open(int32_t user, int32_t type, int32_t index, uint32_
     for (int c=0;c<8;++c) p->volume[c]=VOLUME_0DB;
     if (sdl_audio()) {
         audio_levels();
-        int out=p->channels;
-        if (device_channels>0 && device_channels<p->channels) out=device_channels;
-        SDL_AudioSpec spec={p->is_float ? SDL_AUDIO_F32 : SDL_AUDIO_S16, out, 48000};
-        p->stream=SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK,&spec,NULL,NULL);
-        if (p->stream) { p->out_channels=out; SDL_ResumeAudioStreamDevice(p->stream); }
-        else fprintf(stderr,"Runtime: SDL audio stream failed (%s); port %d uses the timer sink\n",SDL_GetError(),id);
+        /* The main port carries the game's mix; the BGM port stays on SDL, and Windows mixes the two. */
+        if (type==0 && p->channels==8 && p->is_float && runtime_audio_spatial_open()) p->spatial=1;
+        else open_sdl_stream(p);
     }
     p->stats=getenv("BB_AUDIO_STATS")!=NULL;
     const char *dump=getenv("BB_AUDIO_DUMP");
@@ -291,6 +299,12 @@ static ABI int32_t audio_open(int32_t user, int32_t type, int32_t index, uint32_
         char path[4096];
         snprintf(path,sizeof(path),"%s.port%d.%dch.%s",dump,id,p->channels,p->is_float ? "f32" : "s16");
         p->dump=fopen(path,"wb");
+    }
+    const char *guest_dump=getenv("BB_AUDIO_DUMP_GUEST");
+    if (guest_dump) {
+        char path[4096];
+        snprintf(path,sizeof(path),"%s.port%d.%dch.%s.%s",guest_dump,id,p->channels,p->std_layout ? "std" : "ps4",p->is_float ? "f32" : "s16");
+        p->guest_dump=fopen(path,"wb");
     }
     ++ports_opened;
     pthread_mutex_unlock(&table_lock);
@@ -304,8 +318,12 @@ static ABI int32_t audio_close(int32_t handle) {
     if (p) {
         pthread_mutex_lock(&p->lock);
         if (p->stream) SDL_DestroyAudioStream(p->stream);
+        if (p->spatial) runtime_audio_spatial_close();
+        p->spatial=0;
         if (p->dump) fclose(p->dump);
+        if (p->guest_dump) fclose(p->guest_dump);
         p->dump=NULL;
+        p->guest_dump=NULL;
         p->stream=NULL; p->used=0;
         pthread_mutex_unlock(&p->lock);
     }
@@ -327,6 +345,7 @@ static int32_t output_port(int32_t handle, const void *data, int pace) {
     size_t out_bytes=(size_t)p->frames*(size_t)p->out_channels*(size_t)p->sample_bytes;
     uint64_t period=(uint64_t)p->frames*1000000000u/48000u;
     if (data) {
+        if (p->guest_dump) fwrite(data,p->sample_bytes,samples,p->guest_dump);
         /* Per-channel volume. When the device has fewer channels than the port,
          * fold here with fronts at unity. Otherwise map PS4 8ch (L R C LFE SL SR BL BR) to SDL 7.1. */
         unsigned char converted[2048*8*4];
@@ -377,7 +396,13 @@ static int32_t output_port(int32_t handle, const void *data, int pace) {
             else sleep_until(p->next_deadline_ns);
             p->next_deadline_ns+=period;
         }
-        if (p->stream) {
+        /* The spatial stream steers its own level. Once it has ended (the output changed), this
+           buffer is lost and the next ones go through SDL, which follows the default device. */
+        if (p->spatial && !runtime_audio_spatial_write((const float *)converted,(uint32_t)p->frames)) {
+            runtime_audio_spatial_close();
+            p->spatial=0;
+            open_sdl_stream(p);
+        } else if (p->stream) {
             /* The device drains the queue in quanta, so the level is a sawtooth:
                its minimum over ~32 buffers is what gets controlled. Silence is
                only for a real hole. Pretending a short prefill filled `low`

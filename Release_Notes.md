@@ -1,5 +1,22 @@
 # Release Notes
 
+## [4.3.0+build110526.160556] — 2026-11-05
+### Spatial sound: the game's 7.1 mix reaches Dolby Atmos, Windows Sonic and DTS
+<!-- launcher:
+### Spatial sound
+
+- With Dolby Atmos, Windows Sonic or DTS on in Windows, the game's 7.1 channels now go to their own speaker positions, not a stereo mix.
+- A rejected memory free now says which block it was in last_run.log, to help find a rare crash.
+- HDR paper white now offers 500, 600 and 800 nits. Higher values leave less room for highlights.
+-->
+
+The game mixes real 7.1, but headphones report 2 channels, so spatial sound formats only ever got the stereo fold. 4.3.0 gives them the channels.
+
+- **Spatial sound:** with a format on under Windows' Spatial sound setting, the main audio port sends its 8 channels to Windows' spatial audio objects. With spatial sound off nothing changes: stereo stays stereo, and a 5.1 or 7.1 output gets its channels as before. `BB_AUDIO_SPATIAL=0` turns it off. `last_run.log` says `Runtime: spatial sound: on`.
+- **Crash logging:** when the game's heap rejects a free ("given memory block seems to be improper or freed already"), `last_run.log` now gets `Heap trace:` lines naming the block, its heap, the surface and any earlier free of it. Fault reports also print r8-r15. `BB_HEAP_TRACE=0` turns it off.
+- **HDR paper white:** the launcher and `bbport.ini` now go up to 800 nits (500, 600 and 800 are new). Higher values brighten midtones and leave less range for highlights below the peak.
+- **Audio capture:** `BB_AUDIO_DUMP_GUEST=<path>` saves the game's PCM before any volume or downmix, every channel.
+
 ## [4.2.21+build110626.120000] — 2026-11-06
 ### NG+7 world: full NG+7 enemies from the first beast, every Caryll Rune
 <!-- launcher:

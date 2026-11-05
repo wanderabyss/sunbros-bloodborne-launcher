@@ -23,7 +23,7 @@ class HdrLevelsTests(unittest.TestCase):
 
     def test_hand_edited_values_become_an_option(self):
         cases = {
-            'hdr_white_nits': (('250', '240'), ('display', '0'), ('-3', '0'), ('99999', '400'),
+            'hdr_white_nits': (('250', '240'), ('display', '0'), ('-3', '0'), ('99999', '800'), ('550', '500'),
                                ('nan', '120'), ('bright', '120'), ('high', '120')),
             'hdr_peak_nits': (('700', '600'), ('display', '0'), ('1200', '1000'), ('5000', '4000')),
             'hdr_highlight_boost': (('high', '1.00'), ('Low', '0.33'), ('0.5', '0.33'), ('0.6', '0.67'),

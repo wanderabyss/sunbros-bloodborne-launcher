@@ -11,6 +11,9 @@ int runtime_file_translate(const char *guest, char *out, size_t size) {
     return 0;
 }
 void compat_sleep_ns(uint64_t ns) { (void)ns; }
+int runtime_audio_spatial_open(void) { return 0; }
+int runtime_audio_spatial_write(const float *frames, uint32_t count) { (void)frames; (void)count; return 0; }
+void runtime_audio_spatial_close(void) {}
 uintptr_t runtime_lookup(const RuntimeExport *table, size_t count, const char *nid) {
     (void)table;(void)count;(void)nid;return 0;
 }

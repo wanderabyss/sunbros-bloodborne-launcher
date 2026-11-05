@@ -540,7 +540,7 @@ def apply_renodx_nr(app, ini_values, bin_dir=None):
 # display's own level (Windows' SDR content brightness, the display's peak). The defaults are the
 # fixed values the HDR output used before these settings.
 HDR_WHITES = [('0', ("Match Windows' SDR content brightness",))] + [
-    (str(n), (f'{n} nits' + (' (default)' if n == 120 else ''),)) for n in (80, 100, 120, 160, 200, 240, 300, 400)]
+    (str(n), (f'{n} nits' + (' (default)' if n == 120 else ''),)) for n in (80, 100, 120, 160, 200, 240, 300, 400, 500, 600, 800)]
 HDR_PEAKS = [('0', ('From the display',))] + [
     (str(n), (f'{n} nits' + (' (default)' if n == 1000 else ''),)) for n in (400, 600, 800, 1000, 1500, 2000, 4000)]
 HDR_BOOSTS = [('0.00', ('Off',)), ('0.33', ('Low',)), ('0.67', ('Medium',)), ('1.00', ('High (default)',))]

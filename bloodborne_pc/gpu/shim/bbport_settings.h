@@ -178,7 +178,7 @@ inline bool PresentUsesRcas(float stops) {
 /// half white are expanded (hdr_highlight_boost, BB_HDR_BOOST, 0..1 of the 6.5x expansion).
 /// 0 for white or peak takes the display's (Windows' SDR content brightness, the display's
 /// peak; WindowSDL::ReadHdrLevels). The defaults are the fixed values used before 3.4.1.
-inline constexpr float HdrWhiteDefault = 120.0f, HdrWhiteMin = 80.0f, HdrWhiteMax = 400.0f;
+inline constexpr float HdrWhiteDefault = 120.0f, HdrWhiteMin = 80.0f, HdrWhiteMax = 800.0f;
 inline constexpr float HdrPeakDefault = 1000.0f, HdrPeakMin = 400.0f, HdrPeakMax = 4000.0f;
 inline constexpr float HdrBoostDefault = 1.0f;
 struct HdrLevels {

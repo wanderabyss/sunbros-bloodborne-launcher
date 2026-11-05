@@ -4,6 +4,7 @@
 #include "engine_features.h"
 #include "damage_log.h"
 #include "engine_hooks.h"
+#include "heap_trace.h"
 #include "jump_decay.h"
 #include "key_prompts.h"
 #include "menu_pointer.h"
@@ -33,7 +34,7 @@ static int menu_pointer_install(void) {
 static const Install installs[] = {bb_pc_menu_install, bb_rebirth_install, bb_ng_plus_install, bb_mouse_camera_install,
                                    bb_key_prompts_install, menu_pointer_install,
                                    bb_occlusion_queries_install, bb_jump_decay_install,
-                                   bb_damage_log_install};
+                                   bb_damage_log_install, bb_heap_trace_install};
 static const Frame frames[] = {bb_pc_menu_frame, bb_menu_pointer_frame};
 
 int bb_engine_install(void) {
