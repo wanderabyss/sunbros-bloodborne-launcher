@@ -10,15 +10,20 @@ Item {
     signal advancedRequested(string section, string key)
     readonly property var summaryKeys: ["upscaler", "preset", "fps_mode", "frame_gen", "ray_tracing"]
     function openAt(section, key) { advancedRequested(section || "", key || "") }
-    // The tuned presets, on one line of their own after the card they were tuned for
-    // ("RTX 4090 | 4080   Remastered DLSS 4 | DLSS 5"; measured on an RTX 4090, core.PRESET_TAGS).
+    // The tuned presets, on one line of their own after a note of the card they were measured on
+    // (an RTX 4090, core.PRESET_TAGS). The note and the "DLSS 4" name follow this PC's card.
     readonly property var featuredPresets: ["remastered", "dlss5_ready"]
+    readonly property string rigGpu: launcher.rig.gpu || ""  // "" until the GPU check names a card
+    readonly property bool dlssCard: /\bRTX\b/.test(rigGpu)
+    readonly property string tunedCardNote: rigGpu === "RTX 4090" ? "The same card as yours"
+        : featuredPresets.some(n => launcher.presetMarks[n] !== undefined) ? "Your " + rigGpu + " may differ"
+        : "Not suggested for your " + rigGpu
     // The paragraph under the rows: the chosen everyday preset (a tuned one has its own "?").
     // The ★ line only where no tuned preset is suggested (e.g. Ultra on an RTX 3090).
     readonly property bool featuredChosen: featuredPresets.indexOf(launcher.graphicsPreset) >= 0
     readonly property string presetInfoText: (launcher.graphicsPreset === "custom" ? "Custom: your own changes, not saved yet. Save settings (top right) keeps them; they load every time the launcher starts." : launcher.presetDescription(launcher.graphicsPreset)) +
         (launcher.presetSuggestion !== "" && !featuredPresets.some(n => launcher.presetMarks[n] !== undefined) ? "  " + launcher.presetSuggestion : "")
-    readonly property var featuredTitles: ({ "remastered": "Remastered  DLSS 4", "dlss5_ready": "DLSS 5" })
+    readonly property var featuredTitles: ({ "remastered": rigGpu === "" || dlssCard ? "Remastered  DLSS 4" : "Remastered", "dlss5_ready": "DLSS 5" })
 
     // One preset pill: the name and, under it, the ★ suggestion mark. A tuned preset is one line,
     // its title with the mark in front ("★ Remastered  DLSS 4").
@@ -105,8 +110,8 @@ Item {
                 ColumnLayout {
                     id: card
                     x: 20; y: 20; width: parent.width - 40; spacing: 0
-                    // Two rows: the everyday presets, then the two tuned ones with what they were
-                    // tuned on (RTX 4090 measurements, core.PRESET_TAGS); each row is a pill track.
+                    // Two rows: the everyday presets, then the two tuned ones with the card they
+                    // were measured on (core.PRESET_TAGS); each row of presets is a pill track.
                     Rectangle {
                         id: presetTrack
                         // "Custom" last, one pill for your own settings: the saved set ('mine') and
@@ -138,35 +143,15 @@ Item {
                         objectName: "featuredPresets"
                         visible: featuredTrack.names.length > 0
                         Layout.topMargin: 10; Layout.fillWidth: true; spacing: 16
-                        // First the card, then the preset. Only RTX 4090 settings exist (measured
-                        // there): RTX 4080 is greyed out until it has its own.
-                        Rectangle {
+                        // First the card the settings were measured on, as plain text: a pill here
+                        // reads as a detected or selected card. Only RTX cards run these as measured.
+                        Column {
                             objectName: "featuredPresetsCard"
-                            Layout.preferredWidth: 220; Layout.preferredHeight: 44
-                            radius: height / 2
-                            color: Theme.well
-                            border.color: Theme.line
-                            Row {
-                                x: 4; y: 4; spacing: 2
-                                Repeater {
-                                    model: [{ card: "4090", ready: true }, { card: "4080", ready: false }]
-                                    delegate: Button {
-                                        id: cardButton
-                                        required property var modelData
-                                        objectName: "tunedCard_" + modelData.card
-                                        width: (220 - 10) / 2; height: 36
-                                        enabled: modelData.ready
-                                        hoverEnabled: true
-                                        text: "RTX " + modelData.card
-                                        ToolTip.visible: hovered && !modelData.ready
-                                        ToolTip.text: "No RTX 4080 settings yet"
-                                        contentItem: Text { text: cardButton.text; color: cardButton.enabled ? Theme.primaryText : Theme.textMuted
-                                            font.family: Theme.sans; font.pixelSize: 13; font.weight: Font.DemiBold
-                                            horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
-                                        background: Rectangle { radius: height / 2; color: cardButton.enabled ? "#ffffff" : "transparent"; opacity: cardButton.enabled ? 1 : 0.5 }
-                                    }
-                                }
-                            }
+                            visible: studio.dlssCard
+                            Layout.preferredWidth: 200; Layout.leftMargin: 4; Layout.alignment: Qt.AlignVCenter
+                            spacing: 1
+                            Text { objectName: "tunedMeasuredOn"; width: parent.width; text: "Measured on RTX 4090"; color: Theme.text; font.family: Theme.sans; font.pixelSize: 13; font.weight: Font.DemiBold; elide: Text.ElideRight }
+                            Text { objectName: "tunedYourCard"; width: parent.width; text: studio.tunedCardNote; color: Theme.textDim; font.family: Theme.sans; font.pixelSize: 11; elide: Text.ElideRight }
                         }
                         Rectangle {
                             id: featuredTrack

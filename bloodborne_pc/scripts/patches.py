@@ -368,9 +368,11 @@ def find_ignoring_case(root, relative):
 
 def debug_menu_problem(game):
     """Why the debug menu patch cannot work with this game folder (with its mods), or None."""
+    from mods import layer_file  # the files the game looks up itself (run.py)
     dvdroot = Path(game) / 'dvdroot_ps4'
     for folder in DEBUG_MENU_FONT_DIRS:
-        found = [find_ignoring_case(dvdroot, f'{folder}/{name}') for name in DEBUG_MENU_FONTS]
+        found = [layer_file(f'dvdroot_ps4/{folder}/{name}') or find_ignoring_case(dvdroot, f'{folder}/{name}')
+                 for name in DEBUG_MENU_FONTS]
         if all(f and f.is_file() and f.stat().st_size > 0 for f in found):
             return None
     places = ' or '.join(f'dvdroot_ps4/{folder}' for folder in DEBUG_MENU_FONT_DIRS)

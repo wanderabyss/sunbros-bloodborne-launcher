@@ -1,5 +1,38 @@
 # Release Notes
 
+## [4.3.3+build110626.114807] — 2026-11-06
+### Faster repeat starts; DLSS 5 settings now follow your PC
+<!-- launcher:
+### Faster repeat starts; DLSS 5 settings now follow your PC
+
+- At each start the launcher checks whether this PC can run DLSS 5: a card that's offered it, and the add-ons and runtime in this folder's bin.
+- If it can't, DLSS 5 turns off and the launcher tells you why.
+- A leftover DLSS 5 ready preset changes to the one suggested for your card, at your display's resolution.
+- If your PC can run DLSS 5, your choice stays.
+- Repeat starts reach the title in about 25 seconds instead of 54, with no wait to clean up at exit. First starts take as long as before.
+- The tuned preset row names the card it was measured on, instead of showing RTX 4090 as if it were selected.
+- A saved DLSS on a card without it now says it runs as FSR 3.1.
+-->
+
+**DLSS 5 settings:** saved settings survive a new install folder, so DLSS 5 could stay on, or the DLSS 5 ready preset stay selected, on a PC that couldn't run it. A clean install wasn't affected.
+
+- **DLSS 5 switch:** at each start it turns off if your card isn't offered DLSS 5 or its add-ons and runtime aren't in this folder's `bin`. The launcher tells you why. Your saved Custom settings change only on a card that isn't offered DLSS 5, so a folder without the add-ons doesn't take DLSS 5 from one that has them.
+- **DLSS 5 ready preset:** in the same cases, a leftover selection changes to the preset suggested for your card, at your display's resolution.
+- **Your choice stays:** a PC that can run DLSS 5 keeps its settings. So does one where only ReShade's setup needs fixing, and the launcher's existing warning explains that.
+
+**Faster starts:** a repeat start spent most of its time redoing work from the last start and building a temporary view of the game and mod files.
+
+- **Repeat starts:** the title appears in about 25 seconds instead of 54, measured on one PC with mods on. First starts take as long as before.
+- **Mods:** the game now reads mod files from where they are, using a list made at each start. A mod file whose path is too long for that still gets the temporary view.
+- **Exit:** there's no temporary view to remove in the usual case, which took about 7 seconds.
+
+**Launcher:**
+
+- **Tuned preset row:** it names the card the settings were measured on as plain text. The white RTX 4090 pill looked like a detected or selected card on every PC.
+- **DLSS on other cards:** a saved DLSS on a card without it stays saved, and the option reads "DLSS (runs as FSR 3.1 on this card)".
+
+[Changelog](docs/changelog/changelog-2026-11-06-4.3.3.md)
+
 ## [4.3.2+build110626.033852] — 2026-11-06
 ### Native HDR: real highlights from the game's own scene (experimental)
 <!-- launcher:

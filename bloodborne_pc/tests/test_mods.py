@@ -7,6 +7,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+import unittest.mock
 
 spec = importlib.util.spec_from_file_location('bbmods', ROOT / 'scripts/mods.py')
 mods = importlib.util.module_from_spec(spec)
@@ -44,6 +45,77 @@ class ModTests(unittest.TestCase):
         folder.mkdir(parents=True, exist_ok=True)
         (folder / file).write_bytes(contents)
         return root
+
+    def layer(self, *names):
+        return mods.build_layer(self.game, self.root / 'out', [(name, self.moddir / name) for name in names],
+                                self.root / 'out' / 'mod-files.txt')
+
+    def listed(self):
+        return dict(line.split('\t') for line in
+                    (self.root / 'out' / 'mod-files.txt').read_text(encoding='utf-8').splitlines())
+
+    def test_the_game_runs_from_its_own_folder_with_a_list_of_what_is_over_it(self):
+        self.mod('A', b'first')
+        self.mod('B', b'second')
+        self.mod('B', b'new', 'new.dcx')
+        self.assertEqual(self.layer('A', 'B'), self.game.resolve())
+        self.assertEqual(self.listed(), {
+            'dvdroot_ps4/chr/a.dcx': str((self.moddir / 'B/dvdroot_ps4/chr/a.dcx').resolve()),  # the last layer wins
+            'dvdroot_ps4/chr/new.dcx': str((self.moddir / 'B/dvdroot_ps4/chr/new.dcx').resolve())})
+        self.assertFalse(list((self.root / 'out').glob('mod-game-*')))
+        self.assertEqual((self.assets / 'a.dcx').read_bytes(), b'original')
+
+    def test_no_files_over_the_game_leave_no_list_from_an_earlier_start(self):
+        self.mod('A')
+        self.layer('A')
+        self.assertEqual(self.layer(), self.game.resolve())
+        self.assertFalse((self.root / 'out' / 'mod-files.txt').exists())
+
+    def test_a_file_where_the_game_has_a_folder_is_refused_as_with_an_overlay(self):
+        root = self.moddir / 'A'
+        (root / 'dvdroot_ps4').mkdir(parents=True)
+        (root / 'dvdroot_ps4' / 'chr').write_bytes(b'not a folder')
+        with self.assertRaisesRegex(ValueError, 'conflict'):
+            self.layer('A')
+
+    def test_a_folder_where_the_game_has_a_file_is_refused_as_with_an_overlay(self):
+        folder = self.moddir / 'A' / 'dvdroot_ps4' / 'chr' / 'a.dcx'
+        folder.mkdir(parents=True)
+        (folder / 'inner.dcx').write_bytes(b'x')
+        with self.assertRaisesRegex(ValueError, 'conflict'):
+            self.layer('A')
+
+    def test_a_path_too_long_for_the_game_still_gets_an_overlay(self):
+        self.mod('A')
+        with unittest.mock.patch.object(mods, 'LAYER_PATH_LIMIT', 5):
+            result = self.layer('A')
+        self.assertNotEqual(result, self.game.resolve())
+        self.assertEqual((result / 'dvdroot_ps4' / 'chr' / 'a.dcx').read_bytes(), b'mod')
+        self.assertFalse((self.root / 'out' / 'mod-files.txt').exists())
+        mods.remove_overlay(result, self.game)
+
+    def test_a_start_removes_an_overlay_an_older_version_left(self):
+        self.mod('A')
+        old = mods.build_overlay(self.game, self.root / 'out', [('A', self.moddir / 'A')], 2 ** 30)
+        self.assertTrue(old.is_dir())
+        self.layer('A')
+        self.assertFalse(old.exists())
+        self.assertEqual((self.assets / 'a.dcx').read_bytes(), b'original')
+
+    def test_scripts_read_files_as_the_game_will(self):
+        self.mod('A')
+        self.mod('A', b'new', 'new.dcx')
+        self.layer('A')
+        folder = 'dvdroot_ps4/chr'
+        with unittest.mock.patch.dict(os.environ, {mods.LAYER_ENV: str(self.root / 'out' / 'mod-files.txt')}):
+            self.assertEqual(mods.game_file(self.game, 'dvdroot_ps4/CHR/a.dcx').read_bytes(), b'mod')
+            self.assertEqual(mods.game_file(self.game, 'dvdroot_ps4/chr/b.dcx').read_bytes(), b'untouched')
+            self.assertEqual([p.read_bytes() for p in mods.game_files(self.game, folder, '*.dcx')],
+                             [b'mod', b'untouched', b'new'])
+        with unittest.mock.patch.dict(os.environ):
+            os.environ.pop(mods.LAYER_ENV, None)
+            self.assertEqual(mods.game_file(self.game, 'dvdroot_ps4/chr/a.dcx').read_bytes(), b'original')
+            self.assertEqual([p.name for p in mods.game_files(self.game, folder, '*.dcx')], ['a.dcx', 'b.dcx'])
 
     def test_merge_replacement_new_file_and_directory_listing(self):
         a = self.mod('A')

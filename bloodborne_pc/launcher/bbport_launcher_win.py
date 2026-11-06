@@ -939,6 +939,19 @@ def graphics_presets(dlss5_offered):
     return [name for name in GRAPHICS_PRESETS if dlss5_offered or name not in DLSS5_PRESETS]
 
 
+def dlss5_blocker(not_offered, bin_dir=None):
+    """Why this PC cannot run DLSS 5 at all, or ''. not_offered is the GPU check's reason (empty:
+    offered, or the check gave no answer). Saved settings outlive a new install folder or a new
+    card, and the game and run.py (dlss5_environment) then refuse them, so a start must not keep
+    showing them as chosen. ReShade's setup is not here: its warning says what to do and the
+    player's add-ons are already in place."""
+    if not_offered:
+        return f'this graphics card is not offered DLSS 5 ({not_offered})'
+    if not all(neural_runtime_status(bin_dir).values()):
+        return "its add-ons and runtime aren't in this folder's bin"
+    return ''
+
+
 def dlss5_fps_warning(ini, app):
     """Why a saved DLSS 5 request cannot run at this frame rate, or ''. DLSS 5 runs only at a
     fixed 60 FPS (bbport_settings.cpp Dlss5Unavailable says the same in game). At 60, what
@@ -1001,6 +1014,16 @@ def recommended_graphics_preset(gpu):
     return 'balanced' if memory < 7500 else 'high' if memory < 11500 else 'ultra'
 
 
+def dlss_card(gpu):
+    return bool(re.search(r'NVIDIA.*\bRTX\b', gpu or ''))
+
+
+def no_dlss_card(gpu):
+    """The GPU check named a card that cannot run DLSS, so a saved upscaler=dlss runs as FSR 3.1
+    (bbport_settings.cpp ConfigureDlssSupport). False while the card is unknown."""
+    return bool(recommended_graphics_preset(gpu)) and not dlss_card(gpu)
+
+
 def first_start_settings(gpu, display):
     """A first start's settings from this PC, not the shipped defaults (INI_DEFAULTS is one
     machine's: 3840x2160 output and DLSS for everyone). gpu is the GPU check's "NAME, discrete,
@@ -1008,7 +1031,7 @@ def first_start_settings(gpu, display):
     Returns (ini values, suggested preset or None): the display's own resolution as the output,
     DLSS on an NVIDIA RTX card and FSR 3.1 (every GPU) otherwise, and the preset the buttons
     mark (recommended_graphics_preset), applied after these."""
-    values = {'upscaler': 'dlss' if re.search(r'NVIDIA.*\bRTX\b', gpu or '') else 'fsr3'}
+    values = {'upscaler': 'dlss' if dlss_card(gpu) else 'fsr3'}
     if display:
         width, height = (int(v) for v in display)
         if 256 <= width <= 7680 and 144 <= height <= 4320:

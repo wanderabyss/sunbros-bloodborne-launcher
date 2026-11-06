@@ -16,6 +16,7 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from fromsoft import Bnd4, FormatError, dcx_decompress
+import mods
 
 FOOTER = b'OrbShdr'
 
@@ -45,7 +46,7 @@ def programs(data):
 
 def collect(game, eboot):
     found = {}
-    for archive in sorted((Path(game) / 'dvdroot_ps4' / 'shader').glob('*.shaderbnd*.dcx')):
+    for archive in mods.game_files(game, 'dvdroot_ps4/shader', '*.shaderbnd*.dcx'):
         # A damaged archive only leaves its shaders to be translated in game, as without this.
         try:
             files = Bnd4(dcx_decompress(archive.read_bytes())).files

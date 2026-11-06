@@ -104,12 +104,6 @@ class DepthWorkspaceTests(navigation.WorkspaceNavigationTests):
         row_y = lambda name: self.item('studioPreset_' + name).mapToScene(QPoint(0, 0).toPointF()).y()
         self.assertEqual(row_y('remastered'), row_y('dlss5_ready'))
         self.assertGreater(row_y('remastered'), row_y('ultra') + 30)
-        # The card comes first on that line: RTX 4090 chosen, RTX 4080 greyed out (no settings yet).
-        card_y = lambda card: self.item('tunedCard_' + card).mapToScene(QPoint(0, 0).toPointF()).y()
-        self.assertEqual(card_y('4090'), card_y('4080'))
-        self.assertLess(abs(card_y('4090') - row_y('remastered')), 10)
-        self.assertTrue(self.item('tunedCard_4090').isEnabled())
-        self.assertFalse(self.item('tunedCard_4080').isEnabled())
         self.assertNotIn('★', self.item('studioPreset_ultra').property('text'))
         # Another card: one plain mark, which follows the GPU check.
         backend._dlss5_offered = False
@@ -118,6 +112,52 @@ class DepthWorkspaceTests(navigation.WorkspaceNavigationTests):
         self.assertTrue(self.item('studioPreset_ultra').property('text').endswith(' ★'))
         self.assertNotIn('★', self.item('studioPreset_remastered').property('text'))
         self.assertTrue(self.item('studioPreset_remastered').property('text') == 'Remastered  DLSS 4')
+
+    def set_card(self, status, dlss5_offered=False):
+        backend = self.fixture.backend
+        backend._dlss5_offered = dlss5_offered
+        backend._set_gpu_status(status)
+        backend._set_rig({'gpu': backend_module.rig.short_gpu(status.split(',')[0])})
+        self.fixture.app.processEvents()
+
+    def test_visuals_tuned_row_follows_the_card(self):
+        self.click('primary_Visuals')
+        card = self.item('featuredPresetsCard')
+        # Before the GPU check names a card: no claim about it.
+        self.assertFalse(card.isVisible())
+        for status, offered, note, title, dlss5 in (
+                ('NVIDIA GeForce RTX 4090, discrete, 24564 MiB', True, 'The same card as yours', '★ Remastered  DLSS 4', True),
+                ('NVIDIA GeForce RTX 4080, discrete, 16376 MiB', True, 'Your RTX 4080 may differ', '★ Remastered  DLSS 4', True),
+                ('NVIDIA GeForce RTX 3080, discrete, 10240 MiB', False, 'Not suggested for your RTX 3080', 'Remastered  DLSS 4', False)):
+            self.set_card(status, offered)
+            self.assertTrue(card.isVisible(), status)
+            self.assertEqual(self.item('tunedMeasuredOn').property('text'), 'Measured on RTX 4090')
+            self.assertEqual(self.item('tunedYourCard').property('text'), note)
+            self.assertEqual(self.item('studioPreset_remastered').property('text'), title)
+            self.assertEqual(any(i.objectName() == 'studioPreset_dlss5_ready' and i.isVisible() for i in self.items()), dlss5)
+        # The note sits on the presets' line, before them.
+        y = lambda name: self.item(name).mapToScene(QPoint(0, 0).toPointF()).y()
+        self.assertLess(abs(y('tunedMeasuredOn') - y('studioPreset_remastered')), 20)
+        # No DLSS on this card: no measured-on note, and the preset doesn't promise DLSS.
+        self.set_card('AMD Radeon RX 7900 XTX, discrete, 24560 MiB')
+        self.assertFalse(card.isVisible())
+        self.assertEqual(self.item('studioPreset_remastered').property('text'), 'Remastered')
+        self.assertIn("can't run DLSS", self.item('presetInfo_remastered').property('tip'))
+
+    def test_saved_dlss_on_a_card_without_it_says_what_runs(self):
+        backend = self.fixture.backend
+        backend.setValue('upscaler', 'dlss')
+        self.click('primary_Visuals')
+        text = lambda: next(o['text'] for o in backend.live_field(backend_module.SETTING_FIELDS['upscaler'])['options'] if o['value'] == 'dlss')
+        self.assertEqual(text(), 'DLSS (NVIDIA GeForce RTX)')  # the card is not known yet
+        self.set_card('AMD Radeon RX 7900 XTX, discrete, 24560 MiB')
+        self.assertEqual(text(), 'DLSS (runs as FSR 3.1 on this card)')
+        self.assertEqual(backend.ini['upscaler'], 'dlss')  # the player's setting is left alone
+        # An open Visuals page follows the GPU check.
+        shown = [i.property('currentText') for i in self.items() if i.property('currentText') and 'DLSS' in str(i.property('currentText')) and i.isVisible()]
+        self.assertIn('DLSS (runs as FSR 3.1 on this card)', shown)
+        self.set_card('NVIDIA GeForce RTX 3080, discrete, 10240 MiB')
+        self.assertEqual(text(), 'DLSS (NVIDIA GeForce RTX)')
 
     def test_visuals_custom_pill_lights_for_own_settings_and_opens_advanced(self):
         backend = self.fixture.backend
@@ -303,6 +343,63 @@ class DepthWorkspaceTests(navigation.WorkspaceNavigationTests):
         backend.ini['output_res'] = '1920x1080'
         backend._set_gpu_status('NVIDIA GeForce RTX 4090, discrete, 24564 MiB')
         self.assertEqual(backend.ini['output_res'], '1920x1080')
+
+    def gpu_report(self, gpu, not_offered='', files=True):
+        """A later start's GPU check, with the DLSS 5 files in bin or not, on a 2560 x 1440 display."""
+        backend = self.fixture.backend
+        backend._first_start = False
+        backend._dlss5_not_offered = not_offered
+        backend._dlss5_offered = not not_offered
+        screen = mock.Mock()
+        screen.size.return_value = QSize(2560, 1440)
+        screen.devicePixelRatio.return_value = 1.0
+        screen.refreshRate.return_value = 60.0
+        status = {'runtime': files, 'renodx': files, 'bridge': files}
+        with mock.patch.object(backend_module.QGuiApplication, 'primaryScreen', return_value=screen), \
+                mock.patch.object(backend_module.core, 'neural_runtime_status', return_value=status):
+            backend._set_gpu_status(gpu)
+
+    def test_saved_dlss5_stays_where_this_pc_can_run_it(self):
+        backend = self.fixture.backend
+        backend.ini['dlss5'] = 'on'
+        self.gpu_report('NVIDIA GeForce RTX 4090, discrete, 24564 MiB')
+        self.assertEqual(backend.ini['dlss5'], 'on')
+
+    def test_saved_dlss5_goes_off_without_its_files_or_on_a_card_not_offered_it(self):
+        backend = self.fixture.backend
+        # settings.json is shared between install folders: a folder without the add-ons leaves the
+        # saved Custom settings for one that has them; a card not offered DLSS 5 doesn't.
+        for kwargs, why, mine in (({'files': False}, "aren't in this folder", 'on'),
+                                  ({'not_offered': 'needs a GeForce RTX 4080, 4090 or newer'}, 'not offered DLSS 5', 'off')):
+            with self.subTest(why=why):
+                backend.ini['dlss5'] = 'on'
+                backend.ini['ray_tracing'] = 'low'  # not a preset: nothing else may change
+                backend.app['my_settings'] = backend_module.core.my_settings_snapshot(backend.ini, backend.app)
+                self.gpu_report('NVIDIA GeForce RTX 4070, discrete, 12282 MiB', **kwargs)
+                self.assertEqual(backend.ini['dlss5'], 'off')
+                self.assertEqual(backend.ini['ray_tracing'], 'low')
+                self.assertEqual(backend.app['my_settings']['ini']['dlss5'], mine)
+                self.assertIn(why, backend.notice)
+
+    def test_leftover_dlss5_ready_preset_gives_way_to_this_pcs_suggestion(self):
+        backend = self.fixture.backend
+        backend_module.core.apply_graphics_preset('dlss5_ready', backend.ini, backend.app)
+        backend.ini['output_res'] = '1920x1080'
+        self.assertEqual(backend.graphicsPreset, 'dlss5_ready')
+        self.gpu_report('NVIDIA GeForce RTX 4090, discrete, 24564 MiB', files=False)
+        self.assertEqual(backend.graphicsPreset, 'remastered')
+        self.assertEqual(backend.ini['output_res'], '2560x1440')
+        self.assertIn('Set for your PC: NVIDIA GeForce RTX 4090', backend.notice)
+        self.assertEqual(backend.firstStartSummary, '')  # the setup wizard's line, not this one's
+
+    def test_leftover_dlss5_ready_preset_stays_where_dlss5_can_run_or_the_card_is_unknown(self):
+        backend = self.fixture.backend
+        backend_module.core.apply_graphics_preset('dlss5_ready', backend.ini, backend.app)
+        backend.ini['output_res'] = '1920x1080'
+        self.gpu_report('NVIDIA GeForce RTX 4090, discrete, 24564 MiB')
+        self.assertEqual(backend.graphicsPreset, 'dlss5_ready')
+        self.gpu_report('Graphics card check unavailable', files=False)
+        self.assertEqual(backend.ini['upscaler'], 'dlss')  # no card to pick for
 
     def test_visuals_studio_opens_neural_rendering_with_advanced_rows_folded(self):
         self.click('primary_Visuals')

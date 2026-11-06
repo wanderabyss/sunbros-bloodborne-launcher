@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -111,10 +112,91 @@ void runtime_file_unmount(const char *guest) {
     }
     pthread_mutex_unlock(&lock);
 }
+/* Files put over the game (mods, the HD pack, the port's generated layers): BB_APP0_LAYER names a
+ * list of "<path under the game>\t<host file>" lines (scripts/mods.py build_layer). The game folder
+ * stays /app0 and only these paths lead elsewhere. A folder of 28,853 hard links did this before:
+ * about 11 s for every start and 7 s after every exit (2026-11-06). */
+typedef struct { char *key, *host; } Redirect;
+static Redirect *redirects;
+static size_t redirect_count;
+
+static int game_path(const char *p);
+static int redirect_order(const void *a,const void *b) { return strcmp(((const Redirect *)a)->key,((const Redirect *)b)->key); }
+/* A guest path under the game as a table key: no mount, lower case, single forward slashes. */
+static int redirect_key(const char *guest,char *key,size_t size) {
+    const char *p=guest;
+    if (!strncmp(p,"/app0",5)) p+=5;
+    else if (!strncmp(p,"/hostapp",8)) p+=8;
+    size_t n=0;
+    while (*p) {
+        if (*p=='/' || *p=='\\') { ++p; continue; }
+        if (p[0]=='.' && (p[1]=='/' || p[1]=='\\' || !p[1])) { ++p; continue; }
+        if (n) { if (n+1>=size) return -1; key[n++]='/'; }
+        for (; *p && *p!='/' && *p!='\\'; ++p) {
+            if (n+1>=size) return -1;
+            key[n++]=(char)(*p>='A' && *p<='Z' ? *p+32 : *p);
+        }
+    }
+    key[n]=0;
+    return 0;
+}
+static void load_redirects(const char *list) {
+    FILE *f=fopen(list,"r");
+    if (!f) { fprintf(stderr,"Runtime: cannot read the file list %s: %s\n",list,strerror(errno)); exit(1); }
+    char line[2200];
+    size_t capacity=0;
+    while (fgets(line,sizeof(line),f)) {
+        line[strcspn(line,"\r\n")]=0;
+        char *host=strchr(line,'\t');
+        if (!host) continue;
+        *host++=0;
+        char key[1024];
+        if (redirect_key(line,key,sizeof(key))) continue;
+        if (redirect_count==capacity) {
+            capacity=capacity ? capacity*2 : 256;
+            redirects=realloc(redirects,capacity*sizeof(*redirects));
+            if (!redirects) { fputs("Out of memory reading the file list\n",stderr); exit(1); }
+        }
+        redirects[redirect_count++]=(Redirect){strdup(key),strdup(host)};
+    }
+    fclose(f);
+    qsort(redirects,redirect_count,sizeof(*redirects),redirect_order);
+    printf("Runtime: %zu files over the game, from %s\n",redirect_count,list);
+}
+/* The first entry at or after key. */
+static size_t redirect_lower(const char *key) {
+    size_t low=0,high=redirect_count;
+    while (low<high) {
+        size_t middle=low+(high-low)/2;
+        if (strcmp(redirects[middle].key,key)<0) low=middle+1; else high=middle;
+    }
+    return low;
+}
+/* out holds the guest path's place in the game folder. A listed file leads to its host file, and a
+ * folder only the listed files have (a mod's new folder) to the first of them that holds it. */
+static int redirect(const char *guest,char *out,size_t size) {
+    char key[1024],folder[1026];
+    if (redirect_key(guest,key,sizeof(key)) || !key[0]) return 0;
+    size_t at=redirect_lower(key);
+    if (at<redirect_count && !strcmp(redirects[at].key,key))
+        return (size_t)snprintf(out,size,"%s",redirects[at].host)>=size ? ENAMETOOLONG : 0;
+    snprintf(folder,sizeof(folder),"%s/",key);
+    at=redirect_lower(folder);
+    if (at==redirect_count || strncmp(redirects[at].key,folder,strlen(folder))) return 0;
+    struct stat s;
+    if (!stat(out,&s)) return 0;
+    size_t host=strlen(redirects[at].host),tail=strlen(redirects[at].key)-strlen(key);
+    if (tail>=host || host-tail>=size) return 0;
+    memcpy(out,redirects[at].host,host-tail);
+    out[host-tail]=0;
+    return 0;
+}
 static char user_root[512]="user";
 const char *runtime_file_user_dir(void) { return user_root; }
 void runtime_file_configure(const char *app0,const char *user) {
     char path[600];
+    const char *list=getenv("BB_APP0_LAYER");
+    if (list && *list && !redirect_count) load_redirects(list);
     snprintf(user_root,sizeof(user_root),"%s",user);
     runtime_file_mount("/app0",app0);
     runtime_file_mount("/hostapp",app0);
@@ -146,6 +228,7 @@ static int translate(const char *guest,char *out,size_t size) {
     else if ((size_t)snprintf(out,size,"%s%s",m->host,buffer+best)>=size) result=ENAMETOOLONG;
     pthread_mutex_unlock(&lock);
     if (result==ENOENT) fprintf(stderr,"Runtime: no mount for guest path %s\n",guest);
+    if (!result && redirect_count && game_path(buffer)) result=redirect(buffer,out,size);
     return result;
 }
 static int host_flags(int flags) {
@@ -198,6 +281,38 @@ static Listing *list_directory(const char *path) {
         ++l->count; bytes+=n;
     }
     closedir(d);
+    return l;
+}
+/* A folder of the game as the game sees it: also the listed files and folders it does not hold. */
+static Listing *list_game_directory(const char *path,const char *guest) {
+    Listing *l=list_directory(path);
+    char key[1024],prefix[1026];
+    if (!l || !redirect_count || !game_path(guest) || redirect_key(guest,key,sizeof(key))) return l;
+    snprintf(prefix,sizeof(prefix),"%s%s",key,key[0] ? "/" : "");
+    size_t length=strlen(prefix);
+    for (size_t i=redirect_lower(prefix);i<redirect_count && !strncmp(redirects[i].key,prefix,length);++i) {
+        const char *rest=redirects[i].key+length,*slash=strchr(rest,'/');
+        size_t rest_length=strlen(rest),host=strlen(redirects[i].host);
+        size_t n=slash ? (size_t)(slash-rest) : rest_length;
+        if (rest_length>host || !n) continue;
+        /* As the mod spells it: the host path ends with the same letters. */
+        char name[260];
+        if (n>=sizeof(name)) continue;
+        memcpy(name,redirects[i].host+host-rest_length,n);
+        name[n]=0;
+        int known=0;
+        for (size_t e=0;e<l->count && !known;++e) known=!strcasecmp(l->names+l->offsets[e],name);
+        if (known) continue;
+        size_t bytes=l->count ? l->offsets[l->count-1]+strlen(l->names+l->offsets[l->count-1])+1 : 0;
+        l->names=realloc(l->names,bytes+n+1);
+        l->offsets=realloc(l->offsets,(l->count+1)*sizeof(size_t));
+        l->types=realloc(l->types,l->count+1);
+        if (!l->names || !l->offsets || !l->types) { fputs("Out of memory listing directory\n",stderr); exit(1); }
+        memcpy(l->names+bytes,name,n+1);
+        l->offsets[l->count]=bytes;
+        l->types[l->count]=slash ? 4 : 8;
+        ++l->count;
+    }
     return l;
 }
 static void convert_stat(const HostStat *s,GuestStat *g) {
@@ -346,7 +461,7 @@ static int64_t do_open(const char *guest,int flags,int mode) {
     int host=-1;
     if (!host_stat(path,&s) && S_ISDIR(s.st_mode)) {
         if (flags&3) return -EISDIR;
-        if (!(dir=list_directory(path))) return -EACCES;
+        if (!(dir=list_game_directory(path,guest))) return -EACCES;
     } else if (flags&0x20000) {
         e=errno==ENOENT ? ENOENT : ENOTDIR;
         if (e==ENOENT) { ++missing; printf("Runtime: open(%s) -> not found\n",guest); }
@@ -392,7 +507,7 @@ static int64_t do_open(const char *guest,int flags,int mode) {
     }
     struct stat s;
     Listing *dir=NULL;
-    if (!fstat(host,&s) && S_ISDIR(s.st_mode)) dir=list_directory(path);
+    if (!fstat(host,&s) && S_ISDIR(s.st_mode)) dir=list_game_directory(path,guest);
 #endif
     pthread_mutex_lock(&lock);
     int fd=-1;

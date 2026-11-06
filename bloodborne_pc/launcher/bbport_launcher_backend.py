@@ -790,9 +790,47 @@ class LauncherBackend(QObject):
         if self._first_start:
             self._first_start = False
             self._apply_first_start(status)
+        else:
+            self._settle_dlss5(status)
+        if core.no_dlss_card(status):
+            self.presetApplied.emit()  # an open page's Upscaler row: live_field's DLSS text
         self.changed.emit()
 
-    def _apply_first_start(self, gpu):
+    def _settle_dlss5(self, gpu):
+        """Saved DLSS 5 settings this PC cannot run (core.dlss5_blocker) don't survive a start: the
+        switch goes off and a leftover "DLSS 5 ready" preset (its 60 FPS, its 2560 x 1440 output)
+        gives way to what a first start picks for this card. The saved Custom settings change only
+        on a card not offered DLSS 5: settings.json is shared between install folders, so a folder
+        without the add-ons must not take DLSS 5 from a folder that has them. A PC that can run
+        DLSS 5 keeps the player's choice."""
+        leftover_preset = core.graphics_preset_of(self.ini, self.app) == 'dlss5_ready'
+        if self.ini.get('dlss5') != 'on' and not leftover_preset:
+            return
+        reason = core.dlss5_blocker(self._dlss5_not_offered)
+        if not reason:
+            return
+        update_mine = bool(self._dlss5_not_offered) and core.my_settings_match(self.ini, self.app)
+        self.ini['dlss5'] = 'off'
+        message = f'DLSS 5 turned off: {reason}.'
+        if leftover_preset and core.recommended_graphics_preset(gpu):
+            self._apply_first_start(gpu, update_mine)
+            message += ' ' + self._first_start_summary
+            self._first_start_summary = ''
+        else:
+            if update_mine:
+                self.app['my_settings'] = core.my_settings_snapshot(self.ini, self.app)
+            self._save_settings_quietly()
+            self.presetApplied.emit()
+        self._set_notice(message)
+
+    def _save_settings_quietly(self):
+        try:
+            core.save_ini({k: self.ini[k] for k in core.INI_DEFAULTS}, self.ini_lines)
+            self._write()
+        except OSError:
+            pass  # still applied for this session; Save settings retries
+
+    def _apply_first_start(self, gpu, update_mine=False):
         """The first start's settings from this PC (core.first_start_settings): the display's
         resolution, DLSS or FSR 3.1 by card, and the suggested preset. Written once; a later
         start finds bbport.ini and keeps the player's own choices."""
@@ -805,11 +843,9 @@ class LauncherBackend(QObject):
         self.ini.update(values)
         if preset:
             core.apply_graphics_preset(preset, self.ini, self.app)
-        try:
-            core.save_ini({k: self.ini[k] for k in core.INI_DEFAULTS}, self.ini_lines)
-            self._write()
-        except OSError:
-            pass  # still applied for this session; Save settings retries
+        if update_mine:
+            self.app['my_settings'] = core.my_settings_snapshot(self.ini, self.app)
+        self._save_settings_quietly()
         parts = [gpu.split(',')[0]] if preset else []
         if 'output_res' in values:
             parts.append(values['output_res'].replace('x', ' × '))
@@ -878,6 +914,8 @@ class LauncherBackend(QObject):
                'dlss5_ready': 'on a 4K display it renders 2560 × 1440.'}.get(name)
         if tag and why:
             text += f'\n\n★ Suggested for your card ({tag}): {why}'
+        if core.no_dlss_card(self._gpu_status):
+            text += "\n\nYour card can't run DLSS: the game uses FSR 3.1 instead."
         return text
 
     @Property(int, notify=presetApplied)
@@ -1054,6 +1092,11 @@ class LauncherBackend(QObject):
             if value and value not in {option['value'] for option in field['options']}:
                 return {**field, 'options': [*field['options'], {'value': value, 'text': text.format(value)}]}
             return field
+        if field['key'] == 'upscaler' and core.no_dlss_card(self._gpu_status):
+            # A saved DLSS (a copied ini, an older card) stays chosen, and the game runs FSR 3.1.
+            options = [{**option, 'text': 'DLSS (runs as FSR 3.1 on this card)'} if option['value'] == 'dlss' else option
+                       for option in field['options']]
+            return {**field, 'options': options}
         if field['key'] == 'fps_mode' and (fps := core.dlss5_fps_warning(self.ini, self.app)):
             return {**field, 'hint': f"{field.get('hint', '')} {fps}".strip()}
         if field['key'] == 'preset':

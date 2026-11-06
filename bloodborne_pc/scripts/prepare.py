@@ -149,7 +149,38 @@ def inspect_libc(path):
     return evidence
 
 
+# Everything prepare() writes, from eboot.bin, libc.prx and param.sfo. Doing it again took 6 s of
+# every start, and a new eboot.elf also made run.py's shader_prebuild extract the shader code again
+# (its stamp holds eboot.elf's time): 5.9 s more (2026-11-06). analysis.json's resource counts, of
+# the game with that start's mods, are a report nothing reads; they stay as first written.
+OUTPUTS = ('boot.bin', 'eboot.elf', 'entry.bin', 'analysis.json')
+STAMP = 'prepare-stamp.txt'
+
+
+def source_stamp(game):
+    """Changes with what prepare() reads. Hard links in a mod overlay keep the game's size and time."""
+    lines = [hashlib.sha256(Path(__file__).read_bytes()).hexdigest()[:16],
+             ','.join(sorted(p.name for p in (game / 'sce_module').iterdir()))]
+    for name in ('eboot.bin', 'sce_module/libc.prx', 'sce_sys/param.sfo'):
+        info = (game / name).stat()
+        lines.append(f'{name} {info.st_size} {info.st_mtime_ns}')
+    return '\n'.join(lines) + '\n'
+
+
+def up_to_date(out, stamp):
+    try:
+        return (out / STAMP).read_text(encoding='utf-8') == stamp and all((out / n).is_file() for n in OUTPUTS)
+    except OSError:
+        return False
+
+
 def prepare(game, out):
+    stamp = source_stamp(game)
+    if up_to_date(out, stamp):
+        print(f'Game image: up to date in {out.resolve()}')
+        return
+    out.mkdir(parents=True, exist_ok=True)
+    (out / STAMP).unlink(missing_ok=True)
     source = (game / 'eboot.bin').read_bytes()
     elf, header, ph, segments, missing = parse_self(source)
     loads = [p for p in ph if p['type'] in (1, 0x61000010)]
@@ -268,6 +299,7 @@ def prepare(game, out):
                   status='Prepared only; execution and Vulkan are tested separately.')
     (out / 'analysis.json').write_text(json.dumps(report, ensure_ascii=False, indent=2) + '\n',
                                        encoding='utf-8')
+    (out / STAMP).write_text(stamp, encoding='utf-8')
     print(f"{report['sfo'].get('TITLE')} | entry={header[4]:#x} | image={size:,} bytes")
     print(f"{len(names)} imported symbols; {sum(counts.values()):,} relocations; {len(report['needed'])} required modules")
     if missing:

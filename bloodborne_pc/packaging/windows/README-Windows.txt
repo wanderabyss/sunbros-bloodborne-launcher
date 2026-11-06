@@ -171,9 +171,10 @@ Upscaling
 
 Mods and patches
 - Put each mod in its own folder under mods\ (dvdroot_ps4\..., or chr\, parts\, ... directly);
-  enable and order them on "Mods & patches". The game files are never changed. Without Windows
-  Developer Mode the port links folders with junctions and files with hard links; when the game
-  is on another drive, the temporary mod view is made next to the game folder.
+  enable and order them on "Mods & patches". The game files are never changed: the game reads
+  your mods' files from where they are, from a list made at each start. A mod file whose path
+  is too long for that gets a temporary mod view of links instead, made next to the game folder
+  when the game is on another drive.
 - Third-party patches: shadPS4/GoldHEN XML files for 1.09 in patches\.
 - Bloodborne Enhanced (Nexus mod 19) is an optional manual download from its author.
   The mod's permissions do not allow this package to include it. Place it in mods\

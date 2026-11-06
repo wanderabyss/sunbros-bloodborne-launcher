@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 """Merge loose-file mods through links, preserving the original game and mod files."""
 import argparse
+import fnmatch
 import hashlib
 import json
 import os
@@ -154,6 +155,7 @@ def mod_files(folder):
             yield relative, source
 
 
+# An overlay is what run.sh uses, and run.py only for a path the game could not take (build_layer).
 # Windows: files are always hard links (copies across volumes), never symlinks. The runtime's
 # UCRT _stat64 and FindFirstFileA report a file symlink's own size (0), not its target's, and
 # the game panics loading it (FileTransferTask.cpp(865)). Directories are symlinks, or
@@ -201,9 +203,20 @@ def _hard_links_reach(game, overlay):
 
 
 def _mirror_directory(link, target):
-    link.mkdir()
-    for entry in target.iterdir():
-        make_link(link / entry.name, entry)
+    """A real folder of hard links. Plain strings and os.scandir, whose entries know their kind: with
+    a pathlib stat per file the 28,853 game files took 2 s longer (2026-11-06)."""
+    os.mkdir(link)
+    with os.scandir(target) as entries:
+        for entry in entries:
+            path = os.path.join(link, entry.name)
+            if entry.is_dir():
+                _mirror_directory(path, entry.path)
+                continue
+            try:
+                os.link(entry.path, path)
+            except OSError:
+                shutil.copy2(entry.path, path)
+            LINKED[path] = entry.path
 
 
 def make_link(link, target):
@@ -241,15 +254,21 @@ def is_link(path):
     return path.is_symlink() or str(path) in LINKED or (hasattr(path, 'is_junction') and path.is_junction())
 
 
+def linked_target(path):
+    """What this run linked `path` to (LINKED holds strings for mirrored files), or None."""
+    target = LINKED.get(str(path))
+    return Path(target) if target else None
+
+
 def link_target(path):
-    return LINKED.get(str(path)) or path.resolve(strict=True)
+    return linked_target(path) or path.resolve(strict=True)
 
 
 def remove_link(path):
     if hasattr(path, 'is_junction') and path.is_junction():
         os.rmdir(path)
     else:
-        unlink_file(path, LINKED.get(str(path)))
+        unlink_file(path, linked_target(path))
     LINKED.pop(str(path), None)
 
 
@@ -281,7 +300,7 @@ def remove_overlay(overlay, game=None):
         path = Path(path)
         if function not in (os.unlink, os.remove) or not path.is_file():
             raise error[1] if isinstance(error, tuple) else error
-        linked = LINKED.get(str(path))
+        linked = linked_target(path)
         if linked is None and game is not None:
             mirror = Path(game) / path.relative_to(overlay)
             if mirror.is_file() and os.path.samefile(path, mirror):
@@ -406,11 +425,8 @@ def expand(directory):
         directory.mkdir(exist_ok=True)
 
 
-def build_overlay(game, out, mods, owner_pid=None):
-    """The game with `mods` linked over it (a new overlay in `out`, or the game itself without
-    any), used by `owner_pid` (this process by default; see OWNER_SUFFIX)."""
-    game = Path(game).resolve(strict=True)
-    out = Path(out).resolve()
+def overlay_places(game, out):
+    """Where an overlay of `game` can go, the best first."""
     places = [out]
     if os.name == 'nt':
         if out.drive.casefold() != game.drive.casefold():
@@ -422,8 +438,11 @@ def build_overlay(game, out, mods, owner_pid=None):
         temp = Path(tempfile.gettempdir()).resolve()
         if temp not in places:
             places.append(temp)
-    for place in places:
-        sweep_overlays(place, game)
+    return places
+
+
+def layer_files(mods):
+    """(game path, source) of what `mods` put over the game, in layer order: the last wins."""
     replacements = []
     owners = {}
     for name, root in mods:
@@ -436,6 +455,97 @@ def build_overlay(game, out, mods, owner_pid=None):
             replacements.append((relative, source))
             count += 1
         print(f'Mods: {name}: {count} files', file=sys.stderr)
+    return replacements
+
+
+# The game looks these paths up itself (src/runtime_file.c, BB_APP0_LAYER), so a start needs no
+# overlay: no links to make, and none to remove or leave behind. A longer source path could not be
+# opened (Windows' MAX_PATH): such a file still goes through an overlay, under a shorter name.
+LAYER_ENV = 'BB_APP0_LAYER'
+LAYER_PATH_LIMIT = 250
+
+
+def build_layer(game, out, mods, layer_file, owner_pid=None):
+    """The folder the game runs from. Normally `game` itself, with `layer_file` listing the files
+    `mods` put over it; an overlay as before for a path the game could not take."""
+    game = Path(game).resolve(strict=True)
+    layer_file = Path(layer_file)
+    layer_file.unlink(missing_ok=True)
+    for place in overlay_places(game, Path(out).resolve()):  # left by an older version or a killed start
+        sweep_overlays(place, game)
+    replacements = layer_files(mods)
+    if not replacements:
+        return game
+    final = {relative.as_posix().casefold(): (relative, source) for relative, source in replacements}
+    replaced = 0
+    lines = []
+    fits = True
+    for relative, source in final.values():
+        place = game / relative
+        if place.is_dir() or any((game / parent).is_file() for parent in relative.parents):
+            raise ValueError(f'File/directory conflict: {relative}')
+        replaced += place.exists()
+        source = str(source.resolve())
+        fits = fits and len(source) <= LAYER_PATH_LIMIT
+        lines.append(f'{relative.as_posix()}\t{source}\n')
+    try:
+        text = ''.join(lines).encode('utf-8')
+    except UnicodeError:
+        fits = False
+    if not fits:
+        print('Mods: a path too long for the game to open; linking the files instead', file=sys.stderr)
+        return build_overlay(game, out, mods, owner_pid)
+    layer_file.parent.mkdir(parents=True, exist_ok=True)
+    temporary = layer_file.with_name(layer_file.name + '.new')
+    temporary.write_bytes(text)
+    os.replace(temporary, layer_file)
+    print(f'Mods: {replaced} game files replaced, {len(final) - replaced} added', file=sys.stderr)
+    return game
+
+
+def layer_file(relative):
+    """Where the running start's list (LAYER_ENV) puts `relative` (a path under the game), or None."""
+    return layer_entries().get(Path(relative).as_posix().casefold())
+
+
+def layer_entries():
+    """{game path, case-folded: host file} of the running start's list (LAYER_ENV)."""
+    path = os.environ.get(LAYER_ENV)
+    if not path:
+        return {}
+    entries = {}
+    for line in Path(path).read_text(encoding='utf-8').splitlines():
+        relative, separator, source = line.partition('\t')
+        if separator:
+            entries[relative.casefold()] = Path(source)
+    return entries
+
+
+def game_file(game, relative):
+    """`relative` as the game will read it."""
+    return layer_file(relative) or Path(game) / relative
+
+
+def game_files(game, folder, pattern):
+    """The files of `folder` under `game` matching `pattern`, as the game will read them."""
+    found = {path.name.casefold(): path for path in (Path(game) / folder).glob(pattern)}
+    prefix = Path(folder).as_posix().casefold() + '/'
+    for relative, source in layer_entries().items():
+        if relative.startswith(prefix) and '/' not in relative[len(prefix):] and \
+                fnmatch.fnmatch(relative[len(prefix):], pattern.casefold()):
+            found[relative[len(prefix):]] = source
+    return [found[name] for name in sorted(found)]
+
+
+def build_overlay(game, out, mods, owner_pid=None):
+    """The game with `mods` linked over it (a new overlay in `out`, or the game itself without
+    any), used by `owner_pid` (this process by default; see OWNER_SUFFIX)."""
+    game = Path(game).resolve(strict=True)
+    out = Path(out).resolve()
+    places = overlay_places(game, out)
+    for place in places:
+        sweep_overlays(place, game)
+    replacements = layer_files(mods)
     if not replacements:
         return game
     out.mkdir(parents=True, exist_ok=True)
@@ -710,6 +820,8 @@ def main():
     parser.add_argument('--hd-pack', type=Path)
     # The process the overlay lasts for (run.py, run.sh): this script's caller by default.
     parser.add_argument('--owner-pid', type=int, default=os.getppid())
+    # The list of files the game looks up itself (build_layer; run.py). Without it, an overlay (run.sh).
+    parser.add_argument('--layer-file', type=Path)
     args = parser.parse_args()
     layers = [(folder.name, folder) for folder in args.generated if content_root(folder)]
     pack = args.hd_pack if args.hd_pack and content_root(args.hd_pack) else None
@@ -748,7 +860,10 @@ def main():
         layers = keep_sojin(layers, args.game, args.out)
     except (OSError, ValueError) as error:
         print(f'Mods: Hunter\'s Arsenal not merged ({error})', file=sys.stderr)
-    print(build_overlay(args.game, args.out, layers, args.owner_pid))
+    if args.layer_file:
+        print(build_layer(args.game, args.out, layers, args.layer_file, args.owner_pid))
+    else:
+        print(build_overlay(args.game, args.out, layers, args.owner_pid))
 
 
 if __name__ == '__main__':

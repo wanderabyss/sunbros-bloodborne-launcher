@@ -2,6 +2,7 @@ import struct
 import unittest
 import tempfile
 from pathlib import Path
+import prepare as prepare_script
 from prepare import parse_self, inspect_libc, nid
 
 
@@ -15,6 +16,42 @@ def fixture():
     struct.pack_into('<IIQQQQQQ', data, 128, 1, 5, 0x1000, 0, 0, 16, 32, 0x1000)
     data[0x200:] = bytes(range(16))
     return data
+
+
+class RepeatStartTests(unittest.TestCase):
+    def setUp(self):
+        folder = tempfile.TemporaryDirectory()
+        self.addCleanup(folder.cleanup)
+        self.game, self.out = Path(folder.name) / 'game', Path(folder.name) / 'out'
+        for name, data in (('eboot.bin', b'not a SELF, so a real run stops on it'), ('sce_module/libc.prx', b'c'),
+                           ('sce_sys/param.sfo', b's')):
+            (self.game / name).parent.mkdir(parents=True, exist_ok=True)
+            (self.game / name).write_bytes(data)
+        self.out.mkdir()
+        for name in prepare_script.OUTPUTS:
+            (self.out / name).write_bytes(b'made')
+        (self.out / prepare_script.STAMP).write_text(prepare_script.source_stamp(self.game), encoding='utf-8')
+
+    def test_nothing_is_written_again_for_the_same_game(self):
+        # run.py's shader_prebuild stamp holds eboot.elf's time: rewriting it re-extracts the shaders.
+        before = {name: (self.out / name).stat().st_mtime_ns for name in prepare_script.OUTPUTS}
+        prepare_script.prepare(self.game, self.out)
+        self.assertEqual(before, {name: (self.out / name).stat().st_mtime_ns for name in prepare_script.OUTPUTS})
+
+    def test_a_changed_game_file_is_read_again(self):
+        for name in ('eboot.bin', 'sce_module/libc.prx', 'sce_sys/param.sfo'):
+            with self.subTest(name):
+                stamp = prepare_script.source_stamp(self.game)
+                (self.game / name).write_bytes((self.game / name).read_bytes() + b'!')
+                self.assertNotEqual(prepare_script.source_stamp(self.game), stamp)
+        with self.assertRaisesRegex(ValueError, 'neither'):
+            prepare_script.prepare(self.game, self.out)
+        self.assertFalse((self.out / prepare_script.STAMP).exists())  # never vouches for old files
+
+    def test_a_missing_output_is_made_again(self):
+        (self.out / 'boot.bin').unlink()
+        with self.assertRaisesRegex(ValueError, 'neither'):
+            prepare_script.prepare(self.game, self.out)
 
 
 class SelfTests(unittest.TestCase):

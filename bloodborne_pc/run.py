@@ -147,7 +147,8 @@ def sojin_saves(game, original_game, user_dir):
             if not holding:
                 continue
             weapon.set_game(Path(original_game) / 'dvdroot_ps4')
-            params = Path(game) / 'dvdroot_ps4' / weapon.GAMEPARAM
+            from mods import game_file
+            params = game_file(game, Path('dvdroot_ps4') / weapon.GAMEPARAM)
             if weapon.has_weapon(params.read_bytes()):
                 continue
         except (OSError, ValueError, KeyError, ImportError, struct.error) as error:
@@ -265,7 +266,9 @@ def shader_prebuild(game, out, env):
     if env.get('BB_SHADER_PREBUILD') == '0':
         return
     code = out / 'shader_code'
-    sources = sorted((Path(game) / 'dvdroot_ps4' / 'shader').glob('*.shaderbnd*.dcx'))
+    sys.path.insert(0, str(PORT / 'scripts'))
+    from mods import game_files
+    sources = game_files(game, 'dvdroot_ps4/shader', '*.shaderbnd*.dcx')
     sources.append(out / 'eboot.elf')
     sources.append(PORT / 'scripts' / 'shader_code.py')
     stamp = '\n'.join(f'{p.name} {p.stat().st_size} {int(p.stat().st_mtime)}' for p in sources if p.is_file())
@@ -474,7 +477,11 @@ def main():
                *(arg for folder in generated for arg in ('--source', folder)), optional=True)
     if (exit_layer / 'dvdroot_ps4').is_dir():
         generated.append(str(exit_layer))
-    game = Path(run_script('mods.py', game, '--out', out,
+    # The game finds the files over it in this list itself (src/runtime_file.c); only a path it
+    # could not take makes mods.py link an overlay and answer with that folder.
+    env.pop('BB_APP0_LAYER', None)
+    layer_list = Path(out) / 'mod-files.txt'
+    game = Path(run_script('mods.py', game, '--out', out, '--layer-file', layer_list,
                            '--mods-dir', env.get('BB_MODS_DIR', data / 'mods'),
                            '--config', env.get('BB_MODS_CONFIG', data / 'mods.json'),
                            '--enabled', env.get('BB_MODS_ENABLED', '1'),
@@ -482,6 +489,8 @@ def main():
                            *(('--hd-pack', env['BB_HD_PACK']) if env.get('BB_HD_PACK') else ()),
                            '--owner-pid', os.getpid(), capture=True).strip())
     mod_view = game if game.resolve() != original_game else None
+    if layer_list.is_file():
+        env['BB_APP0_LAYER'] = str(layer_list.resolve())
     # Keyboard prompts: whether the key images are among the mods in use, as the launcher's
     # Controller page or the overlay's Mods tab left mods.json (read again on an in-game restart).
     # src/key_prompts.c names the bound keys in text when the images do not match the bindings.

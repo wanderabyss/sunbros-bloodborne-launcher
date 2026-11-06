@@ -243,6 +243,13 @@ class GraphicsPresetTests(unittest.TestCase):
         for key in core.MY_SETTINGS_APP:
             self.assertIn(key, core.APP_DEFAULTS)
 
+    def test_no_dlss_card_needs_a_named_card_without_rtx(self):
+        self.assertFalse(core.no_dlss_card('NVIDIA GeForce RTX 3080, discrete, 10240 MiB'))
+        self.assertTrue(core.no_dlss_card('AMD Radeon RX 7900 XTX, discrete, 24560 MiB'))
+        self.assertTrue(core.no_dlss_card('NVIDIA GeForce GTX 1060 6GB, discrete, 6144 MiB'))
+        self.assertFalse(core.no_dlss_card('Graphics card check unavailable'))
+        self.assertFalse(core.no_dlss_card(''))
+
     def test_first_start_settings_come_from_this_pc(self):
         # INI_DEFAULTS is one machine's (3840x2160, DLSS): a first start uses the player's own.
         values, preset = core.first_start_settings('NVIDIA GeForce RTX 4090, discrete, 24564 MiB', (3840, 2160))
@@ -254,6 +261,14 @@ class GraphicsPresetTests(unittest.TestCase):
         # No GPU answer and no usable display: FSR 3.1 (every GPU), the output left as shipped.
         self.assertEqual(core.first_start_settings('Graphics card check unavailable', None), ({'upscaler': 'fsr3'}, None))
         self.assertNotIn('output_res', core.first_start_settings('', (10000, 5000))[0])
+
+    def test_dlss5_blocker_names_what_this_pc_lacks(self):
+        every_file = {'runtime': True, 'renodx': True, 'bridge': True}
+        with patch.object(core, 'neural_runtime_status', return_value=every_file):
+            self.assertEqual(core.dlss5_blocker(''), '')
+            self.assertIn('needs a GeForce RTX 4080', core.dlss5_blocker('needs a GeForce RTX 4080, 4090 or newer'))
+        with patch.object(core, 'neural_runtime_status', return_value={**every_file, 'bridge': False}):
+            self.assertIn("aren't in this folder", core.dlss5_blocker(''))
 
     def test_dlss5_where_reshade_will_not_load_warns(self):
         # The 4.2.3 package's folder was not in ReShadeApps.ini: DLSS 5 never loaded (run.py now
