@@ -1,5 +1,19 @@
 # Release Notes
 
+## [4.3.1+build110626.015931] — 2026-11-06
+### NG+7 hammer: a Stormforged Kirkhammer for an Arcane build
+<!-- launcher:
+### NG+7 hammer
+
+- New in Built-in enhancements: the Stormforged Kirkhammer at the Bath Messengers, Thunderwright's Kirkhammer with stronger stats and Arcane scaling: 180 physical and 132 bolt at +10. The original's stats are unchanged.
+- NG+7 enemy attack limit: in Built-in enhancements, hold enemy attack to 2x, 1.5x or 1.2x a first playthrough. Enemy health stays at NG+7.
+- Spatial sound can now be switched off in the launcher, under Game & Saves, Audio.
+- Thunder Chariot no longer whites out the screen. It still hits just as hard.
+- A guard against a rare crash when starting a new game.
+-->
+
+It costs 10,000 Blood Echoes at +0, upgrades the normal way, needs Strength 16, Skill 10 and Arcane 25, and brings Hunter's Arsenal with it. [Changelog](docs/changelog/changelog-2026-11-06-4.3.1.md)
+
 ## [4.3.0+build110526.160556] — 2026-11-05
 ### Spatial sound: the game's 7.1 mix reaches Dolby Atmos, Windows Sonic and DTS
 <!-- launcher:

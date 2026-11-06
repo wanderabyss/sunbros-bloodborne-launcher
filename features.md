@@ -18,6 +18,11 @@ Fixed 60/90/120/144 FPS presets correct running-jump horizontal momentum against
 | Atlas | Bundled maps/art, live position, opt-in lamp travel, background geometry preparation, viewport culling and reused upload buffers. | The latest drawing optimizations require identical-route testing. |
 | Co-op | BBSC 0.0.2 relay/rejoin integration, public/private modes and backups. | Matching peer builds required; Chalice synchronization remains a roadmap item. |
 
+## 4.3.1 NG+7 hammer
+
+- `pc_ng7_hammer` (`BB_PC_NG7_HAMMER`, off by default) adds the Stormforged Kirkhammer to the Bath Messengers' shop at +0, upgraded the normal way: 180 physical, 132 bolt, Arcane scaling 130 at +10. It brings Hunter's Arsenal with it; Thunderwright's Kirkhammer is unchanged.
+- `ng7_attack_cap` (`BB_PC_NG7_ATTACK_CAP`, default `off`; the launcher offers 2x, 1.5x and 1.2x) limits enemy attack in the NG+7 world, over a first playthrough. Enemy health and echoes stay at NG+7.
+
 ## 4.3.0 Spatial sound, HDR paper white to 800 nits, heap trace
 
 - The game mixes real 7.1: a capture of the main audio port had a separate signal in all eight channels. With Dolby Atmos for Headphones on, Windows still reports 2 channels, so the port now sends the channels to spatial audio objects itself (`BB_AUDIO_SPATIAL=0` turns it off).

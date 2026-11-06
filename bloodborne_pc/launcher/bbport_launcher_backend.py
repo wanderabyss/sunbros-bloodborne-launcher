@@ -189,6 +189,10 @@ FIELDS = {
         row('backup_after_play', 'Back up saves after playing', 'toggle',
             hint=f'When the game closes, a copy of your saves goes to save-backups in the saves folder. '
             f'The last {save_backups.KEEP_AUTO} automatic copies are kept; your own backups are never deleted.'),
+        row('spatial_audio', 'Spatial sound', 'toggle',
+            hint="Sends the game's 7.1 mix to Dolby Atmos, Windows Sonic or DTS when one is on under "
+            "Windows' Spatial sound setting. Off plays stereo, or 5.1 or 7.1 directly on outputs that "
+            'have them. Takes effect at the next launch.'),
         *[row(key, title[0], 'toggle') for key, title, _ in core.EXTRAS[:1]],
     ],
     'Controller': [
@@ -235,6 +239,8 @@ FIELDS = {
     ],
     'Enhancements': [
         *[row(key, title[0], 'toggle') for key, title, _ in core.ENHANCEMENTS],
+        row('ng7_attack_cap', 'NG+7 enemy attack limit', 'choice', core.NG7_ATTACK_CAPS,
+            'With NG+7 world on: the most an enemy hits for, over a first playthrough. Enemy health and echoes stay at NG+7.'),
     ],
     'Atlas': [
         *[row(key, title[0], 'toggle') for key, title, _ in core.ATLAS],
@@ -291,6 +297,7 @@ SETTINGS_SECTIONS = {
         ('Game files', ['game_dir', 'dlc_dir']),
         ('Your data', ['user_dir', 'custom_avatar_path']),
         ('Save backups', ['backup_after_play']),
+        ('Audio', ['spatial_audio']),
         ('In-game preferences', ['language', 'voice_language', 'player_name'] + [key for key, _, _ in core.EXTRAS[:1]]),
     ],
     # Online is The Hunter's Dream only; how PLAY starts the game is chosen on the Home page.
@@ -305,7 +312,7 @@ SETTINGS_SECTIONS = {
     ],
     'Mods & Patches': [
         ('Installed mods', ['mods_enabled', 'mods_dir']),
-        ('Built-in enhancements', [key for key, _, _ in core.ENHANCEMENTS]),
+        ('Built-in enhancements', [key for key, _, _ in core.ENHANCEMENTS] + ['ng7_attack_cap']),
         ("Hunter's Atlas (map)", [key for key, _, _ in core.ATLAS] + ['atlas_npc_mode']),
         ('External patches', ['patches_dir']),
         ('Gameplay tweaks', [key for key, _, _ in core.TWEAKS]),
@@ -333,6 +340,7 @@ SEARCH_TERMS = {
     'present_upscale': 'fsr 1 easu bilinear stretch upscale display 1440p resolution sharp',
     'hdr_white_nits': 'hdr paper white brightness nits dim', 'hdr_peak_nits': 'hdr peak brightness nits display',
     'hdr_highlight_boost': 'hdr highlight boost bright expansion',
+    'spatial_audio': 'spatial sound audio dolby atmos windows sonic dts 7.1 surround headphones',
     'present_rcas': 'fsr 1 rcas sharpen sharpening sharpness upscale display',
     'dlss5': 'dlss 5 neural rendering renodx reshade dlss5-bridge nvngx_dlssnr on off enable',
     'nr_intensity': 'dlss 5 neural rendering nr intensity strength',

@@ -137,7 +137,8 @@ def sojin_saves(game, original_game, user_dir):
     beside the save folder). Each weapon is checked on its own: a mod may carry one of them."""
     sys.path.insert(0, str(PORT / 'scripts'))
     for label, package, becomes in (('Sojin Chikage', 'sojin', 'Chikages'),
-                                    ("Thunderwright's Kirkhammer", 'thunderwright', 'Kirkhammers')):
+                                    ("Thunderwright's Kirkhammer", 'thunderwright', 'Kirkhammers'),
+                                    ('The NG+7 hammer', 'ng7_hammer', 'Kirkhammers')):
         try:
             weapon = __import__(f'{package}.weapon', fromlist=['weapon'])
             ids = [struct.pack('<I', v) for v in weapon.WEAPON_IDS]

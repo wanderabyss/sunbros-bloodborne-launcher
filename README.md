@@ -9,7 +9,7 @@
 </tr>
 </table>
 
-**v4.3.0:** Spatial sound: with Dolby Atmos, Windows Sonic or DTS on in Windows, the game's real 7.1 mix now goes to its own speaker positions, not a stereo fold. HDR paper white goes up to 800 nits, and a rare memory crash now says which block it hit. [Changelog](docs/changelog/changelog-2026-11-05-4.3.0.md)
+**v4.3.1:** The NG+7 hammer, a stronger Thunderwright's Kirkhammer from the Bath Messengers; a limit on NG+7 enemy attack; a Spatial sound toggle; and Thunder Chariot no longer whites out the screen. [Changelog](docs/changelog/changelog-2026-11-06-4.3.1.md)
 
 <a href="docs/media/launcher-4.2.7-tour.mp4"><img src="docs/images/launcher-4.2.7-tour.webp" width="100%" alt="Tour of the 4.2.7 launcher: Home, Visuals presets with their ? tips and Save settings, Online, Co-op, Dossier, Workshop, Settings and the what's-new sheet"/></a>
 
@@ -70,10 +70,11 @@
 | DLSS 5 | Neural rendering through the player's own ReShade + dlss5-bridge + renodx-dlss5 (nothing shipped); one switch, the add-on's look settings, runtime status and a DLSS 5 ready preset sized to the output (★ DLSS 5, next to Remastered's ★ DLSS 4); stays off and says why when ReShade won't load it. [Setup guide](docs/dlss5-setup.md). |
 | Frame generation | DLSS-G through the NGX bridge (ABI 3: SR, FG and DLSS 5 entry points, the last unsupported until NVIDIA ships it); FSR fallback. HDR + DLSS 2× evaluation observed on RTX 4090. |
 | HDR output | **BT.2020 / ST 2084 PQ, 10-bit RGB** swapchain; final conversion shared by rendered and generated frames. Paper white (to 800 nits), peak brightness (or the display's) and highlight boost settings. The picture is SDR expanded to HDR at the final step; physical display calibration remains pending. |
-| Spatial sound | The game's 7.1 mix goes to Windows spatial audio objects when Dolby Atmos, Windows Sonic or DTS is on, and to a 5.1 / 7.1 output directly otherwise. Checked with Dolby Atmos for Headphones; other formats and speakers are not yet tested. |
+| Spatial sound | The game's 7.1 mix goes to Windows spatial audio objects when Dolby Atmos, Windows Sonic or DTS is on, and to a 5.1 / 7.1 output directly otherwise. Checked with Dolby Atmos for Headphones; other formats and speakers are not yet tested. A launcher toggle under Game & Saves, Audio turns it off. |
 | Ray tracing | Ambient occlusion and moon shadows, quality presets, half-resolution shadows and custom reach. Reflections and secondary-light shadows remain unavailable. |
 | Diagnostics | Runtime provider/fallback status, generation/presentation counters and Reflex marker intervals. A rejected memory free names its block in `last_run.log`. |
 | Hunter's Atlas | Bundled maps/art, position overlay and opt-in lamp travel. |
+| NG+7 hammer | Optional switch (`pc_ng7_hammer`): the Stormforged Kirkhammer from the Bath Messengers, Thunderwright's Kirkhammer with stronger stats and Arcane scaling. Brings Hunter's Arsenal with it. |
 | NG+7 world | Optional switch (`pc_ng_plus_7`): full NG+7 enemies and echoes from the first beast, and every Caryll Rune once. The save keeps its real cycle, so switching it off puts the character back. |
 | Multiplayer | Offline, The Hunter's Dream online and BBSC 0.0.2 seamless co-op; co-op caps game simulation at 60 FPS. |
 | Builds | MSYS2 native renderer, VS 2026 DLSS bridge, frozen launcher and ZIP packaging. |

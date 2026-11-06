@@ -20,10 +20,13 @@ Item {
         id: labels
         x: 16
         y: isFolder ? 12 : (parent.height - height) / 2
-        width: isFolder ? parent.width - 32 : parent.width - fieldRow.controlWidth - 48
+        // A switch needs only its own width; a dropdown or text box takes controlWidth.
+        width: isFolder ? parent.width - 32
+             : field.kind === "toggle" ? parent.width - fieldSwitch.width - 44
+             : parent.width - fieldRow.controlWidth - 48
         spacing: 2
         Text {
-            width: parent.width; text: field.label || ""; color: Theme.text; elide: Text.ElideRight
+            width: parent.width; text: field.label || ""; color: Theme.text; wrapMode: Text.WordWrap
             font.family: Theme.sans; font.pixelSize: 15
         }
         Text {
@@ -32,6 +35,7 @@ Item {
         }
     }
     GlassSwitch {
+        id: fieldSwitch
         visible: field.kind === "toggle"
         enabled: field.enabled !== false
         anchors.right: parent.right; anchors.rightMargin: 12; anchors.verticalCenter: parent.verticalCenter

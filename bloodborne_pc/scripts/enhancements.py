@@ -42,13 +42,23 @@ engine/maiden_events.cpp and engine/dream_mirror_layout.cpp.
                                               mod's own gameparam (ShopEdit, ...); run.py turns the
                                               weapons in a save into the Chikages and the Kirkhammer
                                               they were made from when it is off.
-  pc_ng_plus_7          (BB_PC_NG7)           NG+7 world: enemies at their NG+7 strength from the
+  pc_ng7_hammer         (BB_PC_NG7_HAMMER)    NG+7 hammer: the Stormforged Kirkhammer from the Bath
+                                              Messengers, Thunderwright's Kirkhammer with stronger
+                                              stats and Arcane scaling (ng7_hammer/weapon.py). Brings
+                                              Hunter's Arsenal with it, whose gameparam and item
+                                              texts it adds to. Every player in a session needs it
+                                              on. run.py turns it in a save into the Kirkhammer
+                                              when it is off.
+  pc_ng_plus_7         (BB_PC_NG7)           NG+7 world: enemies at their NG+7 strength from the
                                               first beast, in any character (src/ng_plus.c does
                                               this; the save keeps its real cycle, so off is the
                                               character as it was). The Hunter's Dream hands over
                                               every Caryll Rune once, best tier and the six oath
                                               runes, through the game's own item lots.
-  pc_menu               (BB_PC_MENU)          the in-game PC menu's assets (menu_assets.py): its
+                        ng7_attack_cap (BB_PC_NG7_ATTACK_CAP): with it on, the most any enemy's attack
+                                              may be over a first playthrough ('off', or a number
+                                              such as 1.5). Enemy health and echoes are unchanged.
+  pc_menu              (BB_PC_MENU)          the in-game PC menu's assets (menu_assets.py): its
                                               sections in the options movie and its strings in
                                               every language. On by default: it only adds rows.
 
@@ -76,6 +86,8 @@ FEATURES = {
     # After the lamps: its Central Yharnam talk archive adds the rematch to the lamp menu.
     'pc_boss_rematches': ('BB_PC_REMATCHES', 'boss-rematches', 'Boss rematches at their lamps (experimental)'),
     'pc_sojin_chikage': ('BB_PC_SOJIN', 'hunters-arsenal', "Hunter's Arsenal (Sojin Chikage, Thunderwright's Kirkhammer)"),
+    # After Hunter's Arsenal: its gameparam and item texts are Hunter's Arsenal's plus the hammer.
+    'pc_ng7_hammer': ('BB_PC_NG7_HAMMER', 'ng7-hammer', 'NG+7 hammer (Stormforged Kirkhammer)'),
     'pc_ng_plus_7': ('BB_PC_NG7', 'ng-plus-7', 'NG+7 world and every Caryll Rune'),
     'pc_menu': ('BB_PC_MENU', 'pc-menu', 'In-game PC menu (System > PC Settings)'),
 }
@@ -489,6 +501,21 @@ def ng_plus_7_script(data):
     return out
 
 
+def ng7_hammer(dvdroot):
+    """Hunter's Arsenal's gameparam and item texts with the Stormforged Kirkhammer added; this
+    feature's layer goes above Hunter's Arsenal's, whose other files stay in use."""
+    from ng7_hammer import weapon as hammer
+    try:
+        arsenal = {path.as_posix(): data for path, data in hunters_arsenal(dvdroot).items()}
+        msgs = {relative.split('/')[1]: data for relative, data in arsenal.items()
+                if relative.startswith('msg/') and relative.endswith('/item.msgbnd.dcx')}
+        files = hammer.make(dvdroot, arsenal[hammer.GAMEPARAM], msgs)
+    except (hammer.Ng7HammerError, OSError, ValueError, KeyError, IndexError, struct.error) as error:
+        print(f'Enhancements: NG+7 hammer left out ({error})', file=sys.stderr)
+        return {}
+    return {Path(relative): data for relative, data in files.items()}
+
+
 def ng_plus_7(dvdroot):
     relative = Path('event') / 'm21_00_00_00.emevd.dcx'
     try:
@@ -499,6 +526,54 @@ def ng_plus_7(dvdroot):
         return {}
 
 
+# NG+7 scales an enemy's NG+1 row (NpcParam GameClearSpEffectID) by this (src/ng_plus.c).
+NG7_CYCLE = 1.2
+ATTACK_RATES = ('physicsAttackPowerRate', 'magicAttackPowerRate', 'fireAttackPowerRate', 'thunderAttackPowerRate')
+
+
+def attack_cap(settings, env):
+    """ng7_attack_cap as a number, at least 1; None for 'off' or anything unreadable."""
+    value = env.get('BB_PC_NG7_ATTACK_CAP', settings.get('ng7_attack_cap', 'off'))
+    try:
+        cap = float(value)
+    except (TypeError, ValueError):
+        return None
+    return cap if 1 <= cap < float('inf') else None
+
+
+def capped_attack(param_raw, cap):
+    """`param_raw` (a gameparam.parambnd.dcx) with no enemy's NG+7 attack above `cap` times its
+    first-playthrough attack: only the attack rates of the enemies' NG+1 rows change."""
+    from fromsoft import Bnd4
+    from bbparam import Param, load_paramdefs
+    defs = load_paramdefs()
+    gp = Bnd4(dcx_decompress(param_raw))
+    npc = Param(gp.files[gp.index('NpcParam.param')], defs['NPC_PARAM_ST'])
+    effects = Param(gp.files[gp.index('SpEffectParam.param')], defs['SP_EFFECT_PARAM_ST'])
+    for row in {npc.get(r, 'GameClearSpEffectID') for r in npc.rows} & set(effects.rows):
+        for field in ATTACK_RATES:
+            if effects.get(row, field) * NG7_CYCLE > cap:
+                effects.set(row, field, cap / NG7_CYCLE)
+    gp.files[gp.index('SpEffectParam.param')] = effects.to_bytes()
+    return dcx_compress(gp.to_bytes(), template=param_raw)
+
+
+def ng_plus_7_with_cap(dvdroot, files, out, keys, cap):
+    """NG+7 world's files with the capped gameparam, made from the layer below's copy so Hunter's
+    Arsenal and the NG+7 hammer stay. Should it fail, the game's own attack stays."""
+    from thunderwright import weapon
+    relative = Path(weapon.GAMEPARAM)
+    below = [Path(out) / FEATURES[key][1] / 'dvdroot_ps4' / relative
+             for key in ('pc_ng7_hammer', 'pc_sojin_chikage') if key in keys]
+    source = next((path for path in below if path.is_file()), dvdroot / relative)
+    try:
+        weapon.set_game(dvdroot)
+        return {**files, relative: capped_attack(source.read_bytes(), cap)}
+    except (OSError, FormatError, ValueError, KeyError, IndexError, struct.error) as error:
+        print(f'Enhancements: NG+7 enemy attack limit left out ({error})', file=sys.stderr)
+        return files
+
+
 def pc_menu(dvdroot):
     import menu_assets
     return menu_assets.make(dvdroot, log=lambda line: print(f'Enhancements: {line}', file=sys.stderr))
@@ -506,7 +581,8 @@ def pc_menu(dvdroot):
 
 MAKERS = {'pc_two_invaders': two_invaders, 'pc_mirror_appearance': dream_mirror, 'pc_rebirth': rebirth,
           'pc_enhanced_lamps': enhanced_lamps, 'pc_boss_rematches': boss_rematches,
-          'pc_sojin_chikage': hunters_arsenal, 'pc_ng_plus_7': ng_plus_7, 'pc_menu': pc_menu}
+          'pc_sojin_chikage': hunters_arsenal, 'pc_ng7_hammer': ng7_hammer, 'pc_ng_plus_7': ng_plus_7,
+          'pc_menu': pc_menu}
 # Makers whose files depend on which other features are on (their stamp names those features).
 COMBINED = {'pc_enhanced_lamps': ('pc_rebirth',), 'pc_boss_rematches': ('pc_rebirth', 'pc_two_invaders')}
 
@@ -518,6 +594,9 @@ def enabled(settings, env):
         value = env.get(variable, settings.get(key, '1' if key in DEFAULT_ON else '0'))
         if str(value).strip() == '1':
             on.append(key)
+    # The hammer is made on Hunter's Arsenal's files and uses its moves, lightning and model.
+    if 'pc_ng7_hammer' in on and 'pc_sojin_chikage' not in on:
+        on.insert(on.index('pc_ng7_hammer'), 'pc_sojin_chikage')
     return on
 
 
@@ -543,7 +622,8 @@ def generator():
             digest.update((here / name).read_bytes())
         except OSError:
             pass
-    for path in [*sorted((here / 'sojin').glob('*.py')), *sorted((here / 'thunderwright').glob('*.py'))]:
+    for path in [*sorted((here / 'sojin').glob('*.py')), *sorted((here / 'thunderwright').glob('*.py')),
+                 *sorted((here / 'ng7_hammer').glob('*.py'))]:
         digest.update(path.read_bytes())
     return f'{VERSION} {digest.hexdigest()[:16]}'
 
@@ -560,14 +640,18 @@ def stamp_for(dvdroot, files, identity=None):
     return '\n'.join(lines) + '\n'
 
 
-def make(game, out, keys):
-    """Makes (or reuses) each feature's folder; returns those with files in them."""
+def make(game, out, keys, ng7_cap=None):
+    """Makes (or reuses) each feature's folder; returns those with files in them. `ng7_cap` is
+    attack_cap()'s value; NG+7 world's layer then holds a gameparam, made from the one below it."""
     dvdroot = Path(game) / 'dvdroot_ps4'
     folders = []
     for key in keys:
         folder = Path(out) / FEATURES[key][1]
         stamp_file = folder / 'stamp.txt'
         with_others = [other for other in COMBINED.get(key, ()) if other in keys]
+        capped = key == 'pc_ng_plus_7' and ng7_cap is not None
+        if capped:
+            with_others += [f'attack {ng7_cap}', *(o for o in ('pc_sojin_chikage', 'pc_ng7_hammer') if o in keys)]
         identity = ' +'.join([generator(), *with_others])
         try:
             previous = stamp_file.read_text(encoding='utf-8')
@@ -581,6 +665,8 @@ def make(game, out, keys):
                 print(f'Enhancements: {FEATURES[key][2]} (up to date)', file=sys.stderr)
                 continue
         files = MAKERS[key](dvdroot, keys) if key in COMBINED else MAKERS[key](dvdroot)
+        if capped and files:
+            files = ng_plus_7_with_cap(dvdroot, files, out, keys, ng7_cap)
         shutil.rmtree(folder, ignore_errors=True)
         if not files:
             continue
@@ -600,8 +686,9 @@ def main():
     parser.add_argument('--out', required=True, type=Path)
     parser.add_argument('--settings', type=Path)
     args = parser.parse_args()
-    keys = enabled(read_settings(args.settings) if args.settings else {}, os.environ)
-    for folder in make(args.game, args.out, keys):
+    settings = read_settings(args.settings) if args.settings else {}
+    keys = enabled(settings, os.environ)
+    for folder in make(args.game, args.out, keys, attack_cap(settings, os.environ)):
         print(folder)
 
 

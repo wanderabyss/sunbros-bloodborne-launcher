@@ -271,12 +271,16 @@ ENHANCEMENTS = [
                            'Повторные бои с боссами у их фонарей (эксперимент; сохраните копию сохранений)'), False),
     ('pc_sojin_chikage', ("Hunter's Arsenal: Sojin Chikage and Thunderwright's Kirkhammer from the Bath Messengers (every player in a session needs it)",
                           'Арсенал охотника: Сёдзин Тикагэ и Киркхаммер Громовержца у Посланников в Сне охотника (нужен всем игрокам в сессии)'), False),
+    ('pc_ng7_hammer', ("NG+7 hammer: Stormforged Kirkhammer from the Bath Messengers, stronger stats and Arcane scaling (brings Hunter's Arsenal; every player in a session needs it)",
+                       'Молот НГ+7: Закалённый бурей киркхаммер +10 у Посланников, выше характеристики и влияние таинственного (включает Арсенал охотника; нужен всем игрокам в сессии)'), False),
     ('pc_ng_plus_7', ("NG+7 world: enemies at full NG+7 strength from the start, every Caryll Rune in the Hunter's Dream (the save keeps its real cycle)",
                       'Мир НГ+7: враги на полной силе НГ+7 с самого начала, все руны Кэрилла в Сне охотника (в сохранении остаётся настоящий цикл)'), False),
 ]
+# The most an enemy's attack may be in the NG+7 world, over a first playthrough (scripts/enhancements.py).
+NG7_ATTACK_CAPS = [('off', ("Game's own (up to about 3x)",)), ('2.0', ('2x',)), ('1.5', ('1.5x',)), ('1.2', ('1.2x',))]
 INI_FLAGS = {'sharpen', 'object_motion', 'show_fps', 'mouse_camera', 'mouse_invert_y', 'mouse_menu', 'mouse_hide_cursor', 'frame_gen_fit_display', 'rt_shadow_half', 'rt_secondary_lights', 'rt_reflections', 'hdr',
              *(k for k, _t, _o in EFFECTS + EXTRAS + CHEATS + TWEAKS + ENHANCEMENTS + ATLAS)}
-INI_DEFAULTS = {'upscaler': 'dlss', 'preset': '2', 'sharpen': '1', 'sharpness': '0.50',
+INI_DEFAULTS = {'upscaler': 'dlss', 'preset': '2', 'sharpen': '1', 'sharpness': '0.50', 'ng7_attack_cap': 'off',
                 'object_motion': '1', 'show_fps': '1', 'output_res': '3840x2160', 'hud_position': '100', 'model_lod': '0', 'anisotropic_filtering': '16',
                 'live_resolution': 'auto', 'mouse_camera': '1', 'mouse_sensitivity': '10', 'mouse_menu': '1',
                 'mouse_invert_y': '0', 'mouse_hide_cursor': '0', 'move_smoothing': '60', 'frame_gen': 'off', 'frame_gen_multiplier': '2', 'frame_gen_fit_display': '1',
@@ -292,7 +296,7 @@ APP_DEFAULTS = {'ui_language': '', 'ui_scale': 'auto', 'last_seen_version': '', 
                 'language': '1',
                 'voice_language': 'auto',
                 'player_name': '', 'custom_avatar_path': '', 'backup_after_play': True, 'fullscreen': False, 'fullscreen_mode': 'borderless', 'display': '',
-                'hdr': False, 'present_mode': 'Mailbox',
+                'hdr': False, 'present_mode': 'Mailbox', 'spatial_audio': True,
                 'fps_mode': '120', 'frame_cap': '', 'draw_pipe': '', 'readbacks': '',
                 'frames_ahead': '', 'vram_budget_mb': '', 'frame_stats': False, 'gpu_profile': False,
                 'vk_validation': False, 'extra_env': '', 'close_on_play': False,
@@ -1474,6 +1478,8 @@ def game_environment(s, ini=None):
                       ('vk_validation', 'BB_VK_VALIDATION')):
         if s.get(key):
             env[name] = '1'
+    if not s.get('spatial_audio', True):
+        env['BB_AUDIO_SPATIAL'] = '0'
     upscaler = (ini or {}).get('upscaler') or s.get('upscaler', 'dlss')
     if upscaler not in ('off', 'taa'):
         env['BB_UPSCALER'] = str(upscaler).lower()

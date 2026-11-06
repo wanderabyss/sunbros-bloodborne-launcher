@@ -23,8 +23,9 @@ Thunder Chariot takes one Quicksilver Bullet (the uncharged and part-charged R2 
 charges the wielder with the charged Tonitrus's own effect (bolt x1.7 +40) for CHARGE_TIME
 seconds; the transform back to the sword (Static Draw) charges the wielder too, for free and for
 DRAW_CHARGE_TIME seconds only. Both transforms (into the hammer and Static Draw) also flash with a
-Tiny Tonitrus bolt at the hammer head (FLASH), which only shows. Thunder Chariot also calls the
-Fishing Hamlet fishman priests' lightning down onto the slam (SKY, sky.py), which only shows too. Each
+Tiny Tonitrus bolt at the hammer head (FLASH), which only shows. Thunder Chariot's SKY chain is the
+Fishing Hamlet fishman priests' lightning (sky.py), its warning and bolt now unseen: the slam whited out
+the picture with them. Thunder Chariot shows a third of its strikes and no launcher effect. Each
 line's share of the weapon's bolt attack power is its `bolt` below.
 
 It plays the Kirkhammer's own motion category (48, a105.tae): the action script (c0000.hks) switches
@@ -141,10 +142,12 @@ MATERIAL = ("atkMaterial", "defMaterial", "defSfxMaterial")  # every bolt hit: T
 # between lines), as the Blunderbuss's pellets (5, -12, 6) and the game's rings of lightning and
 # fire (one shared hit list); radius = each strike's hit radius (Tiny Tonitrus's: 0.3 m); feel =
 # the attack row whose knockback and stagger it has (the small ones do not break a combo); charge =
-# an effect the launcher puts on the wielder.
+# an effect the launcher puts on the wielder; shown = every how many strikes keeps its effects, the
+# rest still hit, unseen (the fan's lines share these rows). Thunder Chariot's flash fills the
+# picture otherwise; of its effects the sky bolt's did the most (_sky_fields), then the launcher's.
 CHAINS = {
     "high": dict(judge=931, launcher=2060010, strikes=tuple(range(411, 429)), atk=2060931, bolt=150,
-                 fan=(3, -20, 20), radius=1.0, feel=TINY_TONITRUS_ATTACK, name="Thunder Chariot"),
+                 fan=(3, -20, 20), radius=1.0, feel=TINY_TONITRUS_ATTACK, shown=3, name="Thunder Chariot"),
     "medium": dict(judge=961, launcher=2060050, strikes=tuple(range(417, 429)), atk=2060961, bolt=80,
                    fan=(1, 0, 0), radius=0.8, feel=TINY_TONITRUS_ATTACK, name="Thunderclap"),
     "small": dict(judge=951, launcher=2060030, strikes=tuple(range(423, 429)), atk=2060951, bolt=50,
@@ -367,7 +370,10 @@ def _flash_fields(bu):
 def _sky_fields(k):
     """(field, value) of sky bullet k over its source: no attack, linked inside the copy, ends at the bolt."""
     after = SKY["bullets"][k + 1] if k + 1 < len(SKY["bullets"]) else -1
-    return (("atkId_Bullet", -1), ("HitBulletID", after))
+    # The warning and the bolt unseen: with them the charged slam was a white column over a quarter
+    # of the screen in the game's own picture, HDR or not (near-white 33% of it at worst, 9% without).
+    unseen = (("sfxId_Bullet", -1), ("sfxId_Hit", -1)) if k >= 1 else ()
+    return (("atkId_Bullet", -1), ("HitBulletID", after)) + unseen
 
 
 def _bullet_behaviour(b, judge, bullet, name):
@@ -425,6 +431,8 @@ def add_params(param_raw, talk_raw, anibnd_raw):
         bu.add(chain["launcher"], LAUNCHER, f"{chain['name']}: launcher")
         bu.set(chain["launcher"], "HitBulletID", strikes[0])
         bu.set(chain["launcher"], "atkId_Bullet", chain["atk"])
+        if chain.get("shown", 1) > 1:   # thinned: the launcher unseen too (near-white 9% to 4% at worst)
+            bu.set(chain["launcher"], "sfxId_Bullet", -1)
         if lines > 1:   # the lines keep their angles: no homing on the lock-on target
             for field, value in (("numShoot", lines), ("shootAngle", first), ("shootAngleInterval", step),
                                  ("homingAngle", 0)):
@@ -436,6 +444,9 @@ def add_params(param_raw, talk_raw, anibnd_raw):
             bu.set(new, "HitBulletID", strikes[k + 1] if k + 1 < len(strikes) else -1)
             bu.set(new, "atkId_Bullet", chain["atk"])
             bu.set(new, "hitRadius", chain["radius"])
+            if k % chain.get("shown", 1):
+                bu.set(new, "sfxId_Bullet", -1)
+                bu.set(new, "sfxId_Hit", -1)
         _bolt_attack(a, chain["atk"], chain["bolt"], chain["feel"], chain["name"])
         _bullet_behaviour(b, chain["judge"], chain["launcher"], chain["name"])
     # Thunder Chariot's bullet cost: Tiny Tonitrus's launcher with nothing to see, hit or follow.
@@ -569,14 +580,18 @@ def verify(param_in, param_out, anibnd_in, anibnd_out):
                bu.get(chain["launcher"], "shootAngleInterval"))
         if fan != ((lines, first, step) if lines > 1 else (1, 0, 0)):
             raise ThunderwrightError(f"launcher {chain['launcher']} fans {fan}")
-        planned = {"HitBulletID", "atkId_Bullet"} | ({"numShoot", "shootAngle", "shootAngleInterval", "homingAngle"} if lines > 1 else set())
+        planned = {"HitBulletID", "atkId_Bullet"} | ({"sfxId_Bullet"} if chain.get("shown", 1) > 1 else set()) | ({"numShoot", "shootAngle", "shootAngleInterval", "homingAngle"} if lines > 1 else set())
         planned |= {"spEffectIDForShooter"} if "charge" in chain else set()
         if not diff(bu, chain["launcher"], LAUNCHER) <= planned:
             raise ThunderwrightError(f"launcher {chain['launcher']}: {sorted(diff(bu, chain['launcher'], LAUNCHER))} changed")
         if bu.get(chain["launcher"], "spEffectIDForShooter") != chain.get("charge", bu.get(LAUNCHER, "spEffectIDForShooter")):
             raise ThunderwrightError(f"launcher {chain['launcher']} charges the wrong effect")
-        for new, src_row in zip(seen, chain["strikes"]):
-            if not diff(bu, new, src_row) <= {"HitBulletID", "atkId_Bullet", "hitRadius"}:
+        for k, (new, src_row) in enumerate(zip(seen, chain["strikes"])):
+            hidden = k % chain.get("shown", 1) != 0
+            if hidden and (bu.get(new, "sfxId_Bullet"), bu.get(new, "sfxId_Hit")) != (-1, -1):
+                raise ThunderwrightError(f"strike {new} still shows its effects")
+            if not diff(bu, new, src_row) <= {"HitBulletID", "atkId_Bullet", "hitRadius"} | (
+                    {"sfxId_Bullet", "sfxId_Hit"} if hidden else set()):
                 raise ThunderwrightError(f"strike {new}: {sorted(diff(bu, new, src_row))} changed")
         row = chain["atk"]
         if a.get(row, "atkPhysCorrection") or a.get(row, "atkThunCorrection") != chain["bolt"]:

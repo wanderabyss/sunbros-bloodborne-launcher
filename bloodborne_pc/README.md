@@ -6,8 +6,8 @@ fork is based on [Supermedo's Windows port](https://github.com/Supermedo/bloodbo
 Mohammed Albarghouthi, which builds on [deadinside28's bbport](https://github.com/deadinside28/bloodborne_pc)
 and the [shadPS4](https://github.com/shadps4-emu/shadPS4) renderer.
 
-**Current version: 4.3.0** (spatial sound for the game's 7.1 mix, and HDR paper white up to 800 nits).
-See the [release notes](../Release_Notes.md), the [4.3.0 changelog](../docs/changelog/changelog-2026-11-05-4.3.0.md),
+**Current version: 4.3.1** (the NG+7 hammer, an NG+7 enemy attack limit and a Spatial sound toggle).
+See the [release notes](../Release_Notes.md), the [4.3.1 changelog](../docs/changelog/changelog-2026-11-06-4.3.1.md),
 [all versions](../docs/changelog/README.md) and [DLSS 4.5 vs DLSS 5 at 4K](../docs/dlss-4.2.0-comparison.md).
 
 > **No game files are included.** You need your own dump of Bloodborne. This project is not
@@ -87,10 +87,13 @@ the guide. They are made from your own game files at start, which stay unchanged
 - **Rebirth in the Nightmare** (`pc_rebirth`): reallocate your stats at the Altar of Despair.
 - **Spatial sound:** with Dolby Atmos, Windows Sonic or DTS on under Windows' Spatial sound setting, the game's
   7.1 channels go to their own speaker positions. With it off, a 5.1 or 7.1 output gets them directly.
+  The launcher's toggle is under Game & Saves, Audio.
 - **NG+7 world** (`pc_ng_plus_7`): every enemy at its full NG+7 strength and echoes from the
   first beast, in any character, new or old. Your save keeps its real cycle, so switching it off
   puts the character back. The Hunter's Dream also hands you every Caryll Rune once (the best tier
-  of each, and the six oath runes). For everything else, ShopEdit sells it for free.
+  of each, and the six oath runes). For everything else, ShopEdit sells it for free. The NG+7 enemy
+  attack limit (`ng7_attack_cap`) can hold enemy attack to 2x, 1.5x or 1.2x a first playthrough;
+  enemy health and echoes stay at NG+7.
 - **Hunter's Dream mirror** (`pc_mirror_appearance`): the workshop mirror opens the appearance
   editor, the developers' unused "Put on Disguise".
 - **Two invaders** (`pc_two_invaders`) in Mensis, Mergo's Loft, the Nightmare Frontier and the
@@ -107,7 +110,8 @@ the guide. They are made from your own game files at start, which stay unchanged
     R2, and three full lines on the charged R2 (Thunder Chariot, one Quicksilver Bullet), which
     overcharges you as the charged Tonitrus does for 10 s; the transform back to the sword does too,
     for 4 s. In hammer form the head carries Bolt Paper's glow, and both transforms flash with a
-    bolt at the head; Thunder Chariot calls lightning down from the sky. Its damage is split: 150 physical and 110 bolt at +10 (the Kirkhammer: 210 physical).
+    bolt at the head. Its damage is split: 150 physical and 110 bolt at +10 (the Kirkhammer: 210 physical).
+- **NG+7 hammer** (`pc_ng7_hammer`, brings Hunter's Arsenal): the Bath Messengers also sell the Stormforged Kirkhammer at +0 for 10,000 Blood Echoes, upgraded the normal way: Thunderwright's Kirkhammer with 180 physical, 132 bolt and stronger Arcane scaling (130) at +10. Every player in a session needs it on. With it off, one in a save becomes the Kirkhammer at the same level.
     Its hammer head is its own: the stone block made dark iron, with Elder Futhark runes and a
     Norse braid that glow lightning blue (made from your own Kirkhammer textures; the Kirkhammer keeps its stone).
   Switched off, the launcher turns the weapons in your saves into the Chikages and the
@@ -257,8 +261,10 @@ page take precedence:
 | Hunter's Dream mirror | `pc_mirror_appearance=1` | `BB_PC_MIRROR=1` |
 | Two invaders | `pc_two_invaders=1` | `BB_PC_TWO_INVADERS=1` |
 | Hunter's Arsenal (Sojin Chikage, Thunderwright's Kirkhammer) | `pc_sojin_chikage=1` | `BB_PC_SOJIN=1` |
+| NG+7 hammer (brings Hunter's Arsenal) | `pc_ng7_hammer=1` | `BB_PC_NG7_HAMMER=1` |
 | NG+7 world and every Caryll Rune | `pc_ng_plus_7=1` | `BB_PC_NG7=1` |
-| Spatial sound (on when Windows has a format on) | | `BB_AUDIO_SPATIAL=0` turns it off |
+| NG+7 enemy attack limit | `ng7_attack_cap=2.0` (`off` by default) | `BB_PC_NG7_ATTACK_CAP=2.0` |
+| Spatial sound (on when Windows has a format on) | launcher toggle | `BB_AUDIO_SPATIAL=0` turns it off |
 | Heap trace in `last_run.log` | | `BB_HEAP_TRACE=0` turns it off |
 | Mouse camera | `mouse_camera=0` turns it off | `BB_MOUSE_CAMERA=0` |
 | Mouse flick that switches lock-on targets (mouse counts; higher needs a bigger flick) | `mouse_flick_threshold=300`, `0` turns it off | `BB_MOUSE_DEBUG=1` logs it |

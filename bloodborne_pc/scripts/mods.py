@@ -578,6 +578,7 @@ def keep_pc_menu_text(layers, generated, out):
 # top opens (ShopEdit's own shop, or the game's five stages).
 SOJIN_LAYER = 'hunters-arsenal'
 SOJIN_MERGE_LAYER = 'hunters-arsenal-merge'
+HAMMER_LAYER = 'ng7-hammer'   # the NG+7 hammer: its gameparam and texts are Hunter's Arsenal's plus it
 SOJIN_PARAM = ('dvdroot_ps4', 'param', 'gameparam', 'gameparam.parambnd.dcx')
 SOJIN_TALK = ('dvdroot_ps4', 'script', 'talk', 'm21_00_00_00.talkesdbnd.dcx')
 SOJIN_TEXT = 'item.msgbnd.dcx'
@@ -590,7 +591,7 @@ def sojin_identity():
     here = Path(__file__).resolve().parent
     digest = hashlib.sha256()
     for path in [here / 'fromsoft.py', here / 'esd.py', here / 'ps4_texture.py', here / 'flver.py', *sorted((here / 'sojin').glob('*.py')),
-                 *sorted((here / 'thunderwright').glob('*.py'))]:
+                 *sorted((here / 'thunderwright').glob('*.py')), *sorted((here / 'ng7_hammer').glob('*.py'))]:
         try:
             digest.update(path.read_bytes())
         except OSError:
@@ -614,7 +615,8 @@ def keep_sojin(layers, game, out):
             parts = tuple(p.casefold() for p in relative.parts)
             if parts == SOJIN_TALK:
                 talk = source
-            if name == SOJIN_LAYER or (name, root) not in above:
+            # NG+7 world's gameparam, with its attack limit, is made from the layer below it too.
+            if name in (SOJIN_LAYER, HAMMER_LAYER, 'ng-plus-7') or (name, root) not in above:
                 continue
             if parts == SOJIN_PARAM or (len(parts) == 4 and parts[1] == 'msg' and parts[3] == SOJIN_TEXT):
                 owners[relative.as_posix().casefold()] = (relative, source, name)
@@ -626,7 +628,8 @@ def keep_sojin(layers, game, out):
     talk = talk or Path(game) / Path(*SOJIN_TALK)
     folder = Path(out) / SOJIN_MERGE_LAYER
     stamp_file = folder / 'stamp.txt'
-    lines = [sojin_identity()]
+    with_hammer = HAMMER_LAYER in names
+    lines = [sojin_identity() + (' +hammer' if with_hammer else '')]
     for source in [talk, *(owners[key][1] for key in sorted(owners))]:
         info = source.stat()
         lines.append(f'{source}\t{info.st_size}\t{int(info.st_mtime)}')
@@ -643,6 +646,7 @@ def keep_sojin(layers, game, out):
     sys.path.insert(0, str(Path(__file__).resolve().parent))
     from sojin import weapon as sojin
     from thunderwright import weapon as thunderwright
+    from ng7_hammer import weapon as hammer
     sojin.set_game(Path(game) / 'dvdroot_ps4')
     thunderwright.set_game(Path(game) / 'dvdroot_ps4')
     # Thunderwright's damage split reads the game's own moveset (a105.tae, which no layer may
@@ -653,9 +657,11 @@ def keep_sojin(layers, game, out):
         relative, source, name = owners[key]
         data = source.read_bytes()
         added = []
-        for label, module, error_type in (('Sojin Chikage', sojin, sojin.SojinError),
-                                          ("Thunderwright's Kirkhammer", thunderwright,
-                                           thunderwright.ThunderwrightError)):
+        weapons = [('Sojin Chikage', sojin, sojin.SojinError),
+                   ("Thunderwright's Kirkhammer", thunderwright, thunderwright.ThunderwrightError)]
+        if with_hammer:     # after Thunderwright's, whose rows it needs
+            weapons.append(('the NG+7 hammer', hammer, hammer.Ng7HammerError))
+        for label, module, error_type in weapons:
             try:
                 if relative.name.casefold() == SOJIN_TEXT:
                     data = module.add_text(data)
@@ -665,6 +671,8 @@ def keep_sojin(layers, game, out):
                     continue
                 elif module is sojin:
                     data = sojin.add_params(data, talk.read_bytes())
+                elif module is hammer:
+                    data = hammer.add_params(data, talk.read_bytes())
                 else:
                     data = thunderwright.add_params(data, talk.read_bytes(), anibnd.read_bytes())
             except (error_type, OSError, ValueError, KeyError, IndexError, struct.error) as error:

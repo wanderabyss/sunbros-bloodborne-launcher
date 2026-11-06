@@ -40,6 +40,9 @@ class WeaponTests(unittest.TestCase):
         self.assertEqual(len(weapon.TO_HAMMER + weapon.TO_SWORD), 4)
 
     def test_lightning_sizes_tell_apart(self):
+        # Thunder Chariot shows a third of its strikes, the others hit unseen; only it thins them.
+        self.assertEqual({name: chain.get('shown', 1) for name, chain in weapon.CHAINS.items()},
+                         {'high': 3, 'medium': 1, 'small': 1, 'draw': 1})
         # small < medium < high by length, and only the high one fans out; only it takes a bullet.
         sizes = {name: (chain['fan'][0], len(chain['strikes'])) for name, chain in weapon.CHAINS.items()}
         self.assertEqual(sizes, {'high': (3, 18), 'medium': (1, 12), 'small': (1, 6), 'draw': (1, 6)})
