@@ -9,7 +9,7 @@
 </tr>
 </table>
 
-**v4.3.4:** Start timing in the log, test fixes, and in-game restart and co-op checked with the mod file list from 4.3.3. [Changelog](docs/changelog/changelog-2026-11-06-4.3.4.md)
+**v4.3.5:** NG+7 Sojin Chikage for a Bloodtinge build; Uncanny and Lost hammers. [Changelog](docs/changelog/changelog-2026-11-06-4.3.5.md)
 
 <a href="docs/media/launcher-4.2.7-tour.mp4"><img src="docs/images/launcher-4.2.7-tour.webp" width="100%" alt="Tour of the 4.2.7 launcher: Home, Visuals presets with their ? tips and Save settings, Online, Co-op, Dossier, Workshop, Settings and the what's-new sheet"/></a>
 
@@ -74,7 +74,8 @@
 | Ray tracing | Ambient occlusion and moon shadows, quality presets, half-resolution shadows and custom reach. Reflections and secondary-light shadows remain unavailable. |
 | Diagnostics | Runtime provider/fallback status, generation/presentation counters and Reflex marker intervals. A rejected memory free names its block in `last_run.log`. |
 | Hunter's Atlas | Bundled maps/art, position overlay and opt-in lamp travel. |
-| NG+7 hammer | Optional switch (`pc_ng7_hammer`): the Stormforged Kirkhammer from the Bath Messengers, Thunderwright's Kirkhammer with stronger stats and Arcane scaling. Brings Hunter's Arsenal with it. |
+| NG+7 hammer | Optional switch (`pc_ng7_hammer`): the Stormforged Kirkhammer from the Bath Messengers, in normal, Uncanny and Lost versions: Thunderwright's Kirkhammer with stronger stats and Arcane scaling. Brings Hunter's Arsenal with it. |
+| NG+7 Sojin Chikage | Optional switch (`pc_ng7_chikage`): three Bloodsworn weapons from the Bath Messengers, the Sojin Chikage with stronger stats and Bloodtinge scaling. Brings Hunter's Arsenal with it. |
 | NG+7 world | Optional switch (`pc_ng_plus_7`): full NG+7 enemies and echoes from the first beast, and every Caryll Rune once. The save keeps its real cycle, so switching it off puts the character back. |
 | Multiplayer | Offline, The Hunter's Dream online and BBSC 0.0.2 seamless co-op; co-op caps game simulation at 60 FPS. |
 | Builds | MSYS2 native renderer, VS 2026 DLSS bridge, frozen launcher and ZIP packaging. |

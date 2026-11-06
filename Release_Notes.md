@@ -1,5 +1,19 @@
 # Release Notes
 
+## [4.3.5+build110626.152541] — 2026-11-06
+### NG+7 Sojin Chikage for a Bloodtinge build; Uncanny and Lost hammers
+<!-- launcher:
+### NG+7 Sojin Chikage for a Bloodtinge build; Uncanny and Lost hammers
+
+- New in Built-in enhancements: the Bloodsworn Sojin Chikage, in all three versions, at the Bath Messengers. At +10 it has 221 physical and Bloodtinge scaling 143. The Sojin Chikage's stats are unchanged.
+- Thunderwright's Kirkhammer and the Stormforged Kirkhammer now come in Uncanny and Lost versions too, with those Kirkhammers' gem slots. Their stats are unchanged.
+-->
+
+- **NG+7 Sojin Chikage:** a new switch in Built-in enhancements. The Bath Messengers sell three Bloodsworn weapons at +0 for 10,000 Blood Echoes each, upgraded the normal way: 221 physical and Bloodtinge scaling 143 at +10. It brings Hunter's Arsenal with it, and the Sojin Chikage keeps its stats.
+- **Uncanny and Lost hammers:** the Bath Messengers also sell Uncanny and Lost versions of Thunderwright's Kirkhammer (with Hunter's Arsenal) and of the Stormforged Kirkhammer (with the NG+7 hammer). Only the gem slots differ, so they add Waning slots.
+
+[Changelog](docs/changelog/changelog-2026-11-06-4.3.5.md)
+
 ## [4.3.4+build110626.134024] — 2026-11-06
 ### Start timing in the log; test fixes; in-game restart and co-op checked
 <!-- launcher:

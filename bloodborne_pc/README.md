@@ -6,8 +6,8 @@ fork is based on [Supermedo's Windows port](https://github.com/Supermedo/bloodbo
 Mohammed Albarghouthi, which builds on [deadinside28's bbport](https://github.com/deadinside28/bloodborne_pc)
 and the [shadPS4](https://github.com/shadps4-emu/shadPS4) renderer.
 
-**Current version: 4.3.4** (start timing in the log; test fixes; in-game restart and co-op checked).
-See the [release notes](../Release_Notes.md), the [4.3.4 changelog](../docs/changelog/changelog-2026-11-06-4.3.4.md),
+**Current version: 4.3.5** (NG+7 Sojin Chikage; Uncanny and Lost hammers).
+See the [release notes](../Release_Notes.md), the [4.3.5 changelog](../docs/changelog/changelog-2026-11-06-4.3.5.md),
 [all versions](../docs/changelog/README.md) and [DLSS 4.5 vs DLSS 5 at 4K](../docs/dlss-4.2.0-comparison.md).
 
 > **No game files are included.** You need your own dump of Bloodborne. This project is not
@@ -111,7 +111,8 @@ the guide. They are made from your own game files at start, which stay unchanged
     overcharges you as the charged Tonitrus does for 10 s; the transform back to the sword does too,
     for 4 s. In hammer form the head carries Bolt Paper's glow, and both transforms flash with a
     bolt at the head. Its damage is split: 150 physical and 110 bolt at +10 (the Kirkhammer: 210 physical).
-- **NG+7 hammer** (`pc_ng7_hammer`, brings Hunter's Arsenal): the Bath Messengers also sell the Stormforged Kirkhammer at +0 for 10,000 Blood Echoes, upgraded the normal way: Thunderwright's Kirkhammer with 180 physical, 132 bolt and stronger Arcane scaling (130) at +10. Every player in a session needs it on. With it off, one in a save becomes the Kirkhammer at the same level.
+- **NG+7 hammer** (`pc_ng7_hammer`, brings Hunter's Arsenal): the Bath Messengers also sell the Stormforged Kirkhammer at +0 for 10,000 Blood Echoes, upgraded the normal way: Thunderwright's Kirkhammer with 180 physical, 132 bolt and stronger Arcane scaling (130) at +10. Every player in a session needs it on. With it off, one in a save becomes the Kirkhammer at the same level. Thunderwright's Kirkhammer and the Stormforged Kirkhammer each also come in Uncanny and Lost versions, which differ only in their gem slots.
+- **NG+7 Sojin Chikage** (`pc_ng7_chikage`, brings Hunter's Arsenal): the Bath Messengers also sell three Bloodsworn weapons at +0 for 10,000 Blood Echoes each, upgraded the normal way: the Sojin Chikage with 221 physical and stronger Bloodtinge scaling (143) at +10. Every player in a session needs it on. With it off, one in a save becomes its Chikage at the same level.
     Its hammer head is its own: the stone block made dark iron, with Elder Futhark runes and a
     Norse braid that glow lightning blue (made from your own Kirkhammer textures; the Kirkhammer keeps its stone).
   Switched off, the launcher turns the weapons in your saves into the Chikages and the
@@ -262,6 +263,7 @@ page take precedence:
 | Two invaders | `pc_two_invaders=1` | `BB_PC_TWO_INVADERS=1` |
 | Hunter's Arsenal (Sojin Chikage, Thunderwright's Kirkhammer) | `pc_sojin_chikage=1` | `BB_PC_SOJIN=1` |
 | NG+7 hammer (brings Hunter's Arsenal) | `pc_ng7_hammer=1` | `BB_PC_NG7_HAMMER=1` |
+| NG+7 Sojin Chikage (brings Hunter's Arsenal) | `pc_ng7_chikage=1` | `BB_PC_NG7_CHIKAGE=1` |
 | NG+7 world and every Caryll Rune | `pc_ng_plus_7=1` | `BB_PC_NG7=1` |
 | NG+7 enemy attack limit | `ng7_attack_cap=2.0` (`off` by default) | `BB_PC_NG7_ATTACK_CAP=2.0` |
 | Spatial sound (on when Windows has a format on) | launcher toggle | `BB_AUDIO_SPATIAL=0` turns it off |

@@ -20,7 +20,8 @@ GAME = Path(os.environ['BB_TEST_GAME_DIR']) if os.environ.get('BB_TEST_GAME_DIR'
 
 class WeaponTests(unittest.TestCase):
     def test_ids_and_shop(self):
-        self.assertEqual(weapon.WEAPON_IDS, [2060000 + 100 * level for level in range(11)])
+        self.assertEqual(weapon.WEAPON_IDS, [first + 100 * level for first in (2060000, 2120000, 2130000)
+                                             for level in range(11)])
         self.assertEqual(weapon.PRICE, 10000)
         self.assertEqual((weapon.ARCANE_NEEDED, weapon.NO_PAPERS), (25, 0))
 
@@ -86,6 +87,9 @@ class SaveToolTests(unittest.TestCase):
         try:
             self.assertEqual(converter.target(2060000), 8000000)
             self.assertEqual(converter.target(2061000), 8001000)     # +10 -> Kirkhammer +10
+            self.assertEqual(converter.target(2121000), 8011000)     # Uncanny
+            self.assertEqual(converter.target(2130300), 8020300)     # Lost
+            self.assertEqual(converter.target_sort(2121000), 45210)
             self.assertEqual(converter.target_sort(2060300), 45103)
             self.assertEqual(set(converter.SOJIN), set(weapon.WEAPON_IDS))
             data = b'\0' * 8 + struct.pack('<I', 2060050) + b'\0' * 4 + struct.pack('<I', 2060200) + b'\0' * 4
@@ -123,6 +127,18 @@ class GameTests(unittest.TestCase):
         self.assertEqual({w.get(r, 'equipModelId') for r in weapon.WEAPON_IDS}, {weapon.MODEL})
         kirkhammer = [r for r in w.rows if 8000000 <= r < 8030000]
         self.assertEqual({w.get(r, 'equipModelId') for r in kirkhammer}, {weapon.KIRK_MODEL})
+        # All three have the same stats; only the gem slots differ, each from its Kirkhammer.
+        g = Param(gp.files[gp.index('WeaponGenParam.param')], load_paramdefs()['WEAPON_GEN_PARAM_ST'])
+        s = Param(gp.files[gp.index('ShopLineupParam.param')], load_paramdefs()['SHOP_LINEUP_PARAM'])
+        sold = {s.get(r, 'equipId') for r in s.rows}
+        slots = lambda row: [g.get(row, f'gemSlotType_{i}') for i in range(3)]  # noqa: E731
+        for first, source, want in ((2060000, 8000000, [1, 2, 1]), (2120000, 8010000, [1, 4, 1]), (2130000, 8020000, [1, 2, 4])):
+            self.assertEqual(w.get(first + 1000, 'attackBasePhysics'), 150)
+            self.assertEqual(w.get(first + 1000, 'attackBaseThunder'), 110)
+            self.assertEqual(slots(first + 1000), want)
+            self.assertEqual(slots(source + 1000), want)
+            self.assertIn(first, sold)
+            self.assertNotIn(first + 1000, sold)
 
     def test_plain_model_copy_is_the_kirkhammer(self):
         files = weapon.model_files(rune_iron=False)

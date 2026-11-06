@@ -32,7 +32,8 @@ class SwitchTests(unittest.TestCase):
 
 class WeaponTests(unittest.TestCase):
     def test_every_level(self):
-        self.assertEqual(weapon.WEAPON_IDS, [2070000 + 100 * level for level in range(11)])
+        self.assertEqual(weapon.WEAPON_IDS, [first + 100 * level for first in (2070000, 2140000, 2150000)
+                                             for level in range(11)])
         kirk_physical = (105, 115, 125, 135, 145, 155, 165, 175, 185, 195, 210)
         self.assertEqual([weapon.physical(k) for k in kirk_physical], [90, 99, 107, 116, 124, 133, 141, 150, 159, 167, 180])
         self.assertEqual([weapon.bolt(level) for level in range(11)], [66, 73, 79, 86, 92, 99, 106, 112, 119, 125, 132])
@@ -44,12 +45,16 @@ class WeaponTests(unittest.TestCase):
         self.assertFalse(set(weapon.WEAPON_IDS) & set(thunderwright.WEAPON_IDS))
 
     def test_save_tool_agrees(self):
-        self.assertEqual((save_tool.FAMILIES[0][0], save_tool.SORTS), (weapon.FIRST, (weapon.SORT,)))
+        self.assertEqual([family[0] for family in save_tool.FAMILIES], [v[1] for v in weapon.VARIANTS])
+        self.assertEqual([family[1] for family in save_tool.FAMILIES], [v[2] for v in weapon.VARIANTS])
+        self.assertEqual(save_tool.SORTS, tuple(v[3] for v in weapon.VARIANTS))
         converter = save_tool.use()
         try:
             self.assertEqual(converter.target(2071000), 8001000)
             self.assertEqual(converter.target(2070300), 8000300)
             self.assertEqual(converter.target_sort(2071000), 45110)
+            self.assertEqual(converter.target(2141000), 8011000)
+            self.assertEqual(converter.target(2151000), 8021000)
             self.assertEqual(set(converter.SOJIN), set(weapon.WEAPON_IDS))
             self.assertEqual(converter.SOJIN_SORT_PARTS[converter.sort_part(55490)], 10)
         finally:
@@ -86,7 +91,12 @@ class GameTests(unittest.TestCase):
         self.assertLessEqual({2060000, 2070000}, sold)
         self.assertNotIn(2071000, sold)
         g = Param(gp.files[gp.index('WeaponGenParam.param')], defs['WEAPON_GEN_PARAM_ST'])
-        self.assertEqual(g.get(2071000, 'gemSlotType_1'), g.get(8001000, 'gemSlotType_1'))
+        slots = lambda row: [g.get(row, f'gemSlotType_{i}') for i in range(3)]  # noqa: E731
+        for first, want in ((2070000, [1, 2, 1]), (2140000, [1, 4, 1]), (2150000, [1, 2, 4])):
+            self.assertEqual(tuple(w.get(first + 1000, f) for f in fields), (180, 132, 100, 130, 25))
+            self.assertEqual(slots(first + 1000), want)
+            self.assertIn(first, sold)
+            self.assertNotIn(first + 1000, sold)
 
 
 if __name__ == '__main__':

@@ -273,6 +273,8 @@ ENHANCEMENTS = [
                           'Арсенал охотника: Сёдзин Тикагэ и Киркхаммер Громовержца у Посланников в Сне охотника (нужен всем игрокам в сессии)'), False),
     ('pc_ng7_hammer', ("NG+7 hammer: Stormforged Kirkhammer from the Bath Messengers, stronger stats and Arcane scaling (brings Hunter's Arsenal; every player in a session needs it)",
                        'Молот НГ+7: Закалённый бурей киркхаммер +10 у Посланников, выше характеристики и влияние таинственного (включает Арсенал охотника; нужен всем игрокам в сессии)'), False),
+    ('pc_ng7_chikage', ("NG+7 Sojin Chikage: Bloodsworn Sojin Chikage from the Bath Messengers, stronger stats and Bloodtinge scaling (brings Hunter's Arsenal; every player in a session needs it)",
+                        'Сёдзин Тикагэ НГ+7: Сёдзин Тикагэ Кровавой клятвы у Посланников, выше характеристики и влияние крови (включает Арсенал охотника; нужен всем игрокам в сессии)'), False),
     ('pc_ng_plus_7', ("NG+7 world: enemies at full NG+7 strength from the start, every Caryll Rune in the Hunter's Dream (the save keeps its real cycle)",
                       'Мир НГ+7: враги на полной силе НГ+7 с самого начала, все руны Кэрилла в Сне охотника (в сохранении остаётся настоящий цикл)'), False),
 ]

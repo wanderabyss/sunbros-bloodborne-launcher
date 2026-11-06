@@ -49,6 +49,13 @@ engine/maiden_events.cpp and engine/dream_mirror_layout.cpp.
                                               texts it adds to. Every player in a session needs it
                                               on. run.py turns it in a save into the Kirkhammer
                                               when it is off.
+  pc_ng7_chikage        (BB_PC_NG7_CHIKAGE)   NG+7 Sojin Chikage: three Bloodsworn weapons from the
+                                              Bath Messengers, the Sojin Chikage with stronger stats
+                                              and Bloodtinge scaling (ng7_chikage/weapon.py). Brings
+                                              Hunter's Arsenal with it, and adds to the NG+7 hammer's
+                                              gameparam and item texts when that is on. Every player
+                                              in a session needs it on. run.py turns them in a save
+                                              into the Chikages when it is off.
   pc_ng_plus_7         (BB_PC_NG7)           NG+7 world: enemies at their NG+7 strength from the
                                               first beast, in any character (src/ng_plus.c does
                                               this; the save keeps its real cycle, so off is the
@@ -88,6 +95,8 @@ FEATURES = {
     'pc_sojin_chikage': ('BB_PC_SOJIN', 'hunters-arsenal', "Hunter's Arsenal (Sojin Chikage, Thunderwright's Kirkhammer)"),
     # After Hunter's Arsenal: its gameparam and item texts are Hunter's Arsenal's plus the hammer.
     'pc_ng7_hammer': ('BB_PC_NG7_HAMMER', 'ng7-hammer', 'NG+7 hammer (Stormforged Kirkhammer)'),
+    # After the hammer: its gameparam and item texts are the layer below's plus these weapons.
+    'pc_ng7_chikage': ('BB_PC_NG7_CHIKAGE', 'ng7-chikage', 'NG+7 Sojin Chikage (Bloodsworn weapons)'),
     'pc_ng_plus_7': ('BB_PC_NG7', 'ng-plus-7', 'NG+7 world and every Caryll Rune'),
     'pc_menu': ('BB_PC_MENU', 'pc-menu', 'In-game PC menu (System > PC Settings)'),
 }
@@ -516,6 +525,22 @@ def ng7_hammer(dvdroot):
     return {Path(relative): data for relative, data in files.items()}
 
 
+def ng7_chikage(dvdroot, keys=()):
+    """The gameparam and item texts below this layer with the Bloodsworn weapons added: the NG+7
+    hammer's when it is on, so both weapons stay, else Hunter's Arsenal's."""
+    from ng7_chikage import weapon as chikage
+    try:
+        below = (ng7_hammer(dvdroot) if 'pc_ng7_hammer' in keys else {}) or hunters_arsenal(dvdroot)
+        below = {path.as_posix(): data for path, data in below.items()}
+        msgs = {relative.split('/')[1]: data for relative, data in below.items()
+                if relative.startswith('msg/') and relative.endswith('/item.msgbnd.dcx')}
+        files = chikage.make(dvdroot, below[chikage.GAMEPARAM], msgs)
+    except (chikage.Ng7ChikageError, OSError, ValueError, KeyError, IndexError, struct.error) as error:
+        print(f'Enhancements: NG+7 Sojin Chikage left out ({error})', file=sys.stderr)
+        return {}
+    return {Path(relative): data for relative, data in files.items()}
+
+
 def ng_plus_7(dvdroot):
     relative = Path('event') / 'm21_00_00_00.emevd.dcx'
     try:
@@ -560,11 +585,11 @@ def capped_attack(param_raw, cap):
 
 def ng_plus_7_with_cap(dvdroot, files, out, keys, cap):
     """NG+7 world's files with the capped gameparam, made from the layer below's copy so Hunter's
-    Arsenal and the NG+7 hammer stay. Should it fail, the game's own attack stays."""
+    Arsenal and the NG+7 weapons stay. Should it fail, the game's own attack stays."""
     from thunderwright import weapon
     relative = Path(weapon.GAMEPARAM)
     below = [Path(out) / FEATURES[key][1] / 'dvdroot_ps4' / relative
-             for key in ('pc_ng7_hammer', 'pc_sojin_chikage') if key in keys]
+             for key in ('pc_ng7_chikage', 'pc_ng7_hammer', 'pc_sojin_chikage') if key in keys]
     source = next((path for path in below if path.is_file()), dvdroot / relative)
     try:
         weapon.set_game(dvdroot)
@@ -581,10 +606,11 @@ def pc_menu(dvdroot):
 
 MAKERS = {'pc_two_invaders': two_invaders, 'pc_mirror_appearance': dream_mirror, 'pc_rebirth': rebirth,
           'pc_enhanced_lamps': enhanced_lamps, 'pc_boss_rematches': boss_rematches,
-          'pc_sojin_chikage': hunters_arsenal, 'pc_ng7_hammer': ng7_hammer, 'pc_ng_plus_7': ng_plus_7,
-          'pc_menu': pc_menu}
+          'pc_sojin_chikage': hunters_arsenal, 'pc_ng7_hammer': ng7_hammer, 'pc_ng7_chikage': ng7_chikage,
+          'pc_ng_plus_7': ng_plus_7, 'pc_menu': pc_menu}
 # Makers whose files depend on which other features are on (their stamp names those features).
-COMBINED = {'pc_enhanced_lamps': ('pc_rebirth',), 'pc_boss_rematches': ('pc_rebirth', 'pc_two_invaders')}
+COMBINED = {'pc_enhanced_lamps': ('pc_rebirth',), 'pc_boss_rematches': ('pc_rebirth', 'pc_two_invaders'),
+            'pc_ng7_chikage': ('pc_ng7_hammer',)}
 
 
 def enabled(settings, env):
@@ -594,9 +620,10 @@ def enabled(settings, env):
         value = env.get(variable, settings.get(key, '1' if key in DEFAULT_ON else '0'))
         if str(value).strip() == '1':
             on.append(key)
-    # The hammer is made on Hunter's Arsenal's files and uses its moves, lightning and model.
-    if 'pc_ng7_hammer' in on and 'pc_sojin_chikage' not in on:
-        on.insert(on.index('pc_ng7_hammer'), 'pc_sojin_chikage')
+    # The NG+7 weapons are made on Hunter's Arsenal's files and use its moves, effects and models.
+    first = next((key for key in on if key in ('pc_ng7_hammer', 'pc_ng7_chikage')), None)
+    if first and 'pc_sojin_chikage' not in on:
+        on.insert(on.index(first), 'pc_sojin_chikage')
     return on
 
 
@@ -623,7 +650,7 @@ def generator():
         except OSError:
             pass
     for path in [*sorted((here / 'sojin').glob('*.py')), *sorted((here / 'thunderwright').glob('*.py')),
-                 *sorted((here / 'ng7_hammer').glob('*.py'))]:
+                 *sorted((here / 'ng7_hammer').glob('*.py')), *sorted((here / 'ng7_chikage').glob('*.py'))]:
         digest.update(path.read_bytes())
     return f'{VERSION} {digest.hexdigest()[:16]}'
 
@@ -651,7 +678,8 @@ def make(game, out, keys, ng7_cap=None):
         with_others = [other for other in COMBINED.get(key, ()) if other in keys]
         capped = key == 'pc_ng_plus_7' and ng7_cap is not None
         if capped:
-            with_others += [f'attack {ng7_cap}', *(o for o in ('pc_sojin_chikage', 'pc_ng7_hammer') if o in keys)]
+            with_others += [f'attack {ng7_cap}', *(o for o in ('pc_sojin_chikage', 'pc_ng7_hammer', 'pc_ng7_chikage')
+                                                   if o in keys)]
         identity = ' +'.join([generator(), *with_others])
         try:
             previous = stamp_file.read_text(encoding='utf-8')

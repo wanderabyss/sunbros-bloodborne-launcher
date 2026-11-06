@@ -139,7 +139,8 @@ def sojin_saves(game, original_game, user_dir):
     sys.path.insert(0, str(PORT / 'scripts'))
     for label, package, becomes in (('Sojin Chikage', 'sojin', 'Chikages'),
                                     ("Thunderwright's Kirkhammer", 'thunderwright', 'Kirkhammers'),
-                                    ('The NG+7 hammer', 'ng7_hammer', 'Kirkhammers')):
+                                    ('The NG+7 hammer', 'ng7_hammer', 'Kirkhammers'),
+                                    ('The NG+7 Sojin Chikage', 'ng7_chikage', 'Chikages')):
         try:
             weapon = __import__(f'{package}.weapon', fromlist=['weapon'])
             ids = [struct.pack('<I', v) for v in weapon.WEAPON_IDS]

@@ -210,7 +210,7 @@ def shop_ranges(talk_raw):
     return sorted(set(ranges))
 
 
-def _add_shop_rows(s, ranges):
+def _add_shop_rows(s, ranges, variants=VARIANTS):
     """Each weapon's +0 at PRICE in every range, after the range's last row."""
     rows = sorted(s.rows)
     added = []
@@ -218,9 +218,9 @@ def _add_shop_rows(s, ranges):
         inside = [r for r in rows if first <= r <= last]
         template = next((r for r in inside if s.get(r, "equipType") == 0), inside[0] if inside else rows[0])
         row = (max(inside) + 1) if inside else first
-        if row + len(VARIANTS) - 1 > last:
+        if row + len(variants) - 1 > last:
             raise SojinError(f"shop range {first}..{last} is full")
-        for name, weapon, _source, _sort in VARIANTS:
+        for name, weapon, _source, _sort in variants:
             s.add(row, template, f"[Bath Messengers] {name}")
             # qwcId is the flag a row waits for (the game's Uncanny and Lost weapons wait for the
             # one set when the player first finds them); -1 shows the row from the start.

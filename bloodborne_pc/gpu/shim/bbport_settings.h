@@ -116,10 +116,11 @@ inline constexpr Effect Effects[] = {
     {"pc_enhanced_lamps", "Lamps: Level Up and Storage at every lit lamp", false},
     {"pc_sojin_chikage", "Hunter's Arsenal: Sojin Chikage, Thunderwright's Kirkhammer (every player needs it)", false},
     {"pc_ng7_hammer", "NG+7 hammer: Stormforged Kirkhammer (every player needs it)", false},
+    {"pc_ng7_chikage", "NG+7 Sojin Chikage: Bloodsworn weapons (every player needs it)", false},
     {"pc_ng_plus_7", "NG+7 world and every Caryll Rune", false},
 };
 inline constexpr int EffectCount = int(sizeof(Effects) / sizeof(Effects[0]));
-inline constexpr int EnhancementCount = 7;
+inline constexpr int EnhancementCount = 8;
 inline constexpr int FirstEnhancement = EffectCount - EnhancementCount;
 /// Live output resolutions: the upscaler's output and the UI host targets.
 // Last slot retains a validated custom resolution loaded from the launcher/ini.

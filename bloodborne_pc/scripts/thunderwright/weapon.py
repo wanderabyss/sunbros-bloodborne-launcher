@@ -11,7 +11,9 @@ added as bolt. Hammer mode keeps HAMMER_PHYS_SCALE of the Kirkhammer's physical 
 the full bolt on top; the hammer crackles with the charged Tonitrus's lightning, wrapped in Bolt
 Paper's storm as well (STORM_EFFECT), and hits as bolt (special attribute 6, as the Tonitrus and Bolt
 Paper). The Bath Messengers sell it at +0 for 10,000
-Blood Echoes.
+Blood Echoes. There are three, as the Kirkhammer has: each has that Kirkhammer's gem slots, which is
+all that differs (normal: Radial, Triangle, Radial; Uncanny: Radial, Waning, Radial; Lost: Radial,
+Triangle, Waning, at +10).
 
 The lightning: lines of Tiny Tonitrus's strikes sent along the ground from the hammer head (each
 enemy is hit once by each line), in three sizes told apart by length and number of lines:
@@ -63,11 +65,15 @@ from fromsoft import Bnd4, dcx_compress, dcx_decompress  # noqa: E402
 from thunderwright import sky  # noqa: E402
 
 NAME = "Thunderwright's Kirkhammer"
-FIRST, KIRK = 2060000, 8000000      # +0 ids (+100 a level): this weapon, the Kirkhammer
+# (name, first weapon id, the Kirkhammer it takes stats and gem slots from, sortId of its +0)
+VARIANTS = (
+    (NAME, 2060000, 8000000, 55460),    # after the three Sojin Chikage weapons (55400 / 55420 / 55440)
+    ("Uncanny Thunderwright Hammer", 2120000, 8010000, 55580),
+    ("Lost Thunderwright Hammer", 2130000, 8020000, 55620),   # 55600-55610 are the game's
+)
 MODEL, KIRK_MODEL = 1032, 1031      # 1032: a model number no weapon uses
 LEVELS = range(11)
 PRICE = 10000                       # Blood Echoes, at the Bath Messengers
-SORT = 55460                        # after the three Sojin Chikage weapons (55400 / 55420 / 55440)
 VAR, KIRK_VAR = 2060, 800           # behaviour variations
 KIRK_TAE = 105                      # the Kirkhammer's motion category 48 plays a105.tae
 # Physical: this share of the Kirkhammer's at each level (75 at +0, 150 at +10, of 105 / 210). Bolt
@@ -184,7 +190,7 @@ LORE = ("A Kirkhammer reforged in the far north, where the Healing Church raised
         "sends bolt running along the ground, and brought down with all one's strength, the thunder "
         "rolls on ahead, as the northern hymns told of the old god's chariot, and the storm stays "
         "with its wielder a while. Draw the blade again, and it carries the storm away with it.")
-WEAPON_IDS = [FIRST + 100 * level for level in LEVELS]
+WEAPON_IDS = [first + 100 * level for _n, first, _s, _o in VARIANTS for level in LEVELS]
 OUR_JUDGES = tuple(chain["judge"] for chain in CHAINS.values()) + (COST["judge"], FLASH["judge"], SKY["judge"])
 
 
@@ -202,8 +208,8 @@ def _game(relative):
         return f.read()
 
 
-def label(level):
-    return NAME + (f" +{level}" if level else "")
+def label(name, level):
+    return name + (f" +{level}" if level else "")
 
 
 def chain_bullets(chain):
@@ -309,23 +315,25 @@ def _open(raw):
     return Bnd4(dcx_decompress(raw))
 
 
-def _shop_rows(s, ranges):
-    """The +0 at PRICE in every range, after the range's last row (the Sojin Chikage, if it is
-    added later, goes after these)."""
+def _shop_rows(s, ranges, variants=VARIANTS):
+    """Each weapon's +0 at PRICE in every range, after the range's last row (the Sojin Chikage, if
+    it is added later, goes after these)."""
     rows = sorted(s.rows)
     added = []
     for first, last in ranges:
         inside = [r for r in rows if first <= r <= last]
         template = next((r for r in inside if s.get(r, "equipType") == 0), inside[0] if inside else rows[0])
         row = (max(inside) + 1) if inside else first
-        if row > last:
+        if row + len(variants) - 1 > last:
             raise ThunderwrightError(f"shop range {first}..{last} is full")
-        s.add(row, template, f"[Bath Messengers] {NAME}")
-        # qwcId -1 shows the row from the start (a copied vanilla qwcId would hide it).
-        for field, value in (("equipId", FIRST), ("value", PRICE), ("equipType", 0), ("eventFlag", -1),
-                             ("qwcId", -1), ("sellQuantity", -1), ("mtrlId", -1)):
-            s.set(row, field, value)
-        added.append(row)
+        for name, weapon, _source, _sort in variants:
+            s.add(row, template, f"[Bath Messengers] {name}")
+            # qwcId -1 shows the row from the start (a copied vanilla qwcId would hide it).
+            for field, value in (("equipId", weapon), ("value", PRICE), ("equipType", 0), ("eventFlag", -1),
+                                 ("qwcId", -1), ("sellQuantity", -1), ("mtrlId", -1)):
+                s.set(row, field, value)
+            added.append(row)
+            row += 1
     return added
 
 
@@ -341,7 +349,7 @@ def _check_free(w, g, b, a, sp, bu):
         if hit:
             raise ThunderwrightError(f"ids taken: {hit[:3]}")
     sorts = {w.get(r, "sortId") for r in w.rows}
-    if any(SORT + level in sorts for level in LEVELS):
+    if any(sort + level in sorts for _n, _f, _s, sort in VARIANTS for level in LEVELS):
         raise ThunderwrightError("sort ids taken")
 
 
@@ -482,24 +490,25 @@ def add_params(param_raw, talk_raw, anibnd_raw):
     sp.set(DRAW_CHARGE, "effectEndurance", DRAW_CHARGE_TIME)
     sp.set(DRAW_CHARGE, "maxDurability", 0)
 
-    for level in LEVELS:
-        new, src_row = FIRST + 100 * level, KIRK + 100 * level
-        w.add(new, src_row, label(level))   # the Kirkhammer's motion category and requirements
-        w.set(new, "equipModelId", MODEL)
-        w.set(new, "behaviorVariationId", VAR)
-        w.set(new, "attackBasePhysics", physical(w.get(src_row, "attackBasePhysics")))
-        w.set(new, "attackBaseThunder", bolt(level))
-        w.set(new, "correctFaith", w.get(src_row, "correctStrength"))    # Arcane as strong as Strength
-        w.set(new, "correctAgility", NO_SKILL_SCALING)
-        w.set(new, "properFaith", ARCANE_NEEDED)
-        w.set(new, "isEnhance", NO_PAPERS)
-        w.set(new, "residentSpEffectId1", HAMMER_EFFECT)    # the Kirkhammer's 6050 stays in slot 0
-        w.set(new, "residentSpEffectId2", STORM_EFFECT)
-        w.set(new, "isAttributeWep", 0)     # as every game weapon with a built-in element
-        w.set(new, "sortId", SORT + level)
-        w.set(new, "originEquipWep", FIRST + max(level - 1, 0) * 100)
-        g.add(new, src_row, label(level))   # the Kirkhammer's gem slots
-        g.set(new, "wepParamId", new)
+    for name, first, source, sort in VARIANTS:
+        for level in LEVELS:
+            new, src_row = first + 100 * level, source + 100 * level
+            w.add(new, src_row, label(name, level))   # the Kirkhammer's motion category and requirements
+            w.set(new, "equipModelId", MODEL)
+            w.set(new, "behaviorVariationId", VAR)
+            w.set(new, "attackBasePhysics", physical(w.get(src_row, "attackBasePhysics")))
+            w.set(new, "attackBaseThunder", bolt(level))
+            w.set(new, "correctFaith", w.get(src_row, "correctStrength"))    # Arcane as strong as Strength
+            w.set(new, "correctAgility", NO_SKILL_SCALING)
+            w.set(new, "properFaith", ARCANE_NEEDED)
+            w.set(new, "isEnhance", NO_PAPERS)
+            w.set(new, "residentSpEffectId1", HAMMER_EFFECT)    # the Kirkhammer's 6050 stays in slot 0
+            w.set(new, "residentSpEffectId2", STORM_EFFECT)
+            w.set(new, "isAttributeWep", 0)     # as every game weapon with a built-in element
+            w.set(new, "sortId", sort + level)
+            w.set(new, "originEquipWep", first + max(level - 1, 0) * 100)
+            g.add(new, src_row, label(name, level))   # that Kirkhammer's gem slots
+            g.set(new, "wepParamId", new)
     talks = talk_raw if isinstance(talk_raw, (list, tuple)) else [talk_raw]
     _shop_rows(s, sorted({r for talk in talks for r in shop_ranges(talk)}))
     for i, p in params.values():
@@ -519,9 +528,10 @@ def add_text(msg_raw):
     msg = _open(msg_raw)
     ni, li = msg.index("武器名.fmg"), msg.index("武器うんちく.fmg")
     names, lore = Fmg(msg.files[ni]), Fmg(msg.files[li])
-    for level in LEVELS:
-        names.entries[FIRST + level * 100] = label(level)
-        lore.entries[FIRST + level * 100] = LORE
+    for name, first, _source, _sort in VARIANTS:
+        for level in LEVELS:
+            names.entries[first + level * 100] = label(name, level)
+            lore.entries[first + level * 100] = LORE
     msg.files[ni], msg.files[li] = names.to_bytes(), lore.to_bytes()
     return dcx_compress(msg.to_bytes(), msg_raw)
 
@@ -655,8 +665,8 @@ def verify(param_in, param_out, anibnd_in, anibnd_out):
         raise ThunderwrightError("the charge differs from 6032 beyond its time and durability")
     if diff(sp, DRAW_CHARGE, CHARGED_TONITRUS) != {"effectEndurance", "maxDurability"} or not _close(sp.get(DRAW_CHARGE, "effectEndurance"), DRAW_CHARGE_TIME):
         raise ThunderwrightError("Static Draw's charge differs from 6032 beyond its time and durability")
-    for level in LEVELS:
-        new, src_row = FIRST + 100 * level, KIRK + 100 * level
+    for level, new, src_row in ((level, first + 100 * level, source + 100 * level)
+                                for _n, first, source, _o in VARIANTS for level in LEVELS):
         got = diff(w, new, src_row)
         planned = {"equipModelId", "behaviorVariationId", "attackBasePhysics", "attackBaseThunder", "correctFaith", "correctAgility", "properFaith",
                    "isEnhance", "residentSpEffectId1", "residentSpEffectId2", "isAttributeWep", "sortId", "originEquipWep"}

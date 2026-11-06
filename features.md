@@ -1,6 +1,6 @@
 # SunBro's Edition: Bloodborne PC feature catalog
 
-Updated **2026-11-06**, for **4.3.2** (experimental Native HDR; DLSS 5 window-resize crash fixed), **4.3.0** (spatial sound for the game's 7.1 mix; HDR paper white to 800 nits; heap trace), **4.2.21** (NG+7 world), **4.2.8** (the bells after seamless co-op are normal bells again), **4.2.7** (Save settings and a tidier Visuals page; Download BBSC on the Co-op page), **4.2.6** (seamless co-op hosting: the co-op server ships again), **4.2.5** (first start set for your PC) and **4.2.4** (★ DLSS 4 / ★ DLSS 5 preset suggestions; DLSS 5 stays off and says why when ReShade won't load it), on top of **4.0.0** (major release: save backups, HDR brightness controls, DLSS 5 neural rendering through the community route, FSR 4.1.1 on Windows, FSR 1 output upscale; on top of 3.4.0's DLSS roadmap). Based on Jgamrot 2.1 and BBSC 0.0.2. The supplied 3.2.9 renderer run has zero capture exclusions; the corrected co-op UI was confirmed. Identical-route performance, genuine VRAM-pressure recovery and jump-distance acceptance remain pending. See [build guide](build.md) and [current changelog](docs/changelog/changelog-2026-10-29-4.0.0.md).
+Updated **2026-11-06**, for **4.3.5** (NG+7 Sojin Chikage; Uncanny and Lost hammers), **4.3.4** (start timing in the log), **4.3.3** (faster repeat starts; DLSS 5 settings follow the PC), **4.3.2** (experimental Native HDR; DLSS 5 window-resize crash fixed), **4.3.0** (spatial sound for the game's 7.1 mix; HDR paper white to 800 nits; heap trace), **4.2.21** (NG+7 world), **4.2.8** (the bells after seamless co-op are normal bells again), **4.2.7** (Save settings and a tidier Visuals page; Download BBSC on the Co-op page), **4.2.6** (seamless co-op hosting: the co-op server ships again), **4.2.5** (first start set for your PC) and **4.2.4** (★ DLSS 4 / ★ DLSS 5 preset suggestions; DLSS 5 stays off and says why when ReShade won't load it), on top of **4.0.0** (major release: save backups, HDR brightness controls, DLSS 5 neural rendering through the community route, FSR 4.1.1 on Windows, FSR 1 output upscale; on top of 3.4.0's DLSS roadmap). Based on Jgamrot 2.1 and BBSC 0.0.2. The supplied 3.2.9 renderer run has zero capture exclusions; the corrected co-op UI was confirmed. Identical-route performance, genuine VRAM-pressure recovery and jump-distance acceptance remain pending. See [build guide](build.md) and [current changelog](docs/changelog/changelog-2026-11-06-4.3.4.md).
 
 ## Capability overview
 
@@ -16,7 +16,22 @@ Fixed 60/90/120/144 FPS presets correct running-jump horizontal momentum against
 | Ray tracing | RTAO, moon shadows, half-resolution option and custom reach. | Reflections/local-light shadows unavailable; visual/performance A/B pending. |
 | Reflex | Off / On / Boost, DLSS-FG coupling, publication-before-sleep ordering and queue/wait diagnostics. | Experimental admission blocking is off by default after a failed gated run; marker intervals are not input latency. |
 | Atlas | Bundled maps/art, live position, opt-in lamp travel, background geometry preparation, viewport culling and reused upload buffers. | The latest drawing optimizations require identical-route testing. |
-| Co-op | BBSC 0.0.2 relay/rejoin integration, public/private modes and backups. | Matching peer builds required; Chalice synchronization remains a roadmap item. |
+| Co-op | BBSC 0.0.2 relay/rejoin integration, public/private modes and backups. | Matching peer builds required; two clients on one PC reach gameplay, while a summon and co-op between two PCs are not yet run; Chalice synchronization remains a roadmap item. |
+
+## 4.3.5 NG+7 Sojin Chikage
+
+- `pc_ng7_chikage` (`BB_PC_NG7_CHIKAGE`, off by default) adds three Bloodsworn weapons to the Bath Messengers' shop at +0, upgraded the normal way: 221 physical and Bloodtinge scaling 143 at +10. It brings Hunter's Arsenal with it; the Sojin Chikage is unchanged.
+- Thunderwright's Kirkhammer and the Stormforged Kirkhammer gain Uncanny and Lost versions under their existing switches. Only the gem slots differ.
+
+## 4.3.4 Start timing in the log
+
+- `last_run.log` gets a `Start timing:` line for each step of a start, counted from pressing Play, plus the game process start, first UI frame and first gameplay frame. [Changelog](docs/changelog/changelog-2026-11-06-4.3.4.md).
+
+## 4.3.3 Faster repeat starts, DLSS 5 settings follow the PC
+
+- Repeat starts skip preparation that hasn't changed. On Windows the game looks mod files up in `out/mod-files.txt` instead of building a link overlay. First starts are no faster.
+- At each launcher start, saved DLSS 5 settings are checked against the PC: on a card that isn't offered DLSS 5, or without the add-on files, the switch goes off and the launcher says why.
+- The tuned preset row names the card the settings were measured on as plain text. [Changelog](docs/changelog/changelog-2026-11-06-4.3.3.md).
 
 ## 4.3.2 Native HDR (experimental), DLSS 5 window-resize fix
 

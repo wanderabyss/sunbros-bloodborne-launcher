@@ -344,6 +344,7 @@ void Load() {
         {"BB_PC_REBIRTH", "pc_rebirth"},           {"BB_MOUSE_CAMERA", "mouse_camera"},
         {"BB_PC_LAMPS", "pc_enhanced_lamps"},         {"BB_PC_SOJIN", "pc_sojin_chikage"},
         {"BB_PC_NG7", "pc_ng_plus_7"},              {"BB_PC_NG7_HAMMER", "pc_ng7_hammer"},
+        {"BB_PC_NG7_CHIKAGE", "pc_ng7_chikage"},
         {"BB_OUTPUT_RES", "output_res"},            {"BB_ANISO", "anisotropic_filtering"},
         {"BB_MOUSE_MENU", "mouse_menu"},
         {"BB_FRAME_GEN", "frame_gen"},              {"BB_FRAME_GEN_MULTIPLIER", "frame_gen_multiplier"},

@@ -689,6 +689,7 @@ def keep_pc_menu_text(layers, generated, out):
 SOJIN_LAYER = 'hunters-arsenal'
 SOJIN_MERGE_LAYER = 'hunters-arsenal-merge'
 HAMMER_LAYER = 'ng7-hammer'   # the NG+7 hammer: its gameparam and texts are Hunter's Arsenal's plus it
+CHIKAGE_LAYER = 'ng7-chikage'   # the NG+7 Sojin Chikage: the layer below's gameparam and texts plus it
 SOJIN_PARAM = ('dvdroot_ps4', 'param', 'gameparam', 'gameparam.parambnd.dcx')
 SOJIN_TALK = ('dvdroot_ps4', 'script', 'talk', 'm21_00_00_00.talkesdbnd.dcx')
 SOJIN_TEXT = 'item.msgbnd.dcx'
@@ -701,7 +702,8 @@ def sojin_identity():
     here = Path(__file__).resolve().parent
     digest = hashlib.sha256()
     for path in [here / 'fromsoft.py', here / 'esd.py', here / 'ps4_texture.py', here / 'flver.py', *sorted((here / 'sojin').glob('*.py')),
-                 *sorted((here / 'thunderwright').glob('*.py')), *sorted((here / 'ng7_hammer').glob('*.py'))]:
+                 *sorted((here / 'thunderwright').glob('*.py')), *sorted((here / 'ng7_hammer').glob('*.py')),
+                 *sorted((here / 'ng7_chikage').glob('*.py'))]:
         try:
             digest.update(path.read_bytes())
         except OSError:
@@ -726,7 +728,7 @@ def keep_sojin(layers, game, out):
             if parts == SOJIN_TALK:
                 talk = source
             # NG+7 world's gameparam, with its attack limit, is made from the layer below it too.
-            if name in (SOJIN_LAYER, HAMMER_LAYER, 'ng-plus-7') or (name, root) not in above:
+            if name in (SOJIN_LAYER, HAMMER_LAYER, CHIKAGE_LAYER, 'ng-plus-7') or (name, root) not in above:
                 continue
             if parts == SOJIN_PARAM or (len(parts) == 4 and parts[1] == 'msg' and parts[3] == SOJIN_TEXT):
                 owners[relative.as_posix().casefold()] = (relative, source, name)
@@ -738,8 +740,8 @@ def keep_sojin(layers, game, out):
     talk = talk or Path(game) / Path(*SOJIN_TALK)
     folder = Path(out) / SOJIN_MERGE_LAYER
     stamp_file = folder / 'stamp.txt'
-    with_hammer = HAMMER_LAYER in names
-    lines = [sojin_identity() + (' +hammer' if with_hammer else '')]
+    with_hammer, with_chikage = HAMMER_LAYER in names, CHIKAGE_LAYER in names
+    lines = [sojin_identity() + (' +hammer' if with_hammer else '') + (' +chikage' if with_chikage else '')]
     for source in [talk, *(owners[key][1] for key in sorted(owners))]:
         info = source.stat()
         lines.append(f'{source}\t{info.st_size}\t{int(info.st_mtime)}')
@@ -757,6 +759,7 @@ def keep_sojin(layers, game, out):
     from sojin import weapon as sojin
     from thunderwright import weapon as thunderwright
     from ng7_hammer import weapon as hammer
+    from ng7_chikage import weapon as ng7_chikage
     sojin.set_game(Path(game) / 'dvdroot_ps4')
     thunderwright.set_game(Path(game) / 'dvdroot_ps4')
     # Thunderwright's damage split reads the game's own moveset (a105.tae, which no layer may
@@ -771,6 +774,8 @@ def keep_sojin(layers, game, out):
                    ("Thunderwright's Kirkhammer", thunderwright, thunderwright.ThunderwrightError)]
         if with_hammer:     # after Thunderwright's, whose rows it needs
             weapons.append(('the NG+7 hammer', hammer, hammer.Ng7HammerError))
+        if with_chikage:    # after the Sojin Chikage's, whose rows it needs
+            weapons.append(('the NG+7 Sojin Chikage', ng7_chikage, ng7_chikage.Ng7ChikageError))
         for label, module, error_type in weapons:
             try:
                 if relative.name.casefold() == SOJIN_TEXT:
@@ -781,8 +786,8 @@ def keep_sojin(layers, game, out):
                     continue
                 elif module is sojin:
                     data = sojin.add_params(data, talk.read_bytes())
-                elif module is hammer:
-                    data = hammer.add_params(data, talk.read_bytes())
+                elif module in (hammer, ng7_chikage):
+                    data = module.add_params(data, talk.read_bytes())
                 else:
                     data = thunderwright.add_params(data, talk.read_bytes(), anibnd.read_bytes())
             except (error_type, OSError, ValueError, KeyError, IndexError, struct.error) as error:
