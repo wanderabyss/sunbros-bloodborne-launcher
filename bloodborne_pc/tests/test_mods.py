@@ -1,4 +1,4 @@
-from paths import ROOT
+from paths import ROOT, real_bash, with_bash_first
 import importlib.util
 import json
 import os
@@ -444,6 +444,7 @@ class ModTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             mods.selected(self.moddir, config)
 
+    @unittest.skipUnless(real_bash(), 'needs a Bash that runs scripts here (not the WSL stub)')
     def test_run_uses_overlay_propagates_exit_and_cleans_view(self):
         self.mod('A')
         python = self.root / 'python'
@@ -461,7 +462,7 @@ class ModTests(unittest.TestCase):
         env = dict(os.environ, BB_PREBUILT='1', BB_PROBE=str(probe), PYTHON=str(python),
             BB_DATA_DIR=str(self.root), BB_GAME_DIR=str(self.game),
             BB_MODS_DIR=str(self.moddir), BB_MODS_ENABLED='1', BB_MODS_CONFIG=str(self.root/'mods.json'))
-        result = subprocess.run(['bash', 'run.sh'], cwd=ROOT, env=env, capture_output=True, timeout=30)
+        result = subprocess.run([real_bash(), 'run.sh'], cwd=ROOT, env=with_bash_first(env), capture_output=True, timeout=30)
         self.assertEqual(result.returncode, 7, result.stderr)
         mounted = json.loads((self.root / 'mounted.json').read_text())
         self.assertEqual(mounted['content'], 'mod')

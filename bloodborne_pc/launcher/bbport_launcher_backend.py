@@ -1617,8 +1617,10 @@ class LauncherBackend(QObject):
                 self._append_log(f"Launcher: could not change BBSC's co-op bells back: {error}\n")
         self._game_started = False
         try:
+            # Play was pressed: the log's "Start timing:" lines count from here (run.py).
+            start_env = {**(env or core.game_environment(self.app, self.ini)), 'BB_START_TIME': str(time.time())}
             self.process = subprocess.Popen(core.run_command(), cwd=core.PORT_DIR,
-                                            env=env or core.game_environment(self.app, self.ini), stdin=subprocess.DEVNULL,
+                                            env=start_env, stdin=subprocess.DEVNULL,
                                             stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                                             creationflags=core.NO_WINDOW)
         except OSError as error:

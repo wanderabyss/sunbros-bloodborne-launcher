@@ -33,5 +33,19 @@ int32_t* runtime_errno() { std::abort(); }
 int runtime_memory_write_backing(uintptr_t, const void*, uint64_t) { std::abort(); }
 int32_t runtime_thread_spawn(void**, void*, void*, uint64_t, const char*) { std::abort(); }
 int32_t runtime_thread_join_spawned(void*, void**) { std::abort(); }
+uintptr_t runtime_atlas_player_token() { return 0; } // no guest player
+// The game menu, Hunter's Atlas and menu sounds: bbgpu links them, and no renderer test reaches them.
+void runtime_atlas_flag() { std::abort(); }
+void runtime_atlas_travel_request() { std::abort(); }
+void runtime_atlas_travel_status() { std::abort(); }
+void runtime_atlas_travel_supported() { std::abort(); }
+void runtime_audio_menu_event() { std::abort(); }
+void runtime_audio_menu_stats() { std::abort(); }
+void runtime_map_confirm_button() { std::abort(); }
+void runtime_map_location() { std::abort(); }
+void runtime_map_menu_open() { std::abort(); }
+void runtime_map_menu_state() { std::abort(); }
+void runtime_memory_is_mapped() { std::abort(); }
+void runtime_thread_exit() { std::abort(); }
 }
 

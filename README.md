@@ -9,7 +9,7 @@
 </tr>
 </table>
 
-**v4.3.3:** Repeat starts reach the title about twice as fast, and the launcher no longer keeps DLSS 5 on, or the DLSS 5 ready preset selected, on a PC that can't run it. [Changelog](docs/changelog/changelog-2026-11-06-4.3.3.md)
+**v4.3.4:** Start timing in the log, test fixes, and in-game restart and co-op checked with the mod file list from 4.3.3. [Changelog](docs/changelog/changelog-2026-11-06-4.3.4.md)
 
 <a href="docs/media/launcher-4.2.7-tour.mp4"><img src="docs/images/launcher-4.2.7-tour.webp" width="100%" alt="Tour of the 4.2.7 launcher: Home, Visuals presets with their ? tips and Save settings, Online, Co-op, Dossier, Workshop, Settings and the what's-new sheet"/></a>
 

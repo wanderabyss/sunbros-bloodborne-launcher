@@ -1,5 +1,5 @@
 """Exercise run.sh across a re-exec with lightweight preparation/probe stand-ins."""
-from paths import ROOT
+from paths import ROOT, real_bash, with_bash_first
 import json
 import os
 from pathlib import Path
@@ -11,6 +11,7 @@ import tempfile
 import unittest
 
 
+@unittest.skipUnless(real_bash(), 'needs a Bash that runs scripts here (not the WSL stub)')
 class RestartResolutionTests(unittest.TestCase):
     def run_restarts(self, explicit=False, live=False, ini_extra='', caps=None, bare_path=False,
                      output=None):
@@ -71,7 +72,7 @@ class RestartResolutionTests(unittest.TestCase):
                 for name in ('bash', 'dirname', 'mkdir', 'realpath'):
                     (tools / name).symlink_to(shutil.which(name))
                 env['PATH'] = str(tools)
-            subprocess.run([shutil.which('bash'), 'run.sh'], cwd=ROOT, env=env,
+            subprocess.run([real_bash(), 'run.sh'], cwd=ROOT, env=with_bash_first(env) if not bare_path else env,
                            stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True, timeout=30)
             return [json.loads(line) for line in (data / 'environments').read_text().splitlines()]
 
@@ -118,3 +119,34 @@ class RestartResolutionTests(unittest.TestCase):
         rows = self.run_restarts(explicit=True)
         self.assertEqual([row['BB_RENDER_RES'] for row in rows], ['800x450'] * 3)
         self.assertTrue(all(row['BB_AUTO_RENDER_RES'] is None for row in rows))
+
+
+class StartTimingTests(unittest.TestCase):
+    def timing(self, **env):
+        import contextlib
+        import importlib.util
+        import io
+        from unittest import mock
+        spec = importlib.util.spec_from_file_location('run_for_timing', ROOT / 'run.py')
+        run = importlib.util.module_from_spec(spec)
+        with mock.patch.dict(os.environ, env, clear=False):
+            if 'BB_START_TIME' not in env:
+                os.environ.pop('BB_START_TIME', None)
+            spec.loader.exec_module(run)
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                run.START_TIMING.step('mods.py')
+            return output.getvalue(), os.environ.get('BB_START_TIME')
+
+    def test_counts_from_the_launchers_play(self):
+        import time
+        line, _ = self.timing(BB_START_TIME=str(time.time() - 12))
+        self.assertRegex(line, r'^Start timing: mods\.py took \d+\.\d s, at 12\.\d s\n$')
+
+    def test_a_start_without_the_launcher_counts_from_itself_and_tells_the_game(self):
+        line, start = self.timing()
+        self.assertRegex(line, r'at 0\.\d s\n$')
+        self.assertTrue(float(start) > 0)
+
+    def test_unreadable_time_counts_from_itself(self):
+        self.assertRegex(self.timing(BB_START_TIME='later')[0], r'at 0\.\d s\n$')

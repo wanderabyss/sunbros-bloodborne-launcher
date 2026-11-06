@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 #include "video_core/renderer_vulkan/vk_camera_motion.h"
+#include "bbport_start_timing.h"
 
 #include <cmath>
 #include <cstdio>
@@ -315,6 +316,11 @@ void CameraMotion::OnConstants(const float* data) {
     const std::array<u32, 2> size{u32(data[4]), u32(data[5])};
     if (size != render_size) {
         std::printf("Camera motion: scene render size %ux%u\n", size[0], size[1]);
+        static bool timed = false;
+        if (!timed) {
+            timed = true;
+            bb_start_timing("first gameplay frame (includes time on the menus)");
+        }
         render_size = size;
     }
     frame_has_camera = true;

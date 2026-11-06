@@ -1,5 +1,23 @@
 # Release Notes
 
+## [4.3.4+build110626.134024] — 2026-11-06
+### Start timing in the log; test fixes; in-game restart and co-op checked
+<!-- launcher:
+### Start timing in the log; test fixes; in-game restart and co-op checked
+
+- The log now shows how long each step of a start takes: search last_run.log for "Start timing:".
+- Restarting from inside the game works with the mod file list from 4.3.3. Co-op starts and signs in with it; a summon has not been played yet.
+-->
+
+This version adds start timing to the log and fixes tests. It also records two checks that 4.3.3 hadn't run.
+
+- **Start timing:** `last_run.log` gets a `Start timing:` line for each step of a start, counted from pressing Play. A first start from a new folder builds everything once, so compare the second start.
+- **Restart from inside the game:** "Apply and restart" with mods on comes back to gameplay, with the mod files loaded again.
+- **Co-op:** two clients on one PC, with mods on, signed in to local BBSC servers and reached gameplay. A summon between them hasn't been played yet.
+- **Tests:** tests that run `run.sh` now find a real Bash on Windows, and the suite no longer needs pytest to load. Three native renderer tests link again, but still crash on Windows when they start Vulkan.
+
+[Changelog](docs/changelog/changelog-2026-11-06-4.3.4.md)
+
 ## [4.3.3+build110626.114807] — 2026-11-06
 ### Faster repeat starts; DLSS 5 settings now follow your PC
 <!-- launcher:

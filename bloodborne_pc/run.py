@@ -16,6 +16,7 @@ import shutil
 import struct
 import subprocess
 import sys
+import time
 
 PORT = Path(__file__).resolve().parent
 # The keyboard key images (PCBButtons from Nexus Mods), as the launcher adds them to the mods
@@ -159,6 +160,35 @@ def sojin_saves(game, original_game, user_dir):
             run_script(f'{package}/save_tool.py', folder, '--before-start', optional=True)
 
 
+class StartTiming:
+    """The log's "Start timing:" lines: how long each step of a start took, and seconds since Play
+    was pressed (BB_START_TIME, from the launcher; else since this script began)."""
+
+    def __init__(self):
+        self.last = time.time()
+        self.begin = self.last
+        self.begin_from_env()
+
+    def begin_from_env(self):
+        try:
+            self.begin = float(os.environ['BB_START_TIME'])
+        except (KeyError, ValueError):
+            self.restart()
+
+    def restart(self):
+        """A start of its own: no launcher set the time, or the game restarted itself."""
+        self.last = self.begin = time.time()
+        os.environ['BB_START_TIME'] = str(self.begin)
+
+    def step(self, label):
+        now = time.time()
+        print(f'Start timing: {label} took {now - self.last:.1f} s, at {now - self.begin:.1f} s', flush=True)
+        self.last = now
+
+
+START_TIMING = StartTiming()
+
+
 def run_script(name, *args, capture=False, optional=False):
     """Its output when captured ('' otherwise). A failure stops the start, unless the script is
     `optional` (it only adds to the game): that is logged, and the result is None."""
@@ -172,6 +202,7 @@ def run_script(name, *args, capture=False, optional=False):
         # stdin given: the output handles are passed explicitly (a windowed Bloodborne.exe child
         # would get none otherwise).
         result = subprocess.run(command, stdin=subprocess.DEVNULL, creationflags=no_console())
+    START_TIMING.step(name)
     if result.returncode:
         if not optional:
             sys.exit(result.returncode)
@@ -371,6 +402,7 @@ def main():
     if len(args) >= 2 and args[0] == '--after':
         wait_for(int(args[1]))
         args = args[2:]
+        START_TIMING.restart()  # the game restarted itself: count this start from here
     # As run.sh: relative paths (BB_GAME_DIR, BB_DATA_DIR, fsr4_shaders/) are from the port.
     os.chdir(PORT)
     if missing := missing_port_files():
@@ -511,6 +543,7 @@ def main():
         from aspect_ratio import segment_fingerprint
         env['BB_ASPECT_EBOOT_SEGMENTS'] = segment_fingerprint((out / 'eboot.elf').read_bytes())
         shader_prebuild(game, out, env)
+        START_TIMING.step('shader pre-build')
         run_script('link_libc.py', game, '--out', out)
         run_script('link_modules.py', game, '--out', out)
         # Legacy CPU profile (scripts/cpu_compat.py): the image no longer needs BMI1, LZCNT or
@@ -687,6 +720,7 @@ def main():
                    '--patches', str(out / 'patches.bin'), '--app0', str(game),
                    '--user', str(user_dir),
                    '--timeout', env.get('BB_TIMEOUT', '0'), *args]
+        START_TIMING.step('other preparation')
         # No stdin: an inherited pipe (shells such as Git Bash) cost the game its console output.
         game_proc = subprocess.Popen(command, stdin=subprocess.DEVNULL, creationflags=no_console())
         if mod_view:
@@ -696,7 +730,9 @@ def main():
         started = []
         try:
             started = start_companions(data, env, game_proc.pid)
-            return game_proc.wait()
+            code = game_proc.wait()
+            START_TIMING.last = time.time()
+            return code
         finally:
             for proc in started:
                 proc.terminate()
@@ -716,6 +752,7 @@ def main():
             except OSError as error:
                 print(f'Mods: {mod_view} not removed ({error}); the next start removes it',
                       file=sys.stderr)
+            START_TIMING.step('removing the temporary mod view')
 
 
 if __name__ == '__main__':

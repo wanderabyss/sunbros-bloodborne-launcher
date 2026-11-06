@@ -17,6 +17,7 @@
 #include "bbport_nvidia_gpu.h"
 #include "video_core/renderer_vulkan/vk_dlss5.h"
 #include "bbport_settings.h"
+#include "bbport_start_timing.h"
 #include "bbport_toggles.h"
 #include "ffx_vk_portable.h"
 #include "video_core/host_shaders/upscale_merge_comp.h"
@@ -1672,6 +1673,11 @@ void TemporalUpscaler::EnsureUiResources(u32 w, u32 h, vk::Format color, vk::For
     }
     std::printf("UI: native composition %ux%u (scene %ux%u), independent of FSR history\n",
                 w, h, render_width, render_height);
+    static bool timed = false;
+    if (!timed) {
+        timed = true;
+        bb_start_timing("first UI frame");
+    }
 }
 
 void TemporalUpscaler::PrepareUiDepth(VideoCore::ImageId depth_id) {

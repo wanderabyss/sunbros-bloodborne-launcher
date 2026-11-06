@@ -1,6 +1,10 @@
 import importlib.util
 from pathlib import Path
 import subprocess
+import sys
+
+sys.path.insert(0, str(Path(__file__).parent))
+from paths import real_bash
 
 spec = importlib.util.spec_from_file_location('build_dist_coop', Path(__file__).parents[2]/'scripts/build_dist.py')
 build = importlib.util.module_from_spec(spec)
@@ -29,4 +33,5 @@ def test_package_sh_stops_without_coop_server():
     block = text[text.index('if [[ -f out/coop-server/shadnet.exe ]]'):]
     block = block[:block.index('\nfi\n') + 4]
     assert 'BB_PACKAGE_NO_COOP_SERVER' in block and 'exit 1' in block
-    assert subprocess.run(['bash', '-n', str(PACKAGE_SH)], capture_output=True).returncode == 0
+    if real_bash():
+        assert subprocess.run([real_bash(), '-n', str(PACKAGE_SH)], capture_output=True).returncode == 0

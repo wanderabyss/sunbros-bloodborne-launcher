@@ -1,5 +1,6 @@
 # Changelog
 
+- [4.3.4 — Start timing in the log; test fixes; in-game restart and co-op checked](changelog-2026-11-06-4.3.4.md)
 - [4.3.3 — Faster repeat starts; DLSS 5 settings now follow your PC](changelog-2026-11-06-4.3.3.md)
 - [4.3.2 — Native HDR: real highlights from the game's own scene (experimental)](changelog-2026-11-06-4.3.2.md)
 - [4.3.1 — NG+7 hammer: a Stormforged Kirkhammer for an Arcane build](changelog-2026-11-06-4.3.1.md)

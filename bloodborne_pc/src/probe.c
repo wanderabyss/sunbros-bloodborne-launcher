@@ -7,6 +7,7 @@
 #include <inttypes.h>
 #include <cpuid.h>
 #include "runtime.h"
+#include "../gpu/shim/bbport_start_timing.h"
 #include "runtime_map.h"
 #include "runtime_atlas_state.h"
 #include "gpu/bbgpu.h"
@@ -487,6 +488,7 @@ int main(int argc, char **argv) {
     setvbuf(stdout, stdout_buffer, _IOFBF, sizeof(stdout_buffer));
     HANDLE flusher = CreateThread(NULL, 0, flush_stdout, NULL, 0, NULL);
     if (flusher) CloseHandle(flusher); else setvbuf(stdout, NULL, _IONBF, 0);
+    bb_start_timing("game process started");
 #else
     setvbuf(stdout, NULL, _IONBF, 0);
 #endif

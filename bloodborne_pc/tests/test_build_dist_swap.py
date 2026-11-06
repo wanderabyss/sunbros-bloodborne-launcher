@@ -1,8 +1,8 @@
 import importlib.util
 from pathlib import Path
 import zipfile
+import unittest
 from unittest import mock
-import pytest
 
 spec = importlib.util.spec_from_file_location('build_dist_swap', Path(__file__).parents[2]/'scripts/build_dist.py')
 build = importlib.util.module_from_spec(spec)
@@ -44,7 +44,7 @@ def test_failed_swap_restores_previous_package(tmp_path):
             raise OSError('simulated swap failure')
         return rename(source, destination)
     with mock.patch.object(build, 'kill_processes_in_directory'), mock.patch.object(Path, 'rename', fail_new):
-        with pytest.raises(OSError):
+        with unittest.TestCase().assertRaises(OSError):
             build.unzip_archive(archive, target)
     assert (target/'Bloodborne.exe').read_bytes() == b'old'
     assert (target/'bbport.ini').read_text() == 'saved=1'
@@ -52,6 +52,6 @@ def test_failed_swap_restores_previous_package(tmp_path):
 
 def test_wrong_archive_root_does_not_change_existing_package(tmp_path):
     archive, target = package(tmp_path, 'other')
-    with pytest.raises(ValueError):
+    with unittest.TestCase().assertRaises(ValueError):
         build.unzip_archive(archive, target)
     assert (target/'Bloodborne.exe').read_bytes() == b'old'
