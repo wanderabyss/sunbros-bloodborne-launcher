@@ -6,8 +6,8 @@ fork is based on [Supermedo's Windows port](https://github.com/Supermedo/bloodbo
 Mohammed Albarghouthi, which builds on [deadinside28's bbport](https://github.com/deadinside28/bloodborne_pc)
 and the [shadPS4](https://github.com/shadps4-emu/shadPS4) renderer.
 
-**Current version: 4.3.1** (the NG+7 hammer, an NG+7 enemy attack limit and a Spatial sound toggle).
-See the [release notes](../Release_Notes.md), the [4.3.1 changelog](../docs/changelog/changelog-2026-11-06-4.3.1.md),
+**Current version: 4.3.2** (experimental native HDR from the game's own scene).
+See the [release notes](../Release_Notes.md), the [4.3.2 changelog](../docs/changelog/changelog-2026-11-06-4.3.2.md),
 [all versions](../docs/changelog/README.md) and [DLSS 4.5 vs DLSS 5 at 4K](../docs/dlss-4.2.0-comparison.md).
 
 > **No game files are included.** You need your own dump of Bloodborne. This project is not

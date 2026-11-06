@@ -207,7 +207,7 @@ int main() try {
     VkDescriptorSetLayoutBinding binding{0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr};
     VkDescriptorSetLayoutCreateInfo sl{VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO}; sl.bindingCount = 1; sl.pBindings = &binding;
     Check(vkCreateDescriptorSetLayout(g.device, &sl, nullptr, &g.set_layout));
-    VkPushConstantRange push{VK_SHADER_STAGE_FRAGMENT_BIT, 0, 28};
+    VkPushConstantRange push{VK_SHADER_STAGE_FRAGMENT_BIT, 0, 48};
     VkPipelineLayoutCreateInfo pl{VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO}; pl.setLayoutCount = 1; pl.pSetLayouts = &g.set_layout; pl.pushConstantRangeCount = 1; pl.pPushConstantRanges = &push;
     Check(vkCreatePipelineLayout(g.device, &pl, nullptr, &g.layout));
     VkSamplerCreateInfo sci{VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO};
@@ -223,7 +223,9 @@ int main() try {
     VkMemoryAllocateInfo alloc{VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO}; alloc.allocationSize = req.size;
     alloc.memoryTypeIndex = g.Memory(req.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
     Check(vkAllocateMemory(g.device, &alloc, nullptr, &g.buffer_memory)); Check(vkBindBufferMemory(g.device, g.buffer, g.buffer_memory, 0));
-    const std::array<uint32_t, Width> pixels{0xff000000,0xff404040,0xff808080,0xffbfbfbf,0xffffffff,0xff0000ff,0xff00ff00,0xffff0000};
+    const std::array<uint32_t, Width> pixels{0xff000000,0xff404040,0xff808080,0xffbfbfbf,0xffffffff,0xff0000ff,
+        // Native HDR (passes 7, 8): white with the gain in alpha: 160 is about 7.9x, 16 about 181x.
+        0xa0ffffff,0x10ffffff};
     void* mapped{}; Check(vkMapMemory(g.device, g.buffer_memory, 0, VK_WHOLE_SIZE, 0, &mapped));
     std::memcpy(mapped, pixels.data(), sizeof(pixels)); vkUnmapMemory(g.device, g.buffer_memory);
     std::array<uint32_t, Width> bgra{};
@@ -261,7 +263,8 @@ int main() try {
     // Same SDR input represents a real or generated picture. Alternate HDR/SDR output without
     // modifying it, then verify identical HDR results and an unchanged SDR round trip.
     // Passes 5 and 6: the HDR brightness settings (white 200 / peak 600; no highlight boost).
-    constexpr uint32_t Passes = 7;
+    // Passes 7 and 8: native HDR (white 100 / peak 1000): the gain in alpha, and no gain.
+    constexpr uint32_t Passes = 9;
     for (uint32_t pass = 0; pass < Passes; ++pass) {
         const bool is_hdr = pass != 1 && pass != 4; const auto target = is_hdr ? hdr : sdr;
         Barrier(cmd,target.image,pass >= 2 ? VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL : VK_IMAGE_LAYOUT_UNDEFINED,VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,pass >= 2 ? VK_ACCESS_TRANSFER_READ_BIT : 0,VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
@@ -271,9 +274,10 @@ int main() try {
         vkCmdBindPipeline(cmd,VK_PIPELINE_BIND_POINT_GRAPHICS,is_hdr ? hp : sp);
         const auto source_set = pass == 3 ? bgra_set : set;
         vkCmdBindDescriptorSets(cmd,VK_PIPELINE_BIND_POINT_GRAPHICS,g.layout,0,1,&source_set,0,nullptr);
-        struct Settings { float gamma; uint32_t hdr, srgb, desktop_hdr; float white, peak, boost; } settings{
-            1,is_hdr ? 1u : 0u,1,pass == 4 ? 1u : 0u,pass == 5 ? 200.0f : 120.0f,pass == 5 ? 600.0f : 1000.0f,
-            pass == 6 ? 0.0f : 1.0f};
+        struct Settings { float gamma; uint32_t hdr, srgb, desktop_hdr; float white, peak, boost; uint32_t native; float native_color, native_start, native_end, native_boost; } settings{
+            1,is_hdr ? 1u : 0u,1,pass == 4 ? 1u : 0u,pass == 5 ? 200.0f : pass >= 7 ? 100.0f : 120.0f,
+            pass == 5 ? 600.0f : 1000.0f,pass == 6 ? 0.0f : 1.0f,// The boost limit is out of the way here: these passes check the curve up to the peak.
+            pass == 7 ? 1u : pass == 8 ? 2u : 0u,0.25f,2.0f,7.0f,16.0f};
         vkCmdPushConstants(cmd,g.layout,VK_SHADER_STAGE_FRAGMENT_BIT,0,sizeof(settings),&settings);
         vkCmdDraw(cmd,3,1,0,0); vkCmdEndRendering(cmd);
         Barrier(cmd,target.image,VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,VK_ACCESS_TRANSFER_READ_BIT);
@@ -311,6 +315,22 @@ int main() try {
         if (i==2) Require(bright>40 && bright<47,"HDR white setting does not scale mid-gray");
         if (i==4) Require(flat>115 && flat<125,"HDR highlight boost off still expands white");
     }
+    const auto native_nits = [&](uint32_t pass, uint32_t i) {
+        return DecodeNits(double(output[pass][i]&1023)/1023);
+    };
+    const double native_white = native_nits(7,4), native_mid = native_nits(7,2);
+    const double native_high = native_nits(7,6), native_top = native_nits(7,7);
+    std::printf("native HDR: white %.3f, mid-gray %.3f, gain 7.9 %.3f, gain 181 %.3f nits\n",
+                native_white,native_mid,native_high,native_top);
+    Require(native_white>98 && native_white<102,"Native HDR moved paper white");
+    Require(native_mid>20 && native_mid<23.5,"Native HDR changed mid-gray: not the SDR grade");
+    // 7.9x is about 3 stops, one above the curve's default start.
+    Require(native_high>280 && native_high<450,"Native HDR gain or roll-off wrong");
+    // The gain is log-compressed (post_process.frag), so even 181x stays below the peak.
+    Require(native_top>780 && native_top<=1001,"Native HDR's strongest gain too dim or above the peak");
+    Require(native_white<native_high && native_high<native_top,"Native HDR not monotonic");
+    Require(std::abs(native_nits(8,6)-native_white)<2 && std::abs(native_nits(8,7)-native_white)<2,
+            "Native HDR without a gain still reads alpha");
     const double compensated = double(output[4][1]&255)/255;
     const double desktop_linear = compensated <= 0.04045 ? compensated/12.92 : std::pow((compensated+0.055)/1.055,2.4);
     Require(std::abs(desktop_linear-std::pow(64.0/255,2.2))<0.002,"SDR desktop HDR compensation regressed");

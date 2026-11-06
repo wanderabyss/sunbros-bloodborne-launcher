@@ -14,6 +14,7 @@
 #include "video_core/renderer_vulkan/vk_instance.h"
 #include "video_core/renderer_vulkan/vk_pipeline_cache.h"
 #include "video_core/renderer_vulkan/vk_shader_prebuild.h"
+#include "video_core/renderer_vulkan/vk_native_hdr.h"
 #include "video_core/renderer_vulkan/vk_shader_util.h"
 #include "common/hash.h"
 #include "video_core/renderer_vulkan/pipeline_cache_data.h"
@@ -379,6 +380,7 @@ bool PipelineCache::LoadPipelineStage(Serialization::Archive& ar, size_t stage) 
             {.codeSize = spv.size() * sizeof(u32), .pCode = spv.data()});
         if (result != vk::Result::eSuccess)
             throw std::runtime_error{"cached SPIR-V rejected by the driver"};
+        NativeHdr::Remember(created, program->info.pgm_hash, spv);
         return created;
     };
 

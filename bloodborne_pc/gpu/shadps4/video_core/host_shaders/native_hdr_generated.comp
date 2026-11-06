@@ -1,0 +1,37 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+// bbport: native HDR (vk_native_hdr.h): a generated frame's gain, from the two game frames around
+// it. Frame generation interpolates the picture but not the alpha that holds the gain. Each pixel
+// takes the gain of whichever frame it looks like, so a still pixel gets exactly the gain of the
+// game frames (no flicker between them) and the UI, copied from this frame, stays at no gain.
+#version 450
+#extension GL_EXT_samplerless_texture_functions : require
+
+layout (local_size_x = 8, local_size_y = 8) in;
+
+layout (binding = 0, rgba8) uniform image2D generated;
+layout (binding = 1) uniform texture2D current;              // the game frame after it
+layout (binding = 2, rgba8) uniform readonly image2D before; // the game frame before it
+
+layout (push_constant) uniform constants {
+    ivec2 size;
+    int has_before;
+} pc;
+
+float Difference(vec3 a, vec3 b) {
+    const vec3 d = abs(a - b);
+    return max(d.r, max(d.g, d.b));
+}
+
+void main() {
+    const ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
+    if (pixel.x >= pc.size.x || pixel.y >= pc.size.y) {
+        return;
+    }
+    const vec3 rgb = imageLoad(generated, pixel).rgb;
+    const vec4 now = texelFetch(current, pixel, 0);
+    const vec4 was = pc.has_before != 0 ? imageLoad(before, pixel) : now;
+    const float to_now = Difference(rgb, now.rgb), to_was = Difference(rgb, was.rgb);
+    // A bright pixel like neither frame (a highlight on its way between them) gets no search for its
+    // gain: spreading it nearby put most of a fast attack's gain on dark pixels, as a white bleed.
+    imageStore(generated, pixel, vec4(rgb, to_now <= to_was ? now.a : was.a));
+}

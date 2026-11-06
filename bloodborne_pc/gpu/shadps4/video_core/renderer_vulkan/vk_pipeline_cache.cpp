@@ -30,7 +30,9 @@
 #include "video_core/renderer_vulkan/motion_history.h"
 #include "video_core/renderer_vulkan/ui_composition.h"
 #include "video_core/renderer_vulkan/vk_draw_prep.h"
+#include "video_core/renderer_vulkan/native_hdr_gain.h"
 #include "video_core/renderer_vulkan/vk_instance.h"
+#include "video_core/renderer_vulkan/vk_native_hdr.h"
 #include "video_core/renderer_vulkan/vk_pipeline_serialization.h"
 #include "video_core/renderer_vulkan/vk_ray_tracing.h"
 #include "video_core/renderer_vulkan/vk_scheduler.h"
@@ -940,6 +942,25 @@ bool PipelineCache::RefreshGraphicsKey(PipelineSelection& sel) {
                               vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA;
         key.color_samples[mv] = 1;
     }
+    // bbport: native HDR: the game's tone mapper also writes its gain (vk_native_hdr.h).
+    constexpr u32 fragment = static_cast<u32>(Shader::SwStage::Fragment);
+    if (!sel.motion && key.mrt_mask == 1u && sel.infos[fragment] && sel.modules[fragment] &&
+        NativeHdrGain::IsToneMapper(sel.infos[fragment]->pgm_hash) && NativeHdr::Wanted()) {
+        const auto gain = NativeHdr::GainModule(instance.GetDevice(), sel.modules[fragment]);
+        if (gain) {
+            constexpr u32 slot = NativeHdrGain::Attachment;
+            sel.modules[fragment] = gain;
+            key.motion_vectors = NativeHdr::KeyFlag;
+            key.mrt_mask |= 1u << slot;
+            key.num_color_attachments = slot + 1;
+            auto& color_buffer = key.color_buffers[slot];
+            color_buffer.data_format = AmdGpu::DataFormat::Format16;
+            color_buffer.num_format = AmdGpu::NumberFormat::Float;
+            color_buffer.swizzle = AmdGpu::IdentityMapping;
+            key.write_masks[slot] = vk::ColorComponentFlagBits::eR;
+            key.color_samples[slot] = 1;
+        }
+    }
 
     // Force all color samples to match depth samples to avoid unsupported MSAA configuration
     if (color_samples != 0) {
@@ -1124,6 +1145,7 @@ vk::ShaderModule PipelineCache::CompileModule(Shader::Info& info, Shader::Runtim
     } else {
         module = CompileSPV(spv, instance.GetDevice());
     }
+    NativeHdr::Remember(module, info.pgm_hash, spv);
 
     RegisterShaderBinary(std::move(spv), info.pgm_hash, perm_idx);
 

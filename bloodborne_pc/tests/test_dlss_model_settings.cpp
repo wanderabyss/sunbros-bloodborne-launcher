@@ -169,6 +169,22 @@ int main() {
         Load();
         assert(settings.hdr_white_nits.load() == 200.0f && settings.hdr_peak_nits.load() == 0.0f &&
                std::abs(settings.hdr_highlight_boost.load() - 0.33f) < 1e-4f);
+        // Back at their defaults, keys already in the file stay: the launcher lets these win over
+        // its saved copy, which would otherwise switch Native HDR on again.
+        Write(path, "hdr_native=1\nhdr_native_color=0.50\nhdr_white_nits=800\nhdr_peak_nits=1500\n");
+        Load();
+        assert(settings.hdr_native.load());
+        settings.hdr_native = false;
+        settings.hdr_native_color = 0.25f;
+        settings.hdr_white_nits = HdrWhiteDefault;
+        settings.hdr_peak_nits = HdrPeakDefault;
+        Save();
+        assert(Count(path, "hdr_native") == 1 && Count(path, "hdr_native_color") == 1 &&
+               Count(path, "hdr_white_nits") == 1 && Count(path, "hdr_peak_nits") == 1);
+        Load();
+        assert(!settings.hdr_native.load() && settings.hdr_native_color.load() == 0.25f &&
+               settings.hdr_white_nits.load() == HdrWhiteDefault &&
+               settings.hdr_peak_nits.load() == HdrPeakDefault);
         Write(path, "hdr_white_nits=20\nhdr_peak_nits=99999\nhdr_highlight_boost=nan\n");
         Load();
         assert(settings.hdr_white_nits.load() == HdrWhiteMin &&

@@ -334,7 +334,11 @@ bool Presenter::RecreateFrame(Frame* frame, u32 width, u32 height, FrameRecreate
         .arrayLayers = 1,
         .samples = vk::SampleCountFlagBits::e1,
         .usage = vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eTransferDst |
-                 vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eSampled,
+                 vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eSampled |
+                 // bbport: native HDR writes the frame's alpha (NativeHdrCarry::CopyAlpha), and
+                 // the overlay can turn it on while playing.
+                 (format == FrameGenerator::ColorFormat ? vk::ImageUsageFlagBits::eStorage
+                                                        : vk::ImageUsageFlags{}),
     };
 
     const VmaAllocationCreateInfo alloc_info = {
@@ -628,6 +632,7 @@ Frame* Presenter::PrepareFrame(const Libraries::VideoOut::BufferAttributeGroup& 
     }
 
     Frame* frame = GetRenderFrame(false);
+    frame->native_hdr = rasterizer->GetUpscaler().TakeNativeHdrStamped();
 
     const auto frame_subresources = vk::ImageSubresourceRange{
         .aspectMask = vk::ImageAspectFlagBits::eColor,
@@ -765,6 +770,11 @@ Frame* Presenter::PrepareFrame(const Libraries::VideoOut::BufferAttributeGroup& 
     composition.hdr = 0;
     composition.sdr_on_hdr = 0;
     pp_pass.Render(cmdbuf, image_view, image_size, *frame, composition);
+    // bbport: native HDR: the gain from the picture's alpha, which the passes above leave at 1.
+    if (upscaled && frame->native_hdr && NativeHdr::Wanted()) {
+        native_hdr_carry.CopyAlpha(cmdbuf, draw_scheduler, display.image, view_info.format,
+                                   frame->image_view, frame->width, frame->height);
+    }
     if (profile && profile_resume) {
         profiler->Resume(profile_resume); // the segment before the upscale goes on
     }
@@ -851,6 +861,15 @@ Frame* Presenter::PrepareFrame(const Libraries::VideoOut::BufferAttributeGroup& 
                 vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eSampled,
             hudless, hudless_view, frame->width, frame->height,
             std::span<const FrameGenerator::Output>{outputs.data(), count});
+        if (NativeHdr::Wanted()) {
+            std::array<vk::ImageView, FrameGenerator::MaxGenerated> views{};
+            for (u32 i = 0; i < frame->generated_count; ++i) {
+                views[i] = frame->generated[i].view;
+            }
+            native_hdr_carry.Run(cmdbuf, draw_scheduler, frame->image, frame->image_view,
+                                 std::span<const vk::ImageView>{views.data(), frame->generated_count},
+                                 frame->width, frame->height, frame->native_hdr);
+        }
     }
     if (frame_dump) {
         // The presented image as the swapchain blit reads it (General after the pass), and
@@ -1578,11 +1597,20 @@ bool Presenter::PresentImage(Frame* frame, vk::Image image, bool last, u64 refle
                 bb.hdr_peak_nits.load(std::memory_order_relaxed),
                 bb.hdr_highlight_boost.load(std::memory_order_relaxed), window.SdrWhiteNits(),
                 window.PeakNits());
+            // Only with native HDR on: with it off the display gets the same signal as before.
+            if (hdr && NativeHdr::Wanted()) {
+                swapchain.SetHdrMetadata(levels.peak_nits);
+            }
             const HostPasses::PostProcessingPass::Settings output_settings{
                 .gamma = 1.0f, .hdr = hdr ? 1u : 0u, .srgb_input = 1,
                 .sdr_on_hdr = sdr_on_hdr ? 1u : 0u,
                 .white_nits = levels.white_nits, .peak_nits = levels.peak_nits,
                 .boost = levels.boost,
+                .native = !hdr || !NativeHdr::Wanted() ? 0u : frame->native_hdr ? 1u : 2u,
+                .native_color = bb.hdr_native_color.load(std::memory_order_relaxed),
+                .native_start = bb.hdr_native_start.load(std::memory_order_relaxed),
+                .native_end = bb.hdr_native_end.load(std::memory_order_relaxed),
+                .native_boost = bb.hdr_native_boost.load(std::memory_order_relaxed),
             };
             auto& pass = hdr ? hdr_present_pass : sdr_present_pass;
             pass.Render(cmdbuf, composition_view, extent, target, output_settings);
@@ -1627,9 +1655,10 @@ bool Presenter::PresentImage(Frame* frame, vk::Image image, bool last, u64 refle
         presented = swapchain.Present(reflex_id);
         present_ms = lap(swap_timing.present);
         Reflex::Get().OnPresentEnd(reflex_id);
-        if (!presented && window.GetWidth() != 0 && window.GetHeight() != 0) {
-            swapchain.Recreate(window.GetWidth(), window.GetHeight());
-        }
+    }
+    if (!presented && window.GetWidth() != 0 && window.GetHeight() != 0) {
+        std::scoped_lock recreate_lock{dlss_bridge_gate, Scheduler::submit_mutex};
+        swapchain.Recreate(window.GetWidth(), window.GetHeight());
     }
     if (presented) {
         ++presentation_counts.accepted_images;

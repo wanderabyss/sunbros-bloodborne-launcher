@@ -2,6 +2,8 @@
 keys it writes to bin\\ReShade.ini, and the neural runtime status (presence of the player's own
 nvngx_dlssnr.dll). Every file here is a placeholder in a temporary folder."""
 from pathlib import Path
+import json
+import os
 import sys
 import tempfile
 import unittest
@@ -119,6 +121,89 @@ class ApplyRenodxTests(unittest.TestCase):
                 ini = bin_dir / 'ReShade.ini'
                 self.assertEqual(ini.read_text(encoding='utf-8') if has_ini else None,
                                  self.INI if has_ini else None)
+
+
+class PaperWhiteScaleTests(unittest.TestCase):
+    TUNED = '[RenoDX.DLSS5]\nNeuralUplift=1\nNRPaperWhiteScale=1.35\n\n[SCREENSHOT]\nClearAlpha=1\n'
+    KIT = '[ADDON]\nDisabledAddons=\n\n[RenoDX.DLSS5]\nNRColorStrength=0.8\n\n[SCREENSHOT]\nClearAlpha=1\n'
+
+    def test_capture_records_it_and_keeps_the_line(self):
+        with tempfile.TemporaryDirectory() as folder:
+            bin_dir = make_bin(folder, reshade_ini=self.TUNED)
+            app = nr_app()
+            self.assertTrue(core.apply_renodx_nr(app, ON, bin_dir))
+            text = (bin_dir / 'ReShade.ini').read_text(encoding='utf-8')
+        self.assertEqual(app['renodx_paper_white_scale'], '1.35')
+        self.assertIn('NRPaperWhiteScale=1.35\n', text)
+
+    def test_the_file_wins_over_the_recorded_value(self):
+        with tempfile.TemporaryDirectory() as folder:
+            bin_dir = make_bin(folder, reshade_ini=self.TUNED)
+            app = nr_app(renodx_paper_white_scale='0.90')
+            core.apply_renodx_nr(app, ON, bin_dir)
+            text = (bin_dir / 'ReShade.ini').read_text(encoding='utf-8')
+        self.assertEqual(app['renodx_paper_white_scale'], '1.35')
+        self.assertNotIn('0.90', text)
+
+    def test_only_the_addons_section_counts(self):
+        with tempfile.TemporaryDirectory() as folder:
+            bin_dir = make_bin(folder, reshade_ini='[OTHER]\nNRPaperWhiteScale=9\n\n' + self.KIT)
+            app = nr_app()
+            core.apply_renodx_nr(app, ON, bin_dir)
+        self.assertEqual(app['renodx_paper_white_scale'], '')
+
+    def test_restored_into_a_kit_fresh_file_then_left_byte_for_byte(self):
+        with tempfile.TemporaryDirectory() as folder:
+            bin_dir = make_bin(folder, reshade_ini=self.KIT)
+            app = nr_app(renodx_paper_white_scale='1.35')
+            core.apply_renodx_nr(app, ON, bin_dir)
+            ini = bin_dir / 'ReShade.ini'
+            first = ini.read_bytes()
+            self.assertTrue(core.apply_renodx_nr(app, ON, bin_dir))
+            second = ini.read_bytes()
+            text = ini.read_text(encoding='utf-8')
+        self.assertEqual(first, second)
+        self.assertEqual(text, '[ADDON]\nDisabledAddons=\n\n[RenoDX.DLSS5]\nNRColorStrength=0.8\n'
+                               'NeuralUplift=1\nNRPaperWhiteScale=1.35\n\n[SCREENSHOT]\nClearAlpha=1\n')
+        self.assertEqual(app['renodx_paper_white_scale'], '1.35')
+
+    def test_restored_when_the_kit_file_has_no_section(self):
+        with tempfile.TemporaryDirectory() as folder:
+            bin_dir = make_bin(folder, reshade_ini='[GENERAL]\nNoDebugInfo=1\n')
+            core.apply_renodx_nr(nr_app(renodx_paper_white_scale='1.35'), ON, bin_dir)
+            text = (bin_dir / 'ReShade.ini').read_text(encoding='utf-8')
+        self.assertEqual(text, '[GENERAL]\nNoDebugInfo=1\n\n[RenoDX.DLSS5]\nNeuralUplift=1\nNRPaperWhiteScale=1.35\n')
+
+    def test_nothing_recorded_adds_no_key(self):
+        with tempfile.TemporaryDirectory() as folder:
+            bin_dir = make_bin(folder, reshade_ini=self.KIT)
+            core.apply_renodx_nr(nr_app(), ON, bin_dir)
+            self.assertNotIn('NRPaperWhiteScale', (bin_dir / 'ReShade.ini').read_text(encoding='utf-8'))
+
+    def test_not_an_offered_setting_so_it_is_never_removed(self):
+        self.assertNotIn(core.RENODX_PAPER_WHITE, {name for name, _options in core.NR_SETTINGS.values()})
+        self.assertNotIn(core.RENODX_PAPER_WHITE, core.renodx_nr_values(nr_app()))
+
+    def test_backend_saves_a_new_scale_and_a_fresh_folder_gets_it_back(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            old, new = root / 'old', root / 'new'
+            old.mkdir()
+            new.mkdir()
+            make_bin(old, reshade_ini=self.TUNED)
+            make_bin(new, reshade_ini=self.KIT)
+            settings = root / 'settings.json'
+            with mock.patch.object(core, 'CONFIG_DIR', root), mock.patch.object(core, 'CONFIG_FILE', settings), \
+                    mock.patch.object(core, 'DATA_DIR', root), \
+                    mock.patch.dict(os.environ, {'BB_CONFIG': str(root / 'bbport.ini')}), \
+                    mock.patch.dict(core.APP_DEFAULTS, {'check_updates': False, 'game_dir': str(root / 'missing')}), \
+                    mock.patch.object(core, 'load_all_saved_settings', return_value={}):
+                launcher = backend.LauncherBackend(route={'mode': 'direct'})
+                launcher.setValue('dlss5', 'on')
+                launcher._apply_neural_settings(old)
+                self.assertEqual(json.loads(settings.read_text(encoding='utf-8'))['renodx_paper_white_scale'], '1.35')
+                launcher._apply_neural_settings(new)
+            self.assertIn('NRPaperWhiteScale=1.35', (new / 'ReShade.ini').read_text(encoding='utf-8'))
 
 
 class ReshadeAppsTests(unittest.TestCase):

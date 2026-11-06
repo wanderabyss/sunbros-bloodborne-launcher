@@ -1,5 +1,6 @@
 # Changelog
 
+- [4.3.2 — Native HDR: real highlights from the game's own scene (experimental)](changelog-2026-11-06-4.3.2.md)
 - [4.3.1 — NG+7 hammer: a Stormforged Kirkhammer for an Arcane build](changelog-2026-11-06-4.3.1.md)
 - [4.3.0 — Spatial sound: the game's 7.1 mix reaches Dolby Atmos, Windows Sonic and DTS](changelog-2026-11-05-4.3.0.md)
 - [4.2.21 — NG+7 world: full NG+7 enemies from the first beast, every Caryll Rune](changelog-2026-11-06-4.2.21.md)

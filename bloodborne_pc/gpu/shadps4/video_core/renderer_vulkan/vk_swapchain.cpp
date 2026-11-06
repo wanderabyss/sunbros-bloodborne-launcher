@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <algorithm>
+#include <cstdio>
 #include <limits>
 #include "bbport_settings.h"
 #include "common/assert.h"
@@ -9,6 +10,8 @@
 #include "core/emulator_settings.h"
 #include "imgui/renderer/imgui_core.h"
 #include "sdl_window.h"
+#include "video_core/renderer_vulkan/hdr_metadata.h"
+#include "video_core/renderer_vulkan/vk_dlss.h"
 #include "video_core/renderer_vulkan/vk_instance.h"
 #include "video_core/renderer_vulkan/vk_reflex.h"
 #include "video_core/renderer_vulkan/vk_swapchain.h"
@@ -88,6 +91,7 @@ void Swapchain::Create(u32 width_, u32 height_) {
                vk::to_string(swapchain_result));
     swapchain = chain;
     last_present_id = 0;
+    sent_peak = 0.0f;
     Reflex::Get().OnSwapchainCreated(swapchain);
 
     SetupImages();
@@ -97,6 +101,7 @@ void Swapchain::Create(u32 width_, u32 height_) {
 void Swapchain::Recreate(u32 width_, u32 height_) {
     LOG_DEBUG(Render_Vulkan, "Recreate the swapchain: width={} height={} HDR={}", width_, height_,
               needs_hdr);
+    std::scoped_lock bridge_gate{dlss_bridge_gate}; // nothing of the DLSS 5 bridge's half-recorded
     Create(width_, height_);
 }
 
@@ -115,6 +120,39 @@ void Swapchain::SetHDR(bool hdr) {
     Recreate(width, height);
     ImGui::Core::OnSurfaceFormatChange(needs_hdr ? SURFACE_FORMAT_HDR.format
                                                  : surface_format.format);
+}
+
+void Swapchain::SetHdrMetadata(float peak) {
+    const bool extension = instance.IsHdrMetadataSupported();
+    if (needs_hdr && !extension && !hdr_metadata_logged) {
+        std::printf("HDR metadata: VK_EXT_hdr_metadata not available, none sent\n");
+        std::fflush(stdout);
+        hdr_metadata_logged = true;
+    }
+    const auto now = std::chrono::steady_clock::now();
+    if (!HdrMetadata::ShouldSend(needs_hdr, extension, peak, sent_peak,
+                                 std::chrono::duration<double>(now - sent_at).count())) {
+        return;
+    }
+    const auto values = HdrMetadata::ForPeak(peak);
+    const vk::HdrMetadataEXT metadata{
+        .displayPrimaryRed = {.x = values.red_x, .y = values.red_y},
+        .displayPrimaryGreen = {.x = values.green_x, .y = values.green_y},
+        .displayPrimaryBlue = {.x = values.blue_x, .y = values.blue_y},
+        .whitePoint = {.x = values.white_x, .y = values.white_y},
+        .maxLuminance = values.max_luminance,
+        .minLuminance = values.min_luminance,
+        .maxContentLightLevel = values.max_content_light_level,
+        .maxFrameAverageLightLevel = values.max_frame_average_light_level,
+    };
+    instance.GetDevice().setHdrMetadataEXT(swapchain, metadata);
+    sent_peak = peak;
+    sent_at = now;
+    if (!hdr_metadata_logged) {
+        std::printf("HDR metadata: sent, BT.2020 D65, max luminance and MaxCLL %.0f nits\n", peak);
+        std::fflush(stdout);
+        hdr_metadata_logged = true;
+    }
 }
 
 bool Swapchain::AcquireNextImage() {

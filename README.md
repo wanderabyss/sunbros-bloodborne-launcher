@@ -9,7 +9,7 @@
 </tr>
 </table>
 
-**v4.3.1:** The NG+7 hammer, a stronger Thunderwright's Kirkhammer from the Bath Messengers; a limit on NG+7 enemy attack; a Spatial sound toggle; and Thunder Chariot no longer whites out the screen. [Changelog](docs/changelog/changelog-2026-11-06-4.3.1.md)
+**v4.3.2:** Native HDR (experimental): a new toggle takes HDR highlights from the game's own scene before its tone mapping, with the HUD at paper white. [Changelog](docs/changelog/changelog-2026-11-06-4.3.2.md)
 
 <a href="docs/media/launcher-4.2.7-tour.mp4"><img src="docs/images/launcher-4.2.7-tour.webp" width="100%" alt="Tour of the 4.2.7 launcher: Home, Visuals presets with their ? tips and Save settings, Online, Co-op, Dossier, Workshop, Settings and the what's-new sheet"/></a>
 

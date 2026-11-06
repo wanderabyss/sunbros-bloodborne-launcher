@@ -20,6 +20,7 @@
 #include "video_core/renderer_vulkan/vk_frame_generation.h"
 #include "video_core/renderer_vulkan/vk_instance.h"
 #include "video_core/renderer_vulkan/vk_runtime.h"
+#include "video_core/renderer_vulkan/vk_native_hdr.h"
 #include "video_core/renderer_vulkan/vk_scheduler.h"
 #include "video_core/renderer_vulkan/vk_swapchain.h"
 #include "video_core/texture_cache/texture_cache.h"
@@ -46,6 +47,8 @@ struct Frame {
     u8 id{};
     /// bbport: Reflex frame id (vk_reflex.h; 0 while Reflex is off, and for blank frames).
     u64 reflex_id{};
+    /// bbport: native HDR: the alpha holds the gain (vk_native_hdr.h).
+    bool native_hdr{};
     FrameHandoff handoff{};
 
     /// bbport: frame generation: frames between the previous game frame and this one,
@@ -185,6 +188,8 @@ private:
     int last_output_color_mode{-1}; // presentation thread: log SDR/desktop-compensated/HDR changes
     AmdGpu::Liverpool* liverpool;
     Scheduler draw_scheduler;
+    /// bbport: native HDR: the generated frames' gain (vk_native_hdr.h).
+    NativeHdrCarry native_hdr_carry{instance};
     std::deque<u64> recent_frame_ticks; ///< bbport: BB_FRAMES_AHEAD bound (PrepareFrame)
     Scheduler present_scheduler;
     Scheduler flip_scheduler;

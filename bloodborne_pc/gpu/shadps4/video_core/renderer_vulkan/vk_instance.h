@@ -152,6 +152,11 @@ public:
         return ray_tracing;
     }
 
+    /// bbport: VK_EXT_hdr_metadata is enabled (Swapchain::SetHdrMetadata).
+    bool IsHdrMetadataSupported() const {
+        return hdr_metadata;
+    }
+
     /// Returns true if VK_EXT_attachment_feedback_loop_layout is supported
     bool IsAttachmentFeedbackLoopLayoutSupported() const {
         return attachment_feedback_loop;
@@ -603,6 +608,7 @@ private:
     bool device_fault{};            // bbport: VK_EXT_device_fault (DeviceLost)
     bool reflex{};                  // bbport: VK_NV_low_latency2 + VK_KHR_present_id (vk_reflex.h)
     bool unused_attachments{};      // bbport: VK_EXT_dynamic_rendering_unused_attachments
+    bool hdr_metadata{};            // bbport: VK_EXT_hdr_metadata (Swapchain::SetHdrMetadata)
     bool ray_tracing{};             // bbport: acceleration structures + ray query
     bool supports_memory_budget{};
     bool supports_block_texel_view{};

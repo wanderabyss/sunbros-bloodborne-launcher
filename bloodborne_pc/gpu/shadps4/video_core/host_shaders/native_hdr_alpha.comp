@@ -1,0 +1,24 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+// bbport: native HDR (vk_native_hdr.h): the gain from the game's finished picture into the frame
+// made from it. That frame's alpha would otherwise be 1: the presenter reads the picture with alpha
+// forced to 1, and FSR 1 writes 1. Sizes can differ (a smaller output resolution), so it's sampled.
+#version 450
+
+layout (local_size_x = 8, local_size_y = 8) in;
+
+layout (binding = 0) uniform sampler2D source;
+layout (binding = 1, rgba8) uniform image2D frame;
+
+layout (push_constant) uniform constants {
+    vec2 texel; // 1 / the frame's size
+} pc;
+
+void main() {
+    const ivec2 id = ivec2(gl_GlobalInvocationID.xy);
+    const ivec2 size = imageSize(frame);
+    if (id.x >= size.x || id.y >= size.y) {
+        return;
+    }
+    const float alpha = textureLod(source, (vec2(id) + 0.5) * pc.texel, 0.0).a;
+    imageStore(frame, id, vec4(imageLoad(frame, id).rgb, alpha));
+}

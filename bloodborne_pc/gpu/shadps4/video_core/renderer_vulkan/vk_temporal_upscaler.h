@@ -22,6 +22,7 @@
 #include "video_core/renderer_vulkan/vk_common.h"
 #include "video_core/renderer_vulkan/vk_dlss.h"
 #include "video_core/renderer_vulkan/vk_fsr4.h"
+#include "video_core/renderer_vulkan/vk_native_hdr.h"
 #include "video_core/texture_cache/image.h"
 
 struct FfxVkPortableUpscaleContext;
@@ -66,6 +67,18 @@ public:
     /// A full-screen pass into the scene color: after a snapshot, the reactive mask is taken
     /// before it (the fog composite rewrites every pixel).
     void OnSceneComposite();
+
+    /// bbport: native HDR (vk_native_hdr.h).
+    NativeHdr& NativeHdrPass() {
+        if (!native_hdr) {
+            native_hdr = std::make_unique<NativeHdr>(instance, scheduler);
+        }
+        return *native_hdr;
+    }
+    /// Whether the frame finished since the last call has the gain in its alpha.
+    bool TakeNativeHdrStamped() {
+        return std::exchange(native_hdr_stamped, false);
+    }
 
     /// Before a compute dispatch: the post-processing combine shader triggers the upscale.
     void OnDispatch(u64 cs_hash);
@@ -182,7 +195,7 @@ private:
     [[nodiscard]] bool UseDlss() const;
     /// Records DLSS into `cmdbuf`: `motion` (RG16F render pixels) and `output` (storage) in
     /// General. `hdr`: linear scene color input.
-    bool RecordDlss(vk::CommandBuffer cmdbuf, const Dlss::Resource& color,
+    bool RecordDlss(vk::CommandBuffer& cmdbuf, const Dlss::Resource& color,
                     const Dlss::Resource& depth, const Dlss::Resource& motion,
                     const Dlss::Resource& output, u32 w, u32 h, u32 ow, u32 oh, float frame_ms,
                     bool hdr);
@@ -279,6 +292,8 @@ private:
     bool resources_fsr4 = false;  ///< made for FSR 4 (no FSR 3 context)
     bool resources_taa = false;
     std::unique_ptr<Fsr4Upscaler> fsr4;
+    std::unique_ptr<NativeHdr> native_hdr;
+    bool native_hdr_stamped = false;
     bool fsr4_failed = false;
     bool dlss_failed = false;
     /// bbport_nvidia_gpu.h BbNvidiaGeneration of this GPU (dlss_model=auto).

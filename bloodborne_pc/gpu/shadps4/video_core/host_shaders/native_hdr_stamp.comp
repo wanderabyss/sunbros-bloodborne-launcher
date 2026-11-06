@@ -1,0 +1,29 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+// bbport: native HDR (vk_native_hdr.h): the tone mapper's gain into the finished frame's alpha, for
+// post_process.frag. Alpha 1 is no gain, which is what pixels the game's UI changed get.
+#version 450
+
+layout (local_size_x = 8, local_size_y = 8) in;
+
+layout (binding = 0) uniform sampler2D gain_image;
+layout (binding = 1, rgba8) uniform image2D frame;
+layout (binding = 2, rgba8) uniform readonly image2D before_ui;
+
+layout (push_constant) uniform constants {
+    vec2 scene_scale; // the scene's share of the gain image
+    vec2 texel;       // 1 / the frame's size
+} pc;
+
+void main() {
+    const ivec2 id = ivec2(gl_GlobalInvocationID.xy);
+    const ivec2 size = imageSize(frame);
+    if (id.x >= size.x || id.y >= size.y) {
+        return;
+    }
+    const vec2 uv = (vec2(id) + 0.5) * pc.texel * pc.scene_scale;
+    const float gain = clamp(textureLod(gain_image, uv, 0.0).r, 1.0, 256.0);
+    const vec3 rgb = imageLoad(frame, id).rgb;
+    const vec3 change = abs(rgb - imageLoad(before_ui, id).rgb);
+    const float ui = smoothstep(1.0 / 255.0, 4.0 / 255.0, max(max(change.r, change.g), change.b));
+    imageStore(frame, id, vec4(rgb, mix(1.0 - log2(gain) / 8.0, 1.0, ui)));
+}

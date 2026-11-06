@@ -470,6 +470,33 @@ bool Toggle(const char* label, bool* value) {
     return changed;
 }
 
+// bbport: native HDR's curve as post_process.frag computes it, for a highlight at the SDR level the
+// room is made for (0.75): gain in stops to nits on the display.
+float NativeCurveNits(float stops, float white, float peak, float start, float end, float boost) {
+    const auto pq = [](float light) {
+        const float p = std::pow(std::clamp(light, 0.0f, 1.0f), 2610.0f / 16384.0f);
+        return std::pow((3424.0f / 4096.0f + 2413.0f / 128.0f * p) / (1.0f + 2392.0f / 128.0f * p),
+                        2523.0f / 32.0f);
+    };
+    const auto linear = [](float signal) {
+        const float p = std::pow(std::clamp(signal, 0.0f, 1.0f), 32.0f / 2523.0f);
+        return std::pow(std::max(p - 3424.0f / 4096.0f, 0.0f) /
+                            (2413.0f / 128.0f - 2392.0f / 128.0f * p),
+                        16384.0f / 2610.0f);
+    };
+    const float room = std::clamp(peak / white / 0.75f, 1.0f, std::max(boost, 1.0f));
+    const float along = std::clamp((stops - start) / std::max(end - start, 0.1f), 0.0f, 1.0f);
+    const float gain = std::min(std::pow(2.0f, stops), 1.0f + (room - 1.0f) * along);
+    const float nits = 0.75f * gain * white;
+    const float e1 = pq(nits / 10000.0f), top = pq(peak / 10000.0f), knee = 1.5f * top - 0.5f;
+    if (e1 <= knee) {
+        return nits;
+    }
+    const float t = (e1 - knee) / (1.0f - knee), t2 = t * t, t3 = t2 * t;
+    return 10000.0f * linear((2.0f * t3 - 3.0f * t2 + 1.0f) * knee +
+                             (t3 - 2.0f * t2 + t) * (1.0f - knee) + (-2.0f * t3 + 3.0f * t2) * top);
+}
+
 void Slider(const char* label, std::atomic<float>& value, float lo, float hi) {
     RowLabel(label, ImGui::GetFrameHeight());
     float v = value;
@@ -960,12 +987,78 @@ void SettingsTab() {
         ImGui::EndCombo();
     }
     Hint("On: output and presets change without restarting, while game post-processing stays at 1080p. Off: the scene is patched to the preset resolution at startup. Auto enables the live path on capable discrete GPUs, except for outputs above 1080p with depth of field on (the live path blurs those scenes). Changes apply after restarting the game.");
+    // bbport: the HDR switches, then native HDR's curve, together as one panel.
+    Section("HDR");
     ImGui::BeginDisabled(!s.hdr_supported);
     bool hdr = s.hdr.load();
     if (Toggle("High Dynamic Range (HDR)", &hdr)) {
         Store(s.hdr, hdr, true);
     }
     Hint("Output in BT.2020 PQ (SMPTE ST 2084) with custom luminance tone-mapping for incandescent fire, lamps, and lightning. Requires an HDR display.");
+    bool native = s.hdr_native.load();
+    ImGui::BeginDisabled(!hdr);
+    if (Toggle("Native HDR", &native)) {
+        Store(s.hdr_native, native, true);
+    }
+    Hint("Highlights from the game's scene before its tone mapping, instead of expanded from the finished picture. Switching it on can pause a moment while a shader is prepared.");
+    ImGui::EndDisabled();
+    if (hdr) {
+        // bbport: what the HDR rows are set to, in bbport.ini as soon as a control is let go (not
+        // only when the menu closes) and in last_run.log, so a tuning session can be read back.
+        static std::array<float, 7> logged{};
+        const std::array<float, 7> now{float(hdr), float(native), s.hdr_white_nits.load(),
+                                       s.hdr_peak_nits.load(), s.hdr_native_boost.load(),
+                                       s.hdr_native_start.load(), s.hdr_native_end.load()};
+        static float logged_color = -1.0f;
+        if ((now != logged || logged_color != s.hdr_native_color.load()) && !ImGui::IsAnyItemActive()) {
+            if (logged_color >= 0.0f) {
+                std::printf("HDR settings: hdr %d, native %d, white %.0f, peak %.0f, boost limit %.2f, "
+                            "start %.2f, full at %.2f, color %.2f\n",
+                            int(now[0]), int(now[1]), now[2], now[3], now[4], now[5], now[6],
+                            s.hdr_native_color.load());
+                std::fflush(stdout);
+                BbSettings::Save();
+            }
+            logged = now;
+            logged_color = s.hdr_native_color.load();
+        }
+    }
+    if (hdr && native) {
+        // bbport: tuned while playing: all of these apply at the next frame.
+        const auto nits_row = [](const char* label, const char* id, std::atomic<float>& value, float lo,
+                                 float hi) {
+            float v = value;
+            RowLabel(label, ImGui::GetFrameHeight());
+            ImGui::SetNextItemWidth(-FLT_MIN);
+            if (ImGui::SliderFloat(id, &v, lo, hi, "%.0f nits")) {
+                Store(value, v, true);
+            }
+        };
+        nits_row("Paper white", "##hdr_white", s.hdr_white_nits, 80.0f, 800.0f);
+        nits_row("Peak brightness", "##hdr_peak", s.hdr_peak_nits, 400.0f, 4000.0f);
+        Slider("Highlight boost limit", s.hdr_native_boost, 1.0f, 8.0f);
+        Hint("The most a highlight rises over the SDR picture. Lower it if a flash bleeds white; raise it for brighter highlights, up to what the peak allows.");
+        Slider("Highlights start (stops of gain)", s.hdr_native_start, 0.0f, 6.0f);
+        Hint("Below this the picture stays as in SDR. Raise it if a flash bleeds white; lower it if highlights look dull.");
+        Slider("Full brightness at (stops of gain)", s.hdr_native_end, 1.0f, 8.0f);
+        Hint("Where highlights reach the peak. Lower is brighter and flatter; higher keeps more shape in a flash.");
+        Slider("Highlight color", s.hdr_native_color, 0.0f, 1.0f);
+        Hint("How much color comes back into bright lights. Too high turns lightning pure blue.");
+        const float white = s.hdr_white_nits.load() > 0.0f ? s.hdr_white_nits.load() : 120.0f;
+        const float peak = s.hdr_peak_nits.load() > 0.0f ? s.hdr_peak_nits.load() : 1000.0f;
+        const float start = s.hdr_native_start.load(), end = s.hdr_native_end.load();
+        const float boost = s.hdr_native_boost.load();
+        std::array<float, 65> curve{};
+        for (size_t i = 0; i < curve.size(); ++i) {
+            curve[i] = NativeCurveNits(float(i) / 8.0f, white, peak, start, end, boost);
+        }
+        char caption[96];
+        std::snprintf(caption, sizeof(caption), "%.0f nits at 0 stops, %.0f at 4, %.0f at 8",
+                      curve[0], curve[32], curve[64]);
+        ImGui::PlotLines("##native_hdr_curve", curve.data(), int(curve.size()), 0, caption, 0.0f,
+                         peak * 1.05f, ImVec2(-FLT_MIN, 110.0f));
+        Hint("Nits on the display for a highlight, against the tone mapper's gain from 0 to 8 stops. A flash's soft cloud sits near 1 to 2 stops, lightning arcs near 4 and above.");
+    }
     ImGui::EndDisabled();
     Section("Ray tracing");
     // Vulkan ray queries (vk_ray_tracing.h): one quality level, applied at the next frame;

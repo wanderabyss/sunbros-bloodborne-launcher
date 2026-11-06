@@ -1,5 +1,30 @@
 # Release Notes
 
+## [4.3.2+build110626.033852] — 2026-11-06
+### Native HDR: real highlights from the game's own scene (experimental)
+<!-- launcher:
+### Native HDR (experimental)
+
+- New toggle under Visuals, HDR: Native HDR takes highlights from the game's scene before its tone mapping, instead of expanding the finished picture.
+- The HUD stays at paper white. Highlight boost does not apply.
+- It works with frame generation and DLSS 5.
+- HDR paper white and peak set in the in-game menu now stay as set. The launcher shows them as custom values.
+-->
+
+HDR output used to expand the finished 8-bit picture, so it could only guess at highlights. The game's scene holds far more: values measured up to about 83 times the level the game calls 1.0, in Central Yharnam at 4K. Native HDR uses that range. It's off by default.
+
+- **Native HDR:** the game's tone mapper now also writes how much it compressed each pixel. The picture stays SDR through its grading, DLSS and the HUD, and presentation restores that range, rolling off toward your peak brightness setting.
+- **HUD:** pixels the game's UI changed get no extra brightness, so menus and bars stay at paper white.
+- **Cost:** about 0.5 ms more per game frame at 4K with DLSS 4.5 and frame generation on an RTX 4090 (about 94 against 99 game FPS). With DLSS 5 the difference is smaller than the noise between runs.
+- **Frame generation:** generated frames take their range from the game frames around them.
+- **Limits:** it only applies when upscaling above 1080p. Some tone mapper variants get no extra highlights. Bright edges may shimmer, which hasn't been judged on a physical display yet.
+- **DLSS 5, with Native HDR on or off:** resizing the game window no longer crashes the GPU. At 4K the game may still freeze or crash during lamp travel. See the changelog.
+- **Settings:** the launcher's toggle, `hdr_native=1` in `bbport.ini` or `BB_HDR_NATIVE=1`. The in-game menu switches it and tunes its curve while playing, and saves to `bbport.ini`.
+- **Tuned HDR values stay:** paper white and peak set in the in-game menu no longer jump to the nearest launcher option. The launcher shows them as, for example, "137 nits (custom)".
+- **DLSS 5:** the add-on's Scene Paper-White Scale comes back after a fresh DLSS 5 kit copy, once you've pressed Play with it set.
+
+[Changelog](docs/changelog/changelog-2026-11-06-4.3.2.md)
+
 ## [4.3.1+build110626.015931] — 2026-11-06
 ### NG+7 hammer: a Stormforged Kirkhammer for an Arcane build
 <!-- launcher:
@@ -12,7 +37,14 @@
 - A guard against a rare crash when starting a new game.
 -->
 
-It costs 10,000 Blood Echoes at +0, upgrades the normal way, needs Strength 16, Skill 10 and Arcane 25, and brings Hunter's Arsenal with it. [Changelog](docs/changelog/changelog-2026-11-06-4.3.1.md)
+- **NG+7 hammer:** in Built-in enhancements. The Stormforged Kirkhammer from the Bath Messengers is Thunderwright's Kirkhammer with 180 physical and 132 bolt at +10 and Arcane scaling 130. It costs 10,000 Blood Echoes at +0, upgrades the normal way, needs Strength 16, Skill 10 and Arcane 25, and brings Hunter's Arsenal with it. Thunderwright's Kirkhammer keeps its stats.
+- **NG+7 enemy attack limit:** in Built-in enhancements, off by default. With NG+7 world on, it holds enemy attack to 2x, 1.5x or 1.2x a first playthrough. Enemy health and echoes stay at NG+7.
+- **Spatial sound toggle:** under Game & Saves, Audio, on by default. Off plays stereo, or 5.1 or 7.1 directly on outputs that have them.
+- **Thunder Chariot:** the charged R2 no longer whites out the screen. Its attacks are unchanged.
+- **Crash guard:** skips a queued menu job whose menu has already been freed, a suspected cause of a rare crash when starting a new game. That crash was never reproduced, so the fix isn't proven.
+- **Launcher:** long setting labels now wrap instead of being cut off.
+
+[Changelog](docs/changelog/changelog-2026-11-06-4.3.1.md)
 
 ## [4.3.0+build110526.160556] — 2026-11-05
 ### Spatial sound: the game's 7.1 mix reaches Dolby Atmos, Windows Sonic and DTS

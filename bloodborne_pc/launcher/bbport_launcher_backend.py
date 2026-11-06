@@ -40,6 +40,10 @@ def row(key, label, kind='text', options=None, hint='', enabled=True):
             'hint': hint, 'enabled': enabled, 'disabled': not enabled}
 
 
+CUSTOM_CHOICE_TEXT = {'hdr_white_nits': '{} nits (custom)', 'hdr_peak_nits': '{} nits (custom)',
+                      'hdr_native_color': '{} (custom)'}
+
+
 # What the graphics rows do, and which ones cost GPU time (the presets change those).
 EFFECT_HINTS = {
     'effect_chromatic_aberration': 'Colour fringes at the screen edges. Look only.',
@@ -165,6 +169,15 @@ FIELDS = {
             'The monitor the game window and fullscreen go to, in the order the game log lists them.'),
         row('present_mode', 'Presentation mode', 'choice', core.PRESENT_MODES),
         row('hdr', 'HDR output', 'toggle'),
+        row('hdr_native', 'Native HDR (experimental)', 'toggle', None,
+            "HDR output only. Highlights come from the game's own scene before its tone mapping, "
+            'instead of being expanded from the finished picture, and the HUD stays at paper white. '
+            'Highlight boost does not apply. Needs upscaling above 1080p. The in-game menu can '
+            'switch it and tune its curve while you play.'),
+        row('hdr_native_color', 'Native HDR highlight color', 'choice', core.HDR_NATIVE_COLORS,
+            'Native HDR only. How much color comes back into bright lights such as lightning and fire. '
+            'Off keeps them as pale as the SDR picture; Full can look too saturated. Takes effect at '
+            'the next launch.'),
         row('hdr_white_nits', 'HDR paper white', 'choice', core.HDR_WHITES,
             "HDR output only. How bright the game's white is. Raise it if the game looks dimmer than "
             "the Windows desktop; Match Windows uses Windows' SDR content brightness slider. Applies "
@@ -270,7 +283,7 @@ SETTINGS_SECTIONS = {
         ('Resolution', ['output_res', 'present_upscale', 'present_rcas']),
         ('Window', ['fullscreen', 'fullscreen_mode', 'display', 'hud_position']),
         # HDR output and its levels: a section of their own (the levels only apply with HDR on).
-        ('HDR', ['hdr', 'hdr_white_nits', 'hdr_peak_nits', 'hdr_highlight_boost']),
+        ('HDR', ['hdr', 'hdr_native', 'hdr_native_color', 'hdr_white_nits', 'hdr_peak_nits', 'hdr_highlight_boost']),
         ('Frame rate', ['fps_mode', 'frame_cap', 'frames_ahead', 'present_mode']),
         # dlss5_detail / dlss5_tone are the built-in route's (vk_dlss5.h, none yet): kept in bbport.ini,
         # no row until that route exists.
@@ -341,6 +354,7 @@ SEARCH_TERMS = {
     'hdr_white_nits': 'hdr paper white brightness nits dim', 'hdr_peak_nits': 'hdr peak brightness nits display',
     'hdr_highlight_boost': 'hdr highlight boost bright expansion',
     'spatial_audio': 'spatial sound audio dolby atmos windows sonic dts 7.1 surround headphones',
+    'hdr_native': 'native hdr scene tone mapping highlights real experimental',
     'present_rcas': 'fsr 1 rcas sharpen sharpening sharpness upscale display',
     'dlss5': 'dlss 5 neural rendering renodx reshade dlss5-bridge nvngx_dlssnr on off enable',
     'nr_intensity': 'dlss 5 neural rendering nr intensity strength',
@@ -467,8 +481,9 @@ class LauncherBackend(QObject):
         self._first_start_summary = ''
         self.ini, self.ini_lines = core.load_ini()
         if isinstance(saved.get('ini_settings'), dict):
+            in_ini = core.HDR_INI_WINS & core.ini_keys(self.ini_lines)
             for k, v in saved['ini_settings'].items():
-                if k in core.INI_DEFAULTS:
+                if k in core.INI_DEFAULTS and k not in in_ini:
                     self.ini[k] = str(v)
             try:
                 core.save_ini({k: self.ini[k] for k in core.INI_DEFAULTS}, self.ini_lines)
@@ -1033,6 +1048,12 @@ class LauncherBackend(QObject):
         return f'Now: the game renders at {rw} × {rh} and upscales it to {w} × {h}.'
 
     def live_field(self, field):
+        if text := CUSTOM_CHOICE_TEXT.get(field['key']):
+            # A value tuned in the overlay between the row's stops: without its own option the row is blank.
+            value = str(self.ini.get(field['key'], ''))
+            if value and value not in {option['value'] for option in field['options']}:
+                return {**field, 'options': [*field['options'], {'value': value, 'text': text.format(value)}]}
+            return field
         if field['key'] == 'fps_mode' and (fps := core.dlss5_fps_warning(self.ini, self.app)):
             return {**field, 'hint': f"{field.get('hint', '')} {fps}".strip()}
         if field['key'] == 'preset':
@@ -1502,6 +1523,18 @@ class LauncherBackend(QObject):
         self._log = (self._log + value)[-350000:]
         self.logChanged.emit()
 
+    def _apply_neural_settings(self, bin_dir=None):
+        try:
+            scale = self.app.get('renodx_paper_white_scale')
+            if core.apply_renodx_nr(self.app, self.ini, bin_dir):
+                self._append_log('Launcher: DLSS 5 neural rendering settings written to bin\\ReShade.ini.\n')
+            if self.app.get('renodx_paper_white_scale') != scale:
+                self._write()  # play's own write came first; a newly seen scale must outlive this folder
+            if warning := core.dlss5_fps_warning(self.ini, self.app):
+                self._append_log(f'Launcher: {warning}\n')
+        except OSError as error:
+            self._set_notice(f'Could not write the DLSS 5 settings to ReShade.ini: {error}')
+
     @Slot()
     def play(self, env=None):
         if self._setup_running:
@@ -1531,13 +1564,7 @@ class LauncherBackend(QObject):
         self._write()
         self._log = ''
         self.logChanged.emit()
-        try:
-            if core.apply_renodx_nr(self.app, self.ini):
-                self._append_log('Launcher: DLSS 5 neural rendering settings written to bin\\ReShade.ini.\n')
-            if warning := core.dlss5_fps_warning(self.ini, self.app):
-                self._append_log(f'Launcher: {warning}\n')
-        except OSError as error:
-            self._set_notice(f'Could not write the DLSS 5 settings to ReShade.ini: {error}')
+        self._apply_neural_settings()
         if env is None:  # no BBSC this time: its co-op bells would be "?GoodsName?" (bbport_coop.KIT_TO_VANILLA)
             try:
                 if backup := coop.restore_vanilla_bells(self.app.get('user_dir') or core.DATA_DIR / 'user'):

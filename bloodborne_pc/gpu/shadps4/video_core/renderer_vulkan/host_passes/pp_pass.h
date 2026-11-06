@@ -23,6 +23,11 @@ public:
         float white_nits = 120.0f;
         float peak_nits = 1000.0f;
         float boost = 1.0f;
+        u32 native = 0; // bbport: native HDR: 0 off, 1 gain in alpha, 2 no gain (post_process.frag)
+        float native_color = 0.25f; // bbport: BbSettings hdr_native_color
+        float native_start = 2.0f;  // bbport: BbSettings hdr_native_start
+        float native_end = 4.55f;   // bbport: BbSettings hdr_native_end
+        float native_boost = 2.5f;  // bbport: BbSettings hdr_native_boost
     };
 
     void Create(vk::Device device, vk::Format surface_format);

@@ -146,6 +146,19 @@ void Set(Values& v, const std::string& key, const std::string& value) {
         v.rt_reflections = i != 0;
     } else if (key == "hdr") {
         v.hdr = i != 0;
+    } else if (key == "hdr_native") {
+        v.hdr_native = i != 0;
+    } else if (key == "hdr_native_start" || key == "hdr_native_end") {
+        const bool start = key == "hdr_native_start";
+        auto& stops = start ? v.hdr_native_start : v.hdr_native_end;
+        const float parsed = ParseNumber(value, stops.load());
+        stops = std::isnan(parsed) ? (start ? 2.0f : 4.55f) : Clamp(parsed, 0.0f, 8.0f);
+    } else if (key == "hdr_native_boost") {
+        const float boost = ParseNumber(value, v.hdr_native_boost.load());
+        v.hdr_native_boost = std::isnan(boost) ? 2.5f : Clamp(boost, 1.0f, 16.0f);
+    } else if (key == "hdr_native_color") {
+        const float color = ParseNumber(value, v.hdr_native_color.load());
+        v.hdr_native_color = std::isnan(color) ? 0.25f : Clamp(color, 0.0f, 1.0f);
     } else if (key == "hdr_white_nits" || key == "hdr_peak_nits") {
         // "display" (or 0) follows the display; anything else is nits, clamped.
         const bool white = key == "hdr_white_nits";
@@ -296,6 +309,11 @@ void Load() {
     v.hdr_white_nits = HdrWhiteDefault;
     v.hdr_peak_nits = HdrPeakDefault;
     v.hdr_highlight_boost = HdrBoostDefault;
+    v.hdr_native = false;
+    v.hdr_native_color = 0.25f;
+    v.hdr_native_start = 2.0f;
+    v.hdr_native_end = 4.55f;
+    v.hdr_native_boost = 2.5f;
     if (FILE* file = std::fopen(Path(), "r")) {
         char line[256];
         while (std::fgets(line, sizeof(line), file)) {
@@ -337,7 +355,10 @@ void Load() {
         {"BB_DLSS5_DETAIL", "dlss5_detail"},     {"BB_DLSS5_TONE", "dlss5_tone"},
         {"BB_PRESENT_UPSCALE", "present_upscale"}, {"BB_PRESENT_RCAS", "present_rcas"},
         {"BB_HDR_WHITE", "hdr_white_nits"},       {"BB_HDR_PEAK", "hdr_peak_nits"},
-        {"BB_HDR_BOOST", "hdr_highlight_boost"},
+        {"BB_HDR_BOOST", "hdr_highlight_boost"}, {"BB_HDR_NATIVE", "hdr_native"},
+        {"BB_HDR_NATIVE_COLOR", "hdr_native_color"},
+        {"BB_HDR_NATIVE_START", "hdr_native_start"}, {"BB_HDR_NATIVE_END", "hdr_native_end"},
+        {"BB_HDR_NATIVE_BOOST", "hdr_native_boost"},
         {"BB_RT_AO_QUALITY", "rt_ao_quality"},       {"BB_RT_SHADOW_QUALITY", "rt_shadow_quality"},
         {"BB_RT_AO_STRENGTH", "rt_ao_strength"},     {"BB_RAY_TRACING", "ray_tracing"},
         {"BB_RT_AO_COMBINE", "rt_ao_combine"},       {"BB_RT_AO_REACH", "rt_ao_reach"},
@@ -528,6 +549,7 @@ void Save() {
     const auto& v = Get();
     // Lines this function does not write (keys other tools own, such as pc_menu) are kept.
     std::vector<std::string> kept;
+    std::vector<std::string> present;
     if (FILE* old = std::fopen(Path(), "r")) {
         char line[256];
         while (std::fgets(line, sizeof(line), old)) {
@@ -536,6 +558,7 @@ void Save() {
             const auto eq = text.find('=');
             if (text.empty() || text[0] == '#' || eq == std::string::npos) continue;
             const std::string key = text.substr(0, eq);
+            present.push_back(key);
             bool ours = false;
             for (const char* name : {"upscaler", "preset", "sharpen", "sharpness", "jitter", "reactive",
                                      "object_motion", "reactive_scale", "reactive_threshold", "reactive_max",
@@ -554,7 +577,7 @@ void Save() {
                                      "rt_ao_reach", "rt_ao_full", "rt_ao_direct",
                                      "rt_shadow_replace", "rt_shadow_half", "rt_shadow_reach_custom",
                                      "rt_secondary_lights", "rt_reflections", "hdr",
-                                     "hdr_white_nits", "hdr_peak_nits", "hdr_highlight_boost",
+                                     "hdr_white_nits", "hdr_peak_nits", "hdr_highlight_boost", "hdr_native", "hdr_native_color", "hdr_native_start", "hdr_native_end", "hdr_native_boost",
                                      // Before the tiers: read by Load, dropped here.
                                      "ambient_occlusion", "shadows", "rt_ao_radius", "rt_ao_rays",
                                      "rt_shadow_reach",
@@ -622,12 +645,34 @@ void Save() {
     std::fprintf(file, "rt_secondary_lights=%d\n", int(v.rt_secondary_lights.load()));
     std::fprintf(file, "rt_reflections=%d\n", int(v.rt_reflections.load()));
     std::fprintf(file, "hdr=%d\n", int(v.hdr.load()));
-    // Written only when changed, so a file without them follows the defaults.
-    if (v.hdr_white_nits.load() != HdrWhiteDefault) {
+    // Written only when changed, so a file without them follows the defaults. Once in the file
+    // they stay: the launcher lets these four in bbport.ini win over its saved copy, so one
+    // dropped on going back to its default would return from that copy at its next start.
+    const auto in_file = [&present](const char* key) {
+        return std::find(present.begin(), present.end(), key) != present.end();
+    };
+    // With native HDR on, its whole curve is written, defaults too: the file shows what is in use.
+    const bool native = v.hdr_native.load();
+    if (native || v.hdr_white_nits.load() != HdrWhiteDefault || in_file("hdr_white_nits")) {
         std::fprintf(file, "hdr_white_nits=%.0f\n", v.hdr_white_nits.load());
     }
-    if (v.hdr_peak_nits.load() != HdrPeakDefault) {
+    if (native || v.hdr_peak_nits.load() != HdrPeakDefault || in_file("hdr_peak_nits")) {
         std::fprintf(file, "hdr_peak_nits=%.0f\n", v.hdr_peak_nits.load());
+    }
+    if (native || in_file("hdr_native")) {
+        std::fprintf(file, "hdr_native=%d\n", native ? 1 : 0);
+    }
+    if (native || v.hdr_native_start.load() != 2.0f) {
+        std::fprintf(file, "hdr_native_start=%.2f\n", v.hdr_native_start.load());
+    }
+    if (native || v.hdr_native_end.load() != 4.55f) {
+        std::fprintf(file, "hdr_native_end=%.2f\n", v.hdr_native_end.load());
+    }
+    if (native || v.hdr_native_boost.load() != 2.5f) {
+        std::fprintf(file, "hdr_native_boost=%.2f\n", v.hdr_native_boost.load());
+    }
+    if (native || v.hdr_native_color.load() != 0.25f || in_file("hdr_native_color")) {
+        std::fprintf(file, "hdr_native_color=%.2f\n", v.hdr_native_color.load());
     }
     if (v.hdr_highlight_boost.load() != HdrBoostDefault) {
         std::fprintf(file, "hdr_highlight_boost=%.2f\n", v.hdr_highlight_boost.load());

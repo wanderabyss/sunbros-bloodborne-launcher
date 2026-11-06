@@ -439,6 +439,7 @@ bool Instance::CreateDevice() {
              feature_chain.get<vk::PhysicalDevicePresentIdFeaturesKHR>().presentId &&
              add_extension(VK_NV_LOW_LATENCY_2_EXTENSION_NAME) &&
              add_extension(VK_KHR_PRESENT_ID_EXTENSION_NAME);
+    hdr_metadata = add_extension(VK_EXT_HDR_METADATA_EXTENSION_NAME); // bbport: hdr_metadata.h
     // bbport: a pipeline may name a color format for an attachment the render pass leaves null
     // (object motion's variant of G-buffer draws whose pass binds fewer targets): valid with
     // VK_EXT_dynamic_rendering_unused_attachments.

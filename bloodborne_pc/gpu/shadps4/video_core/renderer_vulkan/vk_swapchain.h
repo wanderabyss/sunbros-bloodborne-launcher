@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <chrono>
 #include <mutex>
 #include <vector>
 #include "common/types.h"
@@ -98,6 +99,10 @@ public:
         return needs_hdr;
     }
 
+    /// bbport: VK_EXT_hdr_metadata for the next present. Call every HDR frame with the resolved
+    /// peak: it sends only what changed, and again for each new swapchain (hdr_metadata.h).
+    void SetHdrMetadata(float peak);
+
     /// bbport: FIFO (V-Sync) waits for the display: frame generation caps the game for it.
     bool WaitsForDisplay() const {
         return present_mode == vk::PresentModeKHR::eFifo ||
@@ -144,6 +149,9 @@ private:
     u32 image_index = 0;
     u32 frame_index = 0;
     u64 last_present_id = 0; ///< bbport: present ids must increase for a swapchain
+    float sent_peak = 0.0f;  ///< bbport: the peak this swapchain's HDR metadata holds, 0 for none
+    std::chrono::steady_clock::time_point sent_at{};
+    bool hdr_metadata_logged = false;
     bool needs_recreation = true;
     bool needs_hdr = false;    // The game requested HDR swapchain
     bool supports_hdr = false; // SC supports HDR output

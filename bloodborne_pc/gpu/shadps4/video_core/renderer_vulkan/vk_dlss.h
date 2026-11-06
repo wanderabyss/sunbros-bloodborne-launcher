@@ -11,6 +11,7 @@
 
 #include <array>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -19,6 +20,18 @@
 #include "video_core/renderer_vulkan/vk_common.h"
 
 namespace Vulkan {
+
+/// bbport: the community DLSS 5 bridge (a ReShade add-on) copies the frame through images it
+/// imports onto the game's device, recorded into the game's open command buffer by its DLSS hook.
+/// It releases them when ReShade destroys the effect runtime, which ReShade does inside
+/// vkDestroySwapchainKHR. The hook runs on the GPU command thread and the swapchain is made again
+/// on the swap thread, so a resize could free those images under a recording in progress (a driver
+/// fault in the hook) or before the buffer was submitted (it waits 300 ms for the queue, gives up,
+/// frees them, and the buffer then writes to freed memory: GPU device lost). So the DLSS hook and
+/// the submission of what it recorded hold this, and so does making the swapchain again:
+/// Swapchain::Recreate's device wait then covers everything the bridge recorded. Taken before
+/// Scheduler::submit_mutex; recursive for a caller that needs both around Recreate.
+inline std::recursive_mutex dlss_bridge_gate;
 
 class Dlss {
 public:

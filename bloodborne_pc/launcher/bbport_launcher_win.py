@@ -278,7 +278,7 @@ ENHANCEMENTS = [
 ]
 # The most an enemy's attack may be in the NG+7 world, over a first playthrough (scripts/enhancements.py).
 NG7_ATTACK_CAPS = [('off', ("Game's own (up to about 3x)",)), ('2.0', ('2x',)), ('1.5', ('1.5x',)), ('1.2', ('1.2x',))]
-INI_FLAGS = {'sharpen', 'object_motion', 'show_fps', 'mouse_camera', 'mouse_invert_y', 'mouse_menu', 'mouse_hide_cursor', 'frame_gen_fit_display', 'rt_shadow_half', 'rt_secondary_lights', 'rt_reflections', 'hdr',
+INI_FLAGS = {'sharpen', 'object_motion', 'show_fps', 'mouse_camera', 'mouse_invert_y', 'mouse_menu', 'mouse_hide_cursor', 'frame_gen_fit_display', 'rt_shadow_half', 'rt_secondary_lights', 'rt_reflections', 'hdr', 'hdr_native',
              *(k for k, _t, _o in EFFECTS + EXTRAS + CHEATS + TWEAKS + ENHANCEMENTS + ATLAS)}
 INI_DEFAULTS = {'upscaler': 'dlss', 'preset': '2', 'sharpen': '1', 'sharpness': '0.50', 'ng7_attack_cap': 'off',
                 'object_motion': '1', 'show_fps': '1', 'output_res': '3840x2160', 'hud_position': '100', 'model_lod': '0', 'anisotropic_filtering': '16',
@@ -287,7 +287,7 @@ INI_DEFAULTS = {'upscaler': 'dlss', 'preset': '2', 'sharpen': '1', 'sharpness': 
                 'dlss_model': 'auto', 'reflex': 'off', 'dlss5': 'off', 'dlss5_detail': '0.50', 'dlss5_tone': '0.00',
                 'present_upscale': 'easu', 'present_rcas': '0',
                 'ray_tracing': 'off', 'rt_ao_quality': 'off', 'rt_shadow_quality': 'off', 'rt_ao_strength': '1.00', 'rt_shadow_half': '1', 'rt_secondary_lights': '0', 'rt_reflections': '0',
-                'hdr': '0', 'hdr_white_nits': '120', 'hdr_peak_nits': '1000', 'hdr_highlight_boost': '1.00',
+                'hdr': '0', 'hdr_native': '0', 'hdr_native_color': '0.25', 'hdr_white_nits': '120', 'hdr_peak_nits': '1000', 'hdr_highlight_boost': '1.00',
                 'atlas_npc_mode': 'all', 'effect_ssao': '1', 'effect_dynamic_shadows': '1', 'gamepad_deadzone': '0.24',
                 **{key: '1' if on else '0' for key, _t, on in EFFECTS + EXTRAS + CHEATS + TWEAKS + ENHANCEMENTS + ATLAS}}
 APP_DEFAULTS = {'ui_language': '', 'ui_scale': 'auto', 'last_seen_version': '', 'game_dir': str(PORT_DIR.parent / 'CUSA03173'), 'user_dir': '', 'dlc_dir': '',
@@ -305,6 +305,8 @@ APP_DEFAULTS = {'ui_language': '', 'ui_scale': 'auto', 'last_seen_version': '', 
                 'nr_style': 'addon', 'nr_intensity': 'addon', 'nr_local_structure': 'addon',
                 'nr_local_tone': 'addon', 'nr_skin_structure': 'addon', 'nr_auto_mask': 'addon',
                 'nr_ui_correction': 'addon',
+                # ReShade.ini's NRPaperWhiteScale as last seen (apply_renodx_nr), for a fresh kit copy.
+                'renodx_paper_white_scale': '',
                 # "My settings" (MY_SETTINGS_INI / MY_SETTINGS_APP): the player's saved Visuals set.
                 'my_settings': {},
                 'check_updates': True, 'download_updates': False, 'online': False, 'online_server': 'srv.shadps4.net:31313',
@@ -388,6 +390,8 @@ NEURAL_RUNTIME = 'nvngx_dlssnr.dll'
 RENODX_ADDON = 'renodx-dlss5.addon64'
 DLSS5_BRIDGE_ADDON = 'dlss5-bridge.addon64'
 RENODX_SECTION = 'RenoDX.DLSS5'
+# The add-on's own HDR setting, tuned in its panel; no launcher row.
+RENODX_PAPER_WHITE = 'NRPaperWhiteScale'
 NR_ADDON_DEFAULT = ('addon', ("Add-on default",))
 NR_SWITCH = [NR_ADDON_DEFAULT, ('1', ('On',)), ('0', ('Off',))]
 # Up to 2.00: the add-on's own sliders take values above 1 (NR intensity 1.25 applied in game, and
@@ -491,11 +495,27 @@ def renodx_nr_values(app):
     return values
 
 
+def renodx_section_value(lines, name):
+    """The value of a key in [RenoDX.DLSS5], '' when it isn't there."""
+    section = None
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith('[') and stripped.endswith(']'):
+            section = stripped[1:-1]
+        elif section == RENODX_SECTION and '=' in line:
+            key, value = line.split('=', 1)
+            if key.strip() == name:
+                return value.strip()
+    return ''
+
+
 def apply_renodx_nr(app, ini_values, bin_dir=None):
     """Writes neural rendering on and the nr_* settings to bin\\ReShade.ini's [RenoDX.DLSS5]
     before a start. Only with DLSS 5 on (bbport.ini dlss5) and both renodx-dlss5 and
     ReShade.ini present: otherwise the file is left alone (run.py keeps ReShade off anyway).
-    Other sections, keys and lines are kept as they were. Returns True when it wrote."""
+    Other sections, keys and lines are kept as they were. NRPaperWhiteScale is recorded in app
+    when the file has it and written back when a fresh kit copy doesn't (the caller saves app).
+    Returns True when it wrote."""
     bin_dir = Path(bin_dir or PORT_DIR / 'bin')
     ini = bin_dir / 'ReShade.ini'
     if (ini_values.get('dlss5') != 'on' or not (bin_dir / RENODX_ADDON).is_file()
@@ -507,6 +527,10 @@ def apply_renodx_nr(app, ini_values, bin_dir=None):
         return False
     wanted = renodx_nr_values(app)
     lines, out, section, seen = text.splitlines(), [], None, set()
+    if scale := renodx_section_value(lines, RENODX_PAPER_WHITE):
+        app['renodx_paper_white_scale'] = scale
+    elif app.get('renodx_paper_white_scale'):
+        wanted[RENODX_PAPER_WHITE] = str(app['renodx_paper_white_scale'])
 
     def missing_keys():
         return [f'{k}={v}' for k, v in wanted.items() if v is not None and k not in seen]
@@ -539,6 +563,9 @@ def apply_renodx_nr(app, ini_values, bin_dir=None):
     if new != text:
         ini.write_text(new, encoding='utf-8')
     return True
+# How much of the color native HDR rebuilds in highlights (bbport.ini hdr_native_color).
+HDR_NATIVE_COLORS = (('0.00', ('Off', 'Выкл.')), ('0.25', ('Low', 'Низкий')), ('0.50', ('Medium', 'Средний')),
+                     ('1.00', ('Full', 'Полный')))
 # HDR output's brightness (bbport.ini hdr_white_nits / hdr_peak_nits / hdr_highlight_boost,
 # BB_HDR_WHITE / BB_HDR_PEAK / BB_HDR_BOOST; gpu/shim/bbport_settings.h HdrLevels). '0' takes the
 # display's own level (Windows' SDR content brightness, the display's peak). The defaults are the
@@ -548,6 +575,12 @@ HDR_WHITES = [('0', ("Match Windows' SDR content brightness",))] + [
 HDR_PEAKS = [('0', ('From the display',))] + [
     (str(n), (f'{n} nits' + (' (default)' if n == 1000 else ''),)) for n in (400, 600, 800, 1000, 1500, 2000, 4000)]
 HDR_BOOSTS = [('0.00', ('Off',)), ('0.33', ('Low',)), ('0.67', ('Medium',)), ('1.00', ('High (default)',))]
+# gpu/shim/bbport_settings.h HdrWhiteMin/Max, HdrPeakMin/Max.
+HDR_WHITE_LIMITS = (80, 800)
+HDR_PEAK_LIMITS = (400, 4000)
+# The in-game menu writes these to bbport.ini after the launcher's last write, so at launcher start
+# bbport.ini wins over the saved JSON when it has them.
+HDR_INI_WINS = {'hdr_white_nits', 'hdr_peak_nits', 'hdr_native', 'hdr_native_color'}
 # The presenter's scale to the display when the output resolution is below the display's
 # (bbport.ini present_upscale, BB_PRESENT_UPSCALE; gpu/shim/bbport_settings.h PresentUpscale).
 PRESENT_UPSCALES = [('easu', ('FSR 1 EASU (recommended)',)), ('linear', ('Bilinear (old)',))]
@@ -834,7 +867,7 @@ MY_SETTINGS_INI = ('upscaler', 'preset', 'dlss_model', 'output_res', 'object_mot
                    'effect_ssao', 'effect_dynamic_shadows', 'effect_ssr', 'anisotropic_filtering',
                    'ray_tracing', 'rt_ao_quality', 'rt_shadow_quality', 'rt_ao_strength', 'rt_shadow_half',
                    'frame_gen', 'frame_gen_multiplier', 'frame_gen_fit_display', 'reflex',
-                   'sharpen', 'sharpness', 'hdr', 'hdr_white_nits', 'hdr_peak_nits', 'hdr_highlight_boost',
+                   'sharpen', 'sharpness', 'hdr', 'hdr_native', 'hdr_native_color', 'hdr_white_nits', 'hdr_peak_nits', 'hdr_highlight_boost',
                    'present_upscale', 'present_rcas', 'dlss5', 'dlss5_detail', 'dlss5_tone')
 MY_SETTINGS_APP = ('fps_mode', 'frame_cap') + tuple(NR_SETTINGS)
 
@@ -1072,13 +1105,14 @@ def normalize_dlss5_look(values):
 
 
 def normalize_hdr_levels(values):
-    """hdr_* as their rows offer them: 'display' or 0 is '0' (the display's), any other number
-    snaps to the nearest offered value, and an unreadable one becomes the default."""
-    levels = {'display': '0'}
+    """hdr_white_nits / hdr_peak_nits as the game reads them (bbport_settings.cpp Set): 'display'
+    or 0 is '0' (the display's), any other number is clamped and whole, so a value tuned in the
+    overlay survives the launcher's next write. hdr_highlight_boost snaps to the nearest offered
+    value. An unreadable value becomes the default."""
     boosts = {'off': '0.00', 'low': '0.33', 'medium': '0.67', 'high': '1.00'}
-    for key, options in (('hdr_white_nits', HDR_WHITES), ('hdr_peak_nits', HDR_PEAKS),
-                         ('hdr_highlight_boost', HDR_BOOSTS)):
-        words = boosts if key == 'hdr_highlight_boost' else levels
+    for key, limits in (('hdr_white_nits', HDR_WHITE_LIMITS), ('hdr_peak_nits', HDR_PEAK_LIMITS),
+                        ('hdr_highlight_boost', None)):
+        words = boosts if limits is None else {'display': '0'}
         value = words.get(str(values.get(key, '')).strip().lower(), values.get(key))
         try:
             number = float(value)
@@ -1087,12 +1121,18 @@ def normalize_hdr_levels(values):
             continue
         if number != number:  # NaN
             values[key] = INI_DEFAULTS[key]
-            continue
-        offered = [v for v, _ in options if key == 'hdr_highlight_boost' or v != '0']
-        if key != 'hdr_highlight_boost' and number <= 0:
+        elif limits is None:
+            values[key] = min((v for v, _ in HDR_BOOSTS), key=lambda v: abs(float(v) - number))
+        elif number <= 0:
             values[key] = '0'
-            continue
-        values[key] = min(offered, key=lambda v: abs(float(v) - number))
+        else:
+            values[key] = f'{min(limits[1], max(limits[0], number)):.0f}'
+
+
+def ini_keys(lines):
+    """The keys bbport.ini's lines set."""
+    return {line.split('=', 1)[0].strip() for line in lines
+            if '=' in line and not line.lstrip().startswith('#')}
 
 
 def normalize_present_upscale(values):

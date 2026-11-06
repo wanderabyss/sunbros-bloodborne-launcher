@@ -1146,7 +1146,8 @@ void TemporalUpscaler::Run() {
         input_color_view = c.view;
         input_depth_view = d.view;
     }
-    const auto cmdbuf = scheduler.CommandBuffer();
+    // Not const: RecordDlss may submit it and start another (the DLSS 5 bridge, vk_dlss.h).
+    auto cmdbuf = scheduler.CommandBuffer();
 
     const auto own_barrier = [&](vk::Image image, vk::ImageLayout old_layout,
                                  vk::PipelineStageFlags2 src_stage, vk::AccessFlags2 src_access,
@@ -1851,6 +1852,9 @@ void TemporalUpscaler::RunScaled() {
         return;
     }
     EnsureUiResources(ow, oh, color.info.pixel_format, depth.info.pixel_format);
+    if (native_hdr && NativeHdr::Wanted()) {
+        native_hdr->EnsureSnapshot(ow, oh);
+    }
     PrepareUiDepth(camera_motion.Depth());
     const auto depth_format = depth.info.pixel_format;
     // Views kept across frames: FSR 4 registers images by view in a registry of eight.
@@ -1880,7 +1884,8 @@ void TemporalUpscaler::RunScaled() {
     }
 
     scheduler.EndRendering();
-    const auto cmdbuf = scheduler.CommandBuffer();
+    // Not const: RecordDlss may submit it and start another (the DLSS 5 bridge, vk_dlss.h).
+    auto cmdbuf = scheduler.CommandBuffer();
     const auto barrier = [&](vk::Image image, vk::ImageAspectFlags aspect,
                              vk::ImageLayout old_layout, vk::PipelineStageFlags2 src_stage,
                              vk::AccessFlags2 src_access, vk::ImageLayout new_layout,
@@ -2077,6 +2082,10 @@ void TemporalUpscaler::RunScaled() {
                         vk::ImageLayout::eGeneral, vk::PipelineStageFlagBits2::eBlit,
                         vk::AccessFlagBits2::eTransferWrite, vk::ImageLayout::eGeneral,
                         vk::PipelineStageFlagBits2::eColorAttachmentOutput, color_access);
+            }
+            // bbport: native HDR: the picture before the game's UI (RedirectSampled stamps it).
+            if (native_hdr && NativeHdr::Wanted()) {
+                native_hdr->Snapshot(cmdbuf, vk::Image(ui_image), w, h);
             }
             // bbport: the ray tracing debug views (menu), over the scene before the game's UI.
             if (auto* effects = RtEffects::Get()) {
@@ -2303,6 +2312,10 @@ bool TemporalUpscaler::RedirectSampled(VideoCore::ImageId image,
     if (!ui_read_barrier) {
         ui_read_barrier = true;
         scheduler.EndRendering();
+        // bbport: native HDR: the UI is finished and the game's last pass is about to read it.
+        if (native_hdr && NativeHdr::Wanted()) {
+            native_hdr_stamped = native_hdr->Stamp(UiStorageView());
+        }
         const vk::ImageMemoryBarrier2 b{
             .srcStageMask = vk::PipelineStageFlagBits2::eColorAttachmentOutput,
             .srcAccessMask = vk::AccessFlagBits2::eColorAttachmentWrite,
@@ -2423,7 +2436,7 @@ bool TemporalUpscaler::UseDlss() const {
            !dlss_failed;
 }
 
-bool TemporalUpscaler::RecordDlss(vk::CommandBuffer cmdbuf, const Dlss::Resource& color,
+bool TemporalUpscaler::RecordDlss(vk::CommandBuffer& cmdbuf, const Dlss::Resource& color,
                                   const Dlss::Resource& depth, const Dlss::Resource& motion,
                                   const Dlss::Resource& output, u32 w, u32 h, u32 ow, u32 oh,
                                   float frame_ms, bool hdr) {
@@ -2438,6 +2451,11 @@ bool TemporalUpscaler::RecordDlss(vk::CommandBuffer cmdbuf, const Dlss::Resource
                                 ? BbDlssAutoPreset(nvidia_generation, quality)
                                 : BbSettings::DlssModelPresets[model];
     const Dlss::FeatureDesc desc{w, h, ow, oh, quality, hdr, preset};
+    // The community DLSS 5 bridge: from its hook to the queue, no swapchain change (vk_dlss.h).
+    std::unique_lock<std::recursive_mutex> bridge_gate;
+    if (settings.dlss5_backend.load(std::memory_order_relaxed) == BbSettings::Dlss5Bridge) {
+        bridge_gate = std::unique_lock{dlss_bridge_gate};
+    }
     bool ok = true;
     if (!dlss->HasFeature(desc)) {
         // The previous feature may still be in use by submitted work; `cmdbuf` stays open.
@@ -2468,6 +2486,11 @@ bool TemporalUpscaler::RecordDlss(vk::CommandBuffer cmdbuf, const Dlss::Resource
             .frame_ms = frame_ms,
             .sharpness = 0.0f,
         });
+    }
+    if (bridge_gate.owns_lock()) {
+        scheduler.Flush();
+        cmdbuf = scheduler.CommandBuffer();
+        bridge_gate.unlock();
     }
     if (!ok) {
         // Until the game restarts; the setting stays DLSS (the menu shows why).

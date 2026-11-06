@@ -329,6 +329,15 @@ struct Values {
     std::atomic<float> hdr_white_nits{HdrWhiteDefault};
     std::atomic<float> hdr_peak_nits{HdrPeakDefault};
     std::atomic<float> hdr_highlight_boost{HdrBoostDefault};
+    /// Native HDR from the scene before the game's tone mapping (vk_native_hdr.h). On restart.
+    std::atomic<bool> hdr_native{false};
+    /// How much of the color native HDR rebuilds in highlights, 0..1 (post_process.frag).
+    std::atomic<float> hdr_native_color{0.25f};
+    /// Native HDR's curve, gain in stops: where highlights start, and where they reach the peak.
+    std::atomic<float> hdr_native_start{2.0f};
+    std::atomic<float> hdr_native_end{4.55f};
+    /// The most native HDR raises a highlight over the SDR picture.
+    std::atomic<float> hdr_native_boost{2.5f};
     /// Live resolution and preset changes (run.sh): 0 off by default (startup patch, fastest
     /// on the Steam Deck and older GPUs), -1 auto (strong discrete GPUs), 1 on. On restart.
     std::atomic<int> live_resolution{0};

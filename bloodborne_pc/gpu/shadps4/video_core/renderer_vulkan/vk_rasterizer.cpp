@@ -1009,7 +1009,7 @@ void Rasterizer::DrawRecord(const GraphicsPipeline* pipeline, const PreparedDraw
         scene_targets->debug = scene_debug_frame;
     }
     bind_prepared = used_prepared;
-    motion_draw = pipeline->GetGraphicsKey().motion_vectors;
+    motion_draw = pipeline->GetGraphicsKey().motion_vectors == 1;
     motion_geometry = 0;
 
     PrepareRenderState(pipeline);
@@ -3244,8 +3244,10 @@ RenderState Rasterizer::BeginRenderingFull(const GraphicsPipeline* pipeline) {
         FrameCapture::BeginPass(colors.data(), state.num_color_attachments, depth);
     }
     // bbport: object motion vector attachment of G-buffer pipelines.
-    if (key.motion_vectors) {
+    if (key.motion_vectors == 1) {
         object_motion->Attach(state, state.width, state.height);
+    } else if (key.motion_vectors == NativeHdr::KeyFlag) {
+        upscaler->NativeHdrPass().Attach(state);
     }
     return state;
 }
@@ -3716,7 +3718,7 @@ void Rasterizer::UpdateColorBlendingState(const GraphicsPipeline* pipeline) cons
     auto& dynamic_state = scheduler.GetDynamicState();
     dynamic_state.SetBlendConstants(regs.blend_constants);
     const auto& key = pipeline->GetGraphicsKey();
-    if (motion_writes_off && key.motion_vectors) {
+    if (motion_writes_off && key.motion_vectors == 1) {
         auto masks = key.write_masks;
         masks[Shader::MotionVectors::Output] = {};
         dynamic_state.SetColorWriteMasks(masks);
