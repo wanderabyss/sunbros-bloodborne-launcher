@@ -2,7 +2,7 @@
 
 [![Latest release](https://img.shields.io/github/v/release/wanderabyss/sunbros-bloodborne-launcher?label=release)](https://github.com/wanderabyss/sunbros-bloodborne-launcher/releases/latest) [![Downloads](https://img.shields.io/github/downloads/wanderabyss/sunbros-bloodborne-launcher/total)](https://github.com/wanderabyss/sunbros-bloodborne-launcher/releases) [![License: GPL-3.0](https://img.shields.io/github/license/wanderabyss/sunbros-bloodborne-launcher)](LICENSE) ![Windows 10 and 11](https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-blue)
 
-**A Windows launcher that sets up and runs your own copy of Bloodborne natively on your PC, with no PS4 needed to play.**
+**A Windows launcher that sets up and runs Bloodborne natively on your PC. You need your own copy of the PS4 game, but no PS4 to play.**
 
 Extract it, point it at your game dump, and press Play. The launcher handles the install, updates, saves and settings.
 
