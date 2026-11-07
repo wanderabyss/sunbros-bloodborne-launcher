@@ -57,10 +57,9 @@ You don't need an NVIDIA card: DLSS needs a GeForce RTX, and FSR works on other 
 - **Your saves are protected:** automatic backups after every session, with restore and rollback.
 
 **Our own mods, all optional**
-- **Sojin Chikage:** a twin-blade Chikage, from the Bath Messengers.
-- **Thunderwright's Kirkhammer:** a Kirkhammer that sends lightning along the ground with every blow.
+- **New weapons:** the Sojin Chikage, a twin-blade Chikage, and Thunderwright's Kirkhammer, which sends lightning along the ground with every hammer blow.
+- **NG+7 weapons:** a separate set scaled for NG+7: the Stormforged Kirkhammer (Arcane) and the Bloodsworn Sojin Chikage (Bloodtinge), with stronger stats.
 - **NG+7 world:** full NG+7 enemies from the first beast, with every Caryll Rune. Your save keeps its real cycle.
-- **NG+7 weapons:** the Stormforged Kirkhammer and Bloodsworn Sojin Chikage, stronger versions for that world.
 
 **Make it look better**
 - **Sharper at any resolution:** DLSS 4.5 or FSR 4.1.1, with frame generation.
