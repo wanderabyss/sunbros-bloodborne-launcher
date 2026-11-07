@@ -1,31 +1,53 @@
-# SunBro's Edition: Bloodborne PC Launcher
+# SunBro's Edition: Play Bloodborne on PC
 
 [![Latest release](https://img.shields.io/github/v/release/wanderabyss/sunbros-bloodborne-launcher?label=release)](https://github.com/wanderabyss/sunbros-bloodborne-launcher/releases/latest) [![Downloads](https://img.shields.io/github/downloads/wanderabyss/sunbros-bloodborne-launcher/total)](https://github.com/wanderabyss/sunbros-bloodborne-launcher/releases) [![License: GPL-3.0](https://img.shields.io/github/license/wanderabyss/sunbros-bloodborne-launcher)](LICENSE) ![Windows 10 and 11](https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-blue)
 
-<table>
-<tr>
-<td width="200" valign="middle"><img src="docs/images/sunbros-logo.png" width="180" alt="SunBro's Edition logo"/></td>
-<td valign="middle">Custom Windows build based on Jgamrot's Bloodborne PC port 2.1 and BBSC 0.0.2, with a Qt Quick launcher, DLSS (and DLSS 5 neural rendering through the community route), FSR 3.1 / 4.1.1, frame generation, HDR10, spatial sound and Vulkan ray tracing.</td>
-</tr>
-</table>
+**A Windows launcher that sets up and runs your own copy of Bloodborne natively on your PC, with no PS4 needed to play.**
 
-**v4.4.1:** Maintenance on top of 4.4.0, which made Play start the game in seconds. The launcher no longer shows old copies from save backup folders as your characters. [Changelog](docs/changelog/changelog-2026-11-06-4.4.1.md)
+Extract it, point it at your game dump, and press Play. The launcher handles the install, updates, saves and settings.
+
+### [⬇ Download the latest version for Windows (363 MB)](https://github.com/wanderabyss/sunbros-bloodborne-launcher/releases/latest)
+
+Free and open source. **The game is not included:** you need your own dump of Bloodborne (CUSA03173). Not affiliated with Sony Interactive Entertainment or FromSoftware.
 
 <a href="docs/media/launcher-4.4.1-tour.mp4"><img src="docs/images/launcher-4.4.1-tour.webp" width="100%" alt="Tour of the 4.4.1 launcher: Home, Visuals, Ray tracing, Online, Co-op, Dossier, Workshop, Settings and the what's-new sheet"/></a>
 
 *The 4.4.1 launcher: Home, Visuals, Ray tracing, Online, Co-op, Dossier, Workshop, Settings and the what's-new sheet. [Watch the video (MP4, 3840 × 2160, 30 FPS)](docs/media/launcher-4.4.1-tour.mp4). Rendered from the live launcher at 4K with an example hunter; page changes are crossfaded in the video.*
 
-## Highlights
+## Get playing in 3 steps
 
-- **DLSS 4.5, DLSS 5 and FSR 4.1.1:** model selection, frame generation, and DLSS 5 neural rendering through the community route with your own add-ons.
-- **Spatial sound:** the game's real 7.1 mix reaches Dolby Atmos, Windows Sonic and DTS channel by channel, or a 5.1 / 7.1 output directly.
-- **HDR10:** 10-bit BT.2020 / PQ output with paper white up to 800 nits, peak up to 4000 nits and highlight boost.
-- **Ray tracing:** ambient occlusion and moon shadows, with quality presets.
-- **NG+7 world:** one switch for full NG+7 enemies from the first beast and every Caryll Rune. Your save keeps its real cycle.
-- **Hunter's Arsenal and lamps:** Sojin Chikage and Thunderwright's Kirkhammer, plus Level Up and Storage at every lamp.
-- **Hunter's Atlas:** maps, your position on them and opt-in lamp travel.
-- **Seamless co-op and The Hunter's Dream online:** private or public, with BBSC 0.0.2.
-- **Save backups:** manual and automatic, with restore and rollback.
+1. **Download and extract** the zip to a normal folder, then open **Bloodborne.exe**.
+2. **Choose your game** in the setup wizard: install from your own ZIP or PKG dump (allow about 70 GB free for a 30 GB archive), or pick a folder you already have.
+3. **Press Play.** The first start prepares the game's files and shaders, so it takes a few minutes. Later starts are quick.
+
+[Full install guide](bloodborne_pc/README.md#first-time-setup)
+
+## What you need
+
+| | |
+|---|---|
+| **System** | Windows 10 (1903 or later) or Windows 11, 64-bit |
+| **Graphics** | Any card with Vulkan 1.3 |
+| **Processor** | Intel Core 4th generation (2013) or newer, or any AMD Ryzen |
+| **Memory** | About 6 GB available, 10 GB for 1440p or 4K |
+| **Game** | Your own dump of Bloodborne, version 1.09 |
+
+You don't need an NVIDIA card: DLSS needs a GeForce RTX, and FSR works on other cards.
+
+## What you get
+
+**Play it your way**
+- **Higher frame rates:** 60 or 120 FPS, instead of the original 30.
+- **Seamless co-op and online play:** play the whole game with friends, or use The Hunter's Dream for messages, bloodstains, summons and invasions.
+- **Your saves are protected:** automatic backups after every session, with restore and rollback.
+- **A map of Yharnam:** Hunter's Atlas shows maps and your position, with optional lamp travel.
+- **New ways to play:** Level Up and Storage at every lamp, new weapons, and an optional NG+7 world from the first beast.
+
+**Make it look and sound better**
+- **Sharper at any resolution:** DLSS 4.5 or FSR 4.1.1, with frame generation.
+- **HDR and ray tracing:** HDR10 output, with ray-traced shadows and ambient occlusion.
+- **Surround sound:** the game's real 7.1 mix, through Dolby Atmos, Windows Sonic or DTS.
+- **DLSS 5 (optional):** neural rendering through the community route, with your own add-ons.
 
 ## Gameplay: DLSS 4.5 vs DLSS 5
 
@@ -82,15 +104,11 @@
 
 Detailed capabilities and limits: [Feature catalog](features.md). A target FPS setting is not a sustained-performance guarantee.
 
-## Getting started
-
-1. Extract the complete distribution and open **Bloodborne.exe**.
-2. Select your own decrypted game dump and save location in the launcher; game assets are not included.
-3. Choose a hunt mode and graphics settings, save them, then launch.
-
 For HDR, enable Windows HDR on the selected display, then **Visuals → Display & frame rate → HDR output** (paper white, peak brightness and highlight boost are just below it). Frame generation is configured in **Visuals → Frame generation**.
 
 ## Documentation
+
+**v4.4.1:** Maintenance on top of 4.4.0, which made Play start the game in seconds. The launcher no longer shows old copies from save backup folders as your characters. [Changelog](docs/changelog/changelog-2026-11-06-4.4.1.md)
 
 | Guide | Contents |
 | --- | --- |
