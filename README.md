@@ -17,7 +17,7 @@ Built on [Jgamrot's Bloodborne PC port](https://github.com/Jgamrot/bloodborne_pc
 </tr>
 </table>
 
-### [⬇ Download the latest version for Windows (363 MB)](https://github.com/wanderabyss/sunbros-bloodborne-launcher/releases/latest)
+### [⬇ Download the latest version for Windows](https://github.com/wanderabyss/sunbros-bloodborne-launcher/releases/latest)
 
 Free and open source. **The game is not included:** you need your own dump of Bloodborne (CUSA03173). Not affiliated with Sony Interactive Entertainment or FromSoftware.
 
