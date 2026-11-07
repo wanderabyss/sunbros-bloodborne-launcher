@@ -13,7 +13,7 @@
 
 <a href="docs/media/launcher-4.4.1-tour.mp4"><img src="docs/images/launcher-4.4.1-tour.webp" width="100%" alt="Tour of the 4.4.1 launcher: Home, Visuals, Ray tracing, Online, Co-op, Dossier, Workshop, Settings and the what's-new sheet"/></a>
 
-*The 4.4.1 launcher: Home, Visuals, Ray tracing, Online, Co-op, Dossier, Workshop, Settings and the what's-new sheet. [Watch the video (MP4, 1476 × 950, 30 FPS)](docs/media/launcher-4.4.1-tour.mp4). Rendered from the live launcher at its opening size with an example hunter; page changes are crossfaded in the video.*
+*The 4.4.1 launcher: Home, Visuals, Ray tracing, Online, Co-op, Dossier, Workshop, Settings and the what's-new sheet. [Watch the video (MP4, 3840 × 2160, 30 FPS)](docs/media/launcher-4.4.1-tour.mp4). Rendered from the live launcher at 4K with an example hunter; page changes are crossfaded in the video.*
 
 ## Highlights
 
