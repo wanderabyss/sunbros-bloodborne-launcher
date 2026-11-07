@@ -11,9 +11,9 @@
 
 **v4.4.1:** Maintenance on top of 4.4.0, which made Play start the game in seconds. The launcher no longer shows old copies from save backup folders as your characters. [Changelog](docs/changelog/changelog-2026-11-06-4.4.1.md)
 
-<a href="docs/media/launcher-4.2.7-tour.mp4"><img src="docs/images/launcher-4.2.7-tour.webp" width="100%" alt="Tour of the 4.2.7 launcher: Home, Visuals presets with their ? tips and Save settings, Online, Co-op, Dossier, Workshop, Settings and the what's-new sheet"/></a>
+<a href="docs/media/launcher-4.4.1-tour.mp4"><img src="docs/images/launcher-4.4.1-tour.webp" width="100%" alt="Tour of the 4.4.1 launcher: Home, Visuals, Ray tracing, Online, Co-op, Dossier, Workshop, Settings and the what's-new sheet"/></a>
 
-*The 4.2.7 launcher: Home, then Visuals (Ultra, Remastered DLSS 4 and DLSS 5 with their ? tips, Save settings), Online, Co-op, Dossier, Workshop, Settings and the what's-new sheet. [Watch the video (MP4, 1460 × 940, 30 FPS)](docs/media/launcher-4.2.7-tour.mp4). Rendered from the live launcher with an example hunter; FPS values are configured targets.*
+*The 4.4.1 launcher: Home, Visuals, Ray tracing, Online, Co-op, Dossier, Workshop, Settings and the what's-new sheet. [Watch the video (MP4, 1476 × 950, 30 FPS)](docs/media/launcher-4.4.1-tour.mp4). Rendered from the live launcher at its opening size with an example hunter; page changes are crossfaded in the video.*
 
 ## Highlights
 
@@ -35,28 +35,28 @@
 
 ## Screenshots
 
-*Rendered from the live 4.2.7 launcher at 1460 × 940 with an example hunter.*
+*Rendered from the live 4.4.1 launcher at its opening size, 1477 × 950, with an example hunter.*
 
 <table>
 <tr>
-<td width="50%" valign="top"><a href="docs/images/launcher-4.2.7-home.png"><img src="docs/images/launcher-4.2.7-home.png" alt="Home: Play, play modes, quick settings and your hunt."/></a><br/><b>Home</b>: Play, play modes, quick settings and your hunt.</td>
-<td width="50%" valign="top"><a href="docs/images/launcher-4.2.7-visuals.png"><img src="docs/images/launcher-4.2.7-visuals.png" alt="Visuals: Low to Ultra and Custom, then the presets tuned on an RTX 4090, each with a ? tip. Save settings, HDR and the shortcuts on the right."/></a><br/><b>Visuals</b>: Low to Ultra and Custom, then the presets tuned on an RTX 4090, each with a ? tip. Save settings, HDR and the shortcuts on the right.</td>
+<td width="50%" valign="top"><a href="docs/images/launcher-4.4.1-home.png"><img src="docs/images/launcher-4.4.1-home.png" alt="Home: Play, play modes, quick settings and your hunt."/></a><br/><b>Home</b>: Play, play modes, quick settings and your hunt.</td>
+<td width="50%" valign="top"><a href="docs/images/launcher-4.4.1-visuals.png"><img src="docs/images/launcher-4.4.1-visuals.png" alt="Visuals: Low to Ultra and Custom, then the presets tuned on an RTX 4090, each with a ? tip. Save settings, HDR and the shortcuts on the right."/></a><br/><b>Visuals</b>: Low to Ultra and Custom, then the presets tuned on an RTX 4090, each with a ? tip. Save settings, HDR and the shortcuts on the right.</td>
 </tr>
 <tr>
-<td width="50%" valign="top"><a href="docs/images/launcher-4.2.7-visuals-advanced.png"><img src="docs/images/launcher-4.2.7-visuals-advanced.png" alt="Advanced settings: One topic per section, with search. Ray tracing shown."/></a><br/><b>Advanced settings</b>: One topic per section, with search. Ray tracing shown.</td>
-<td width="50%" valign="top"><a href="docs/images/launcher-4.2.7-coop.png"><img src="docs/images/launcher-4.2.7-coop.png" alt="Seamless co-op: Account, then Connection: private (Tailscale) or the public server, host or join, and Play. Show connection details checks the ports."/></a><br/><b>Seamless co-op</b>: Account, then Connection: private (Tailscale) or the public server, host or join, and Play. Show connection details checks the ports.</td>
+<td width="50%" valign="top"><a href="docs/images/launcher-4.4.1-visuals-advanced.png"><img src="docs/images/launcher-4.4.1-visuals-advanced.png" alt="Advanced settings: One topic per section, with search. Ray tracing shown."/></a><br/><b>Advanced settings</b>: One topic per section, with search. Ray tracing shown.</td>
+<td width="50%" valign="top"><a href="docs/images/launcher-4.4.1-coop.png"><img src="docs/images/launcher-4.4.1-coop.png" alt="Seamless co-op: Account, then Connection: private (Tailscale) or the public server, host or join, and Play. Show connection details checks the ports."/></a><br/><b>Seamless co-op</b>: Account, then Connection: private (Tailscale) or the public server, host or join, and Play. Show connection details checks the ports.</td>
 </tr>
 <tr>
-<td width="50%" valign="top"><a href="docs/images/launcher-4.2.7-dossier.png"><img src="docs/images/launcher-4.2.7-dossier.png" alt="Dossier: Your hunter, attributes and every trophy, earned or locked."/></a><br/><b>Dossier</b>: Your hunter, attributes and every trophy, earned or locked.</td>
-<td width="50%" valign="top"><a href="docs/images/launcher-4.2.7-workshop.png"><img src="docs/images/launcher-4.2.7-workshop.png" alt="Workshop: Mods, built-in enhancements, Hunter's Atlas and patches at a glance."/></a><br/><b>Workshop</b>: Mods, built-in enhancements, Hunter's Atlas and patches at a glance.</td>
+<td width="50%" valign="top"><a href="docs/images/launcher-4.4.1-dossier.png"><img src="docs/images/launcher-4.4.1-dossier.png" alt="Dossier: Your hunter, attributes and every trophy, earned or locked."/></a><br/><b>Dossier</b>: Your hunter, attributes and every trophy, earned or locked.</td>
+<td width="50%" valign="top"><a href="docs/images/launcher-4.4.1-workshop.png"><img src="docs/images/launcher-4.4.1-workshop.png" alt="Workshop: Mods, built-in enhancements, Hunter's Atlas and patches at a glance."/></a><br/><b>Workshop</b>: Mods, built-in enhancements, Hunter's Atlas and patches at a glance.</td>
 </tr>
 <tr>
-<td width="50%" valign="top"><a href="docs/images/launcher-4.2.7-online.png"><img src="docs/images/launcher-4.2.7-online.png" alt="Online: The Hunter's Dream: messages, bloodstains, summons and invasions."/></a><br/><b>Online</b>: The Hunter's Dream: messages, bloodstains, summons and invasions.</td>
-<td width="50%" valign="top"><a href="docs/images/launcher-4.2.7-settings.png"><img src="docs/images/launcher-4.2.7-settings.png" alt="Settings: Controls, Game & Saves and System, with A− / A+ for the interface size."/></a><br/><b>Settings</b>: Controls, Game & Saves and System, with A− / A+ for the interface size.</td>
+<td width="50%" valign="top"><a href="docs/images/launcher-4.4.1-online.png"><img src="docs/images/launcher-4.4.1-online.png" alt="Online: The Hunter's Dream: messages, bloodstains, summons and invasions."/></a><br/><b>Online</b>: The Hunter's Dream: messages, bloodstains, summons and invasions.</td>
+<td width="50%" valign="top"><a href="docs/images/launcher-4.4.1-settings.png"><img src="docs/images/launcher-4.4.1-settings.png" alt="Settings: Controls, Game & Saves and System, with A− / A+ for the interface size."/></a><br/><b>Settings</b>: Controls, Game & Saves and System, with A− / A+ for the interface size.</td>
 </tr>
 <tr>
-<td width="50%" valign="top"><a href="docs/images/launcher-4.2.7-whats-new.png"><img src="docs/images/launcher-4.2.7-whats-new.png" alt="What's new: Updates and new versions show a short changelog."/></a><br/><b>What's new</b>: Updates and new versions show a short changelog.</td>
-<td width="50%" valign="top"><a href="docs/images/launcher-4.2.7-setup.png"><img src="docs/images/launcher-4.2.7-setup.png" alt="First-time setup: Game files and your data in four short steps."/></a><br/><b>First-time setup</b>: Game files and your data in four short steps.</td>
+<td width="50%" valign="top"><a href="docs/images/launcher-4.4.1-whats-new.png"><img src="docs/images/launcher-4.4.1-whats-new.png" alt="What's new: Updates and new versions show a short changelog."/></a><br/><b>What's new</b>: Updates and new versions show a short changelog.</td>
+<td width="50%" valign="top"><a href="docs/images/launcher-4.4.1-setup.png"><img src="docs/images/launcher-4.4.1-setup.png" alt="First-time setup: Game files and your data in four short steps."/></a><br/><b>First-time setup</b>: Game files and your data in four short steps.</td>
 </tr>
 </table>
 
