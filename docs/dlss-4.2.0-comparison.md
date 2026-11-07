@@ -2,6 +2,8 @@
 
 **Recommendation in one line:** at 4K on an RTX 4090, use DLSS 4.5 Super Resolution at **Quality** (now model K through `dlss_model=auto`), with DLSS frame generation for 60 → 120. Keep DLSS 5 for **2560 × 1440 output** (the "DLSS 5 ready" preset). At 4K output, DLSS 5 holds 60 only with NR upscaling at Balanced or below, and holds 60 → 120 with frame generation only at Ultra Performance.
 
+**Since 4.4.2** the Remastered and "DLSS 5 ready" presets set model **M** instead of Auto (which still picks K at Quality on RTX 40 and 50). On 4.4.2 at 4K with Remastered (DLSS Quality, ray tracing Ultra, frame generation 2×), M held a median of 60 game FPS (10th percentile 59.0) and about 120 shown, through every Atlas lamp, against 59.2 to 59.4 with K. See the [4.4.2 changelog](changelog/changelog-2026-11-07-4.4.2.md).
+
 ## How it was measured
 
 - **Machine:** RTX 4090 (driver 621.01), AW3225QF 3840 × 2160 display, borderless fullscreen at 3840 × 2160 output (no present resampling: "Present upscale: 3840x2160, same size as the display frame").

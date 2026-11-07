@@ -776,7 +776,9 @@ GRAPHICS_PRESETS = {
     # it). Reflections stay on for image quality even where they cost the 60 FPS target.
     # The launcher also enables the HD Texture Pack when installed; resolution and look-only
     # effects remain the player's choices. DLSS frame generation targets 120 from 60 game FPS.
-    'remastered': {'upscaler': 'dlss', 'preset': '1', 'dlss_model': 'auto', 'object_motion': '1',
+    # DLSS model M (DLSS 4.5), chosen over Auto, which picks K at Quality on RTX 40/50; M costs
+    # 0.7-2.7 ms more at Quality there (docs/dlss-4.2.0-comparison.md). Both presets use it.
+    'remastered': {'upscaler': 'dlss', 'preset': '1', 'dlss_model': 'M', 'object_motion': '1',
                    'model_lod': '-2', 'effect_ssao': '1', 'effect_dynamic_shadows': '1',
                    'effect_ssr': '1', 'fps_mode': '60', 'frame_cap': '', 'ray_tracing': 'ultra', 'rt_ao_strength': '1.00',
                    'anisotropic_filtering': '16', 'reflex': 'on', 'frame_gen': 'dlss',
@@ -790,7 +792,7 @@ GRAPHICS_PRESETS = {
     # structure 2.00 at 1440p, Quality, ray tracing High, NR upscaling Off held 60 -> 120 and was
     # visibly sharper than NR upscaling at any 4K preset that held 60.
     # Larger outputs: DLSS5_READY_HEAVY_OUTPUT. DLSS 5 itself (bbport.ini dlss5) stays as set.
-    'dlss5_ready': {'upscaler': 'dlss', 'preset': '1', 'dlss_model': 'auto', 'object_motion': '1',
+    'dlss5_ready': {'upscaler': 'dlss', 'preset': '1', 'dlss_model': 'M', 'object_motion': '1',
                     'model_lod': '0', 'effect_ssao': '1',
                     'effect_dynamic_shadows': '1', 'effect_ssr': '0', 'fps_mode': '60',
                     'frame_cap': '', 'ray_tracing': 'high', 'rt_ao_strength': '1.00',
@@ -824,12 +826,12 @@ GRAPHICS_PRESET_INFO = {
                      'For cards with 8-12 GB.'),
     'ultra': ('Ultra', 'Native resolution, highest model detail and screen-space reflections (not in the '
                        'original game), 120 FPS. For cards with 12 GB or more.'),
-    'remastered': ('Remastered', 'DLSS Quality (×1.5), ray tracing Ultra, highest model detail, screen-space '
+    'remastered': ('Remastered', 'DLSS Quality (×1.5) with model M, ray tracing Ultra, highest model detail, screen-space '
                                  'reflections, 16x texture filtering and the HD Texture Pack when installed. '
                                  'Targets 60 game FPS with DLSS 2× frame generation for 120 on a 120 Hz or faster '
                                  'display. For GeForce RTX 40 and 50 cards with 12 GB or more.'),
     'dlss5_ready': ('DLSS 5 ready', 'The room DLSS 5 needs on an RTX 4080 or 4090 at your output resolution, with '
-                                    'DLSS Quality (×1.5), ray tracing High, Reflex and DLSS 2× frame generation at a '
+                                    'DLSS Quality (×1.5) with model M, ray tracing High, Reflex and DLSS 2× frame generation at a '
                                     'fixed 60 game FPS. Above 2560 × 1440 (4K) it sets 2560 × 1440 output, scaled to '
                                     'your display: DLSS 5 at 4K output misses 60 FPS even on an RTX 4090. DLSS 5 '
                                     'itself is the switch in Neural rendering (DLSS 5).'),

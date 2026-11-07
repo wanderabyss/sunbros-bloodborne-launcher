@@ -30,6 +30,12 @@ class GraphicsPresetTests(unittest.TestCase):
         ini['effect_ssr'] = '0'
         self.assertEqual(core.graphics_preset_of(ini, app), 'custom')
 
+    def test_dlss_presets_choose_model_m(self):
+        # Remastered and DLSS 5 ready set model M, not Auto (which picks K at Quality on RTX 40/50).
+        for name in ('remastered', 'dlss5_ready'):
+            self.assertEqual(core.GRAPHICS_PRESETS[name]['dlss_model'], 'M', name)
+            self.assertIn('model M', core.GRAPHICS_PRESET_INFO[name][1], name)
+
     def test_remastered_restores_dlss_quality_and_maximum_detail_from_custom_settings(self):
         ini, app = self.defaults()
         ini.update(upscaler='fsr3', preset='3', dlss_model='K', object_motion='0',
@@ -38,7 +44,7 @@ class GraphicsPresetTests(unittest.TestCase):
                    frame_gen='fsr3', reflex='off', output_res='2560x1440',
                    effect_dof='0', effect_motion_blur='0')
         core.apply_graphics_preset('remastered', ini, app)
-        self.assertEqual((ini['upscaler'], ini['preset'], ini['dlss_model']), ('dlss', '1', 'auto'))
+        self.assertEqual((ini['upscaler'], ini['preset'], ini['dlss_model']), ('dlss', '1', 'M'))
         self.assertEqual((ini['object_motion'], ini['ray_tracing'], ini['rt_ao_strength']), ('1', 'ultra', '1.00'))
         self.assertEqual((ini['model_lod'], ini['anisotropic_filtering']), ('-2', '16'))
         self.assertEqual((ini['effect_ssao'], ini['effect_dynamic_shadows'], ini['effect_ssr']), ('1', '1', '1'))

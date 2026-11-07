@@ -1,5 +1,19 @@
 # Release Notes
 
+## [4.4.2+build110726.053440] — 2026-11-07
+### Fix: a freeze while loading after lamp travel
+<!-- launcher:
+### Fix: a freeze while loading after lamp travel
+
+- Fixed: with DLSS 5 and frame generation at 4K, the game could freeze while loading after a few lamp travels.
+- The Remastered and DLSS 5 ready presets now use DLSS model M.
+-->
+
+- **Fixed:** with DLSS 5 and frame generation at 4K output, the game could freeze while loading after a few lamp travels. In testing on an RTX 4090, 4.4.1 froze in 2 of 3 runs through every lamp; 4.4.2 finished all 6, DLC lamps included.
+- **Presets:** Remastered and DLSS 5 ready now use DLSS model M instead of Auto.
+
+[Changelog](docs/changelog/changelog-2026-11-07-4.4.2.md)
+
 ## [4.4.1+build110626.215213] — 2026-11-06
 ### Maintenance: the launcher no longer shows save backups as characters, and checks from the 4.4.0 review
 <!-- launcher:

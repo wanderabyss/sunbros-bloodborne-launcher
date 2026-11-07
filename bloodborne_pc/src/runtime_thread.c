@@ -275,6 +275,10 @@ static void *host_start(void *p) {
     set_host_name(t->name);
 #ifdef _WIN32
     apply_host_priority(t);
+    /* Windows places the stack (create). Guest code may pack stack addresses in 40 bits. */
+    static int stack_high_logged;
+    if ((uintptr_t)&t>=UINT64_C(1)<<40 && !__atomic_exchange_n(&stack_high_logged,1,__ATOMIC_RELAXED))
+        fprintf(stderr,"Runtime: guest thread '%s' has its stack above 1 TiB (%p)\n",t->name,(void *)&t);
 #endif
     if (!exit_setjmp(t)) t->result=t->entry(t->argument);
     runtime_thread_keys_cleanup();

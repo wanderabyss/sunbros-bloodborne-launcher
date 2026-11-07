@@ -40,6 +40,7 @@ static uint64_t pool_size_bytes(void) {
 #define POOL_SIZE pool_size_bytes()
 #define FLEXIBLE_SIZE (UINT64_C(448) * 1024 * 1024)
 #define PAGE UINT64_C(16384)
+#define HANDLES_MIN UINT64_C(0x0f00000000)
 #define USER_MIN UINT64_C(0x1000000000)
 #define USER_MAX UINT64_C(0xfc00000000)
 #define LIMIT 4096
@@ -190,9 +191,17 @@ static void reserve_around_foreign(void) {
     }
     if (!region_count) win_fail("reserving the PS4 address range (none of it is free)",USER_MIN,USER_MAX-USER_MIN);
 }
+/* Handle slabs are committed out of this reservation (low_map_from). Left free, the window fills up
+ * soon after start: on an RTX 4090 at 4K with DLSS 5 about 60 GiB below it and all of it were taken
+ * by reservations and 32 MiB blocks the port did not make, the next slab failed some travels later,
+ * and handles went above 1 TiB (see runtime_low_alloc). */
+static int handles_reserved;
 /* The guest range is reserved before anything else can be placed there (runtime_start). */
 void runtime_memory_reserve(void) {
     if (region_count) return;
+    handles_reserved=VirtualAlloc((void *)HANDLES_MIN,USER_MIN-HANDLES_MIN,MEM_RESERVE,PAGE_READWRITE)!=NULL;
+    if (!handles_reserved) printf("Runtime: the guest handle range %#llx-%#llx is partly in use (error %lu); handles take what is free there\n",
+                                  (unsigned long long)HANDLES_MIN,(unsigned long long)USER_MIN,GetLastError());
     /* BB_TEST_FOREIGN=1 takes 64 MiB of the range first, as another program's DLL might (tests). */
     const char *test=getenv("BB_TEST_FOREIGN");
     if (test && test[0]=='1') VirtualAlloc((void *)(USER_MIN+(UINT64_C(2)<<30)),UINT64_C(64)<<20,MEM_RESERVE,PAGE_NOACCESS);
@@ -776,15 +785,15 @@ uintptr_t runtime_memory_resolve(const char *name) {
  * at LOW_MIN. Handle slabs (runtime_low_alloc) take [HANDLES_MIN, USER_MIN), so the image's
  * address does not depend on what allocated a handle before it. */
 #define LOW_MIN UINT64_C(0x0800000000)
-#define HANDLES_MIN UINT64_C(0x0f00000000)
 static uintptr_t low_next=LOW_MIN, handles_next=HANDLES_MIN;
 static void *low_map_from(uintptr_t *next, uintptr_t limit, size_t size, int prot) {
     size=align_up(size,PAGE);
     write_lock();
 #ifdef _WIN32
     void *p=NULL;
+    const DWORD how=next==&handles_next && handles_reserved ? MEM_COMMIT : MEM_RESERVE|MEM_COMMIT;
     while (!p && *next+size<=limit) {
-        p=VirtualAlloc((void *)*next,size,MEM_RESERVE|MEM_COMMIT,win_prot(prot));
+        p=VirtualAlloc((void *)*next,size,how,win_prot(prot));
         *next+=size+UINT64_C(65536); /* unmapped gap catches overruns; allocation granularity */
     }
     write_unlock();

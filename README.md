@@ -125,7 +125,7 @@ For HDR, enable Windows HDR on the selected display, then **Visuals → Display 
 
 ## Documentation
 
-**v4.4.1:** Maintenance on top of 4.4.0, which made Play start the game in seconds. The launcher no longer shows old copies from save backup folders as your characters. [Changelog](docs/changelog/changelog-2026-11-06-4.4.1.md)
+**v4.4.2:** Fixes a freeze while loading after a few lamp travels with DLSS 5 and frame generation at 4K. [Changelog](docs/changelog/changelog-2026-11-07-4.4.2.md)
 
 | Guide | Contents |
 | --- | --- |

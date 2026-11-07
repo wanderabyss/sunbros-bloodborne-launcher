@@ -12,8 +12,12 @@
 #include <stdlib.h>
 #include <string.h>
 #include <pthread.h>
+#ifdef _WIN32
+#include <windows.h>
+#endif
 
 #define TIB (UINT64_C(1)<<40)
+#define LOW_GAP_PROBE 32768 /* past the block's end, rounded up to 16 KiB, inside the 64 KiB gap after it */
 /* runtime_memory.c and runtime_mutex.c resolve through these; the test calls them by NID. */
 uintptr_t runtime_lookup(const RuntimeExport *table, size_t count, const char *nid) {
     for (size_t i=0;i<count;++i) if (!strcmp(table[i].name,nid)) return (uintptr_t)table[i].function;
@@ -64,6 +68,34 @@ static void low_handles(void) {
     assert(destroy(&mutex)==0);
     puts("PASS: guest handles below 1 TiB");
 }
+#ifdef _WIN32
+/* The handle window stays ours after runtime_memory_reserve: other allocations cannot land in it,
+ * and handles keep coming from it. */
+static void window_reserved(void) {
+    runtime_memory_reserve();
+    const uintptr_t near_end=UINT64_C(0x1000000000)-(UINT64_C(2)<<20);
+    MEMORY_BASIC_INFORMATION m;
+    assert(VirtualQuery((void *)near_end,&m,sizeof(m)) && m.State==MEM_RESERVE);
+    assert(!VirtualAlloc((void *)near_end,65536,MEM_RESERVE,PAGE_READWRITE));
+    enum { COUNT=20000 };
+    static void *blocks[COUNT];
+    for (int i=0;i<COUNT;++i) {
+        size_t size=(size_t)16<<(i%8);
+        blocks[i]=runtime_low_alloc(size);
+        check_block(blocks[i],size);
+        assert((uintptr_t)blocks[i]>=UINT64_C(0x0f00000000) && (uintptr_t)blocks[i]+size<=UINT64_C(0x1000000000));
+        memset(blocks[i],i,size);
+    }
+    void *large=runtime_low_alloc(256*1024);
+    check_block(large,256*1024);
+    assert((uintptr_t)large>=UINT64_C(0x0f00000000) && (uintptr_t)large<UINT64_C(0x1000000000));
+    /* Past a slab's end is still reserved, not usable: an overrun faults. */
+    assert(VirtualQuery((char *)large+256*1024+LOW_GAP_PROBE,&m,sizeof(m)) && m.State==MEM_RESERVE);
+    runtime_low_free(large);
+    for (int i=0;i<COUNT;++i) runtime_low_free(blocks[i]);
+    puts("PASS: the handle window is reserved");
+}
+#endif
 static void host_heap(void) {
     /* BB_LOW_HANDLES=0: the host heap, still aligned, zeroed and freeable. */
     void *p=runtime_low_alloc(300);
@@ -97,12 +129,16 @@ int main(int argc, char **argv) {
     if (argc>1 && !strcmp(argv[1],"--host")) { host_heap(); return 0; }
     if (argc>1 && !strcmp(argv[1],"--pool")) { pool_fallback(); return 0; }
 #ifdef _WIN32
+    if (argc>1 && !strcmp(argv[1],"--window")) { window_reserved(); return 0; }
 #define ENV(a) "set " a "&& "
 #else
 #define ENV(a) a " "
 #endif
     int failed=0;
     failed|=run_self(argv[0],"--low","")!=0;
+#ifdef _WIN32
+    failed|=run_self(argv[0],"--window","")!=0;
+#endif
     failed|=run_self(argv[0],"--host",ENV("BB_LOW_HANDLES=0"))!=0;
     failed|=run_self(argv[0],"--pool",ENV("BB_DMEM_MB=6144"))!=0;
     failed|=run_self(argv[0],"--pool",ENV("BB_DMEM_MB=6144") ENV("BB_TEST_REFUSE_DMEM=1"))!=0;
