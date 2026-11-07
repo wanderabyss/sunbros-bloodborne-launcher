@@ -55,8 +55,12 @@ You don't need an NVIDIA card: DLSS needs a GeForce RTX, and FSR works on other 
 - **Higher frame rates:** 60 or 120 FPS, instead of the original 30.
 - **Seamless co-op and online play:** play the whole game with friends, or use The Hunter's Dream for messages, bloodstains, summons and invasions.
 - **Your saves are protected:** automatic backups after every session, with restore and rollback.
-- **A map of Yharnam:** Hunter's Atlas shows maps and your position, with optional lamp travel.
-- **New ways to play:** Level Up and Storage at every lamp, new weapons, and an optional NG+7 world from the first beast.
+
+**Our own mods, all optional**
+- **Sojin Chikage:** a twin-blade Chikage, from the Bath Messengers.
+- **Thunderwright's Kirkhammer:** a Kirkhammer that sends lightning along the ground with every blow.
+- **NG+7 world:** full NG+7 enemies from the first beast, with every Caryll Rune. Your save keeps its real cycle.
+- **NG+7 weapons:** the Stormforged Kirkhammer and Bloodsworn Sojin Chikage, stronger versions for that world.
 
 **Make it look better**
 - **Sharper at any resolution:** DLSS 4.5 or FSR 4.1.1, with frame generation.
