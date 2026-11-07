@@ -1,4 +1,5 @@
 """Qt Quick front end for the Windows Bloodborne launcher."""
+import os
 from pathlib import Path
 import sys
 
@@ -47,15 +48,21 @@ def follow_zoom_with_text(window):
     apply()
 
 
+def qt_arguments(argv, environ=os.environ, platform=sys.platform):
+    """Grey text with clean pixel edges: ClearType's colour fringes assume an RGB stripe, and read
+    as blur on panels without one (OLED). An argument, not QT_QPA_PLATFORM: the game inherits the
+    launcher's environment. Qt prefers an argument to QT_QPA_PLATFORM, so it is left out when the
+    platform was chosen already (offscreen, for a scripted run)."""
+    if platform != 'win32' or environ.get('QT_QPA_PLATFORM') or '-platform' in argv:
+        return argv
+    return argv + ['-platform', 'windows:fontengine=freetype']
+
+
 def run_ui(route=None):
     """ROUTE comes from bbport_startup.route(); without one the launcher opens on Home."""
     QQuickStyle.setStyle('Basic')
     QQuickWindow.setTextRenderType(QQuickWindow.TextRenderType.NativeTextRendering)
-    # Grey text with clean pixel edges: ClearType's colour fringes assume an RGB stripe, and read as
-    # blur on panels without one (OLED). An argument, not QT_QPA_PLATFORM: the game inherits the
-    # launcher's environment.
-    arguments = sys.argv + ['-platform', 'windows:fontengine=freetype'] if sys.platform == 'win32' else sys.argv
-    app = QApplication(arguments)
+    app = QApplication(qt_arguments(sys.argv))
     app.setApplicationName('Bloodborne')
     icon_path = (Path(sys.executable).resolve().parent / 'launcher' / 'assets' / 'hunter-icon.ico') if getattr(sys, 'frozen', False) else (Path(__file__).resolve().parent / 'assets' / 'hunter-icon.ico')
     app.setWindowIcon(QIcon(str(icon_path)))

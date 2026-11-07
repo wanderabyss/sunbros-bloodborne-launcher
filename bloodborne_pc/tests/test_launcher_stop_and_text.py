@@ -53,8 +53,20 @@ class StopTests(unittest.TestCase):
 class TextSharpnessTests(unittest.TestCase):
     def test_the_launcher_does_not_put_its_font_engine_in_the_games_environment(self):
         source = Path(qml_front_end.__file__).read_text(encoding='utf-8')
-        self.assertIn("'-platform', 'windows:fontengine=freetype'", source)
         self.assertNotIn("environ['QT_QPA_PLATFORM']", source)
+        environ = {}
+        self.assertEqual(qml_front_end.qt_arguments(['bloodborne'], environ, 'win32'),
+                         ['bloodborne', '-platform', 'windows:fontengine=freetype'])
+        self.assertEqual(environ, {})
+
+    def test_a_platform_already_chosen_is_kept(self):
+        offscreen = {'QT_QPA_PLATFORM': 'offscreen'}
+        self.assertEqual(qml_front_end.qt_arguments(['bloodborne'], offscreen, 'win32'), ['bloodborne'])
+        chosen = ['bloodborne', '-platform', 'minimal']
+        self.assertEqual(qml_front_end.qt_arguments(chosen, {}, 'win32'), chosen)
+
+    def test_other_systems_get_no_windows_platform(self):
+        self.assertEqual(qml_front_end.qt_arguments(['bloodborne'], {}, 'linux'), ['bloodborne'])
 
     def test_the_bundled_font_is_the_one_the_theme_names(self):
         fonts = Path(backend_module.__file__).resolve().parent / 'assets' / 'fonts'

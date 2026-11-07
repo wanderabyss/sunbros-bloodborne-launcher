@@ -134,8 +134,10 @@ def saves_holding(user_dir, ids):
     """Save folders with one of these weapon ids. A converter's backup ("SPRJ0005 sojin-chikage backup
     20261106-204502") sits beside the save and keeps the weapons on purpose: converting it would
     back it up again, with more folders on every start."""
+    sys.path.insert(0, str(PORT / 'scripts'))
+    from sojin.save_tool import is_backup_folder
     return sorted({path.parent for path in user_dir.glob('savedata/*/*/*/userdata00*')
-                   if not re.search(r' backup \d{8}-\d{6}', path.parent.name)
+                   if not is_backup_folder(path.parent.name)
                    and any(i in path.read_bytes() for i in ids)})
 
 

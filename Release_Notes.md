@@ -1,5 +1,24 @@
 # Release Notes
 
+## [4.4.1+build110626.215213] — 2026-11-06
+### Maintenance: the launcher no longer shows save backups as characters, and checks from the 4.4.0 review
+<!-- launcher:
+### Maintenance: the launcher no longer shows save backups as characters, and checks from the 4.4.0 review
+
+- No change to how the game plays or starts.
+- Save backups are now recognised by the same code that names them.
+- Fixed: the launcher could show old copies from save backup folders as your characters. The folders stay where they are.
+- Save backups: long character lists now wrap instead of being cut off.
+-->
+
+- **No change in play.** This release adds tests for the startup order and for leaving save backups alone.
+- **Save backups:** the check that leaves converter backups alone now shares its rule with the code that names them.
+- **Characters:** the launcher no longer shows old copies from converter backup folders as your characters. The folders stay where they are.
+- **Save backups page:** long character lists wrap instead of being cut off. Older backups keep the names they were written with.
+- **Launcher:** it no longer overrides a Qt platform chosen for it, which only affects scripted runs.
+
+[Changelog](docs/changelog/changelog-2026-11-06-4.4.1.md)
+
 ## [4.4.0+build110626.195000] — 2026-11-06
 ### Play starts in seconds; a Preparing shaders screen, a Stop button, and a sharper launcher
 <!-- launcher:

@@ -1,6 +1,6 @@
 # SunBro's Edition: Bloodborne PC feature catalog
 
-Updated **2026-11-06**, for **4.4.0** (Play starts in seconds; Preparing shaders screen; Stop button; sharper launcher), **4.3.5** (NG+7 Sojin Chikage; Uncanny and Lost hammers), **4.3.4** (start timing in the log), **4.3.3** (faster repeat starts; DLSS 5 settings follow the PC), **4.3.2** (experimental Native HDR; DLSS 5 window-resize crash fixed), **4.3.0** (spatial sound for the game's 7.1 mix; HDR paper white to 800 nits; heap trace), **4.2.21** (NG+7 world), **4.2.8** (the bells after seamless co-op are normal bells again), **4.2.7** (Save settings and a tidier Visuals page; Download BBSC on the Co-op page), **4.2.6** (seamless co-op hosting: the co-op server ships again), **4.2.5** (first start set for your PC) and **4.2.4** (★ DLSS 4 / ★ DLSS 5 preset suggestions; DLSS 5 stays off and says why when ReShade won't load it), on top of **4.0.0** (major release: save backups, HDR brightness controls, DLSS 5 neural rendering through the community route, FSR 4.1.1 on Windows, FSR 1 output upscale; on top of 3.4.0's DLSS roadmap). Based on Jgamrot 2.1 and BBSC 0.0.2. The supplied 3.2.9 renderer run has zero capture exclusions; the corrected co-op UI was confirmed. Identical-route performance, genuine VRAM-pressure recovery and jump-distance acceptance remain pending. See [build guide](build.md) and [current changelog](docs/changelog/changelog-2026-11-06-4.3.4.md).
+Updated **2026-11-06**, for **4.4.1** (maintenance: backup folders no longer shown as characters; Save backups rows wrap; review checks and tests), **4.4.0** (Play starts in seconds; Preparing shaders screen; Stop button; sharper launcher), **4.3.5** (NG+7 Sojin Chikage; Uncanny and Lost hammers), **4.3.4** (start timing in the log), **4.3.3** (faster repeat starts; DLSS 5 settings follow the PC), **4.3.2** (experimental Native HDR; DLSS 5 window-resize crash fixed), **4.3.0** (spatial sound for the game's 7.1 mix; HDR paper white to 800 nits; heap trace), **4.2.21** (NG+7 world), **4.2.8** (the bells after seamless co-op are normal bells again), **4.2.7** (Save settings and a tidier Visuals page; Download BBSC on the Co-op page), **4.2.6** (seamless co-op hosting: the co-op server ships again), **4.2.5** (first start set for your PC) and **4.2.4** (★ DLSS 4 / ★ DLSS 5 preset suggestions; DLSS 5 stays off and says why when ReShade won't load it), on top of **4.0.0** (major release: save backups, HDR brightness controls, DLSS 5 neural rendering through the community route, FSR 4.1.1 on Windows, FSR 1 output upscale; on top of 3.4.0's DLSS roadmap). Based on Jgamrot 2.1 and BBSC 0.0.2. The supplied 3.2.9 renderer run has zero capture exclusions; the corrected co-op UI was confirmed. Identical-route performance, genuine VRAM-pressure recovery and jump-distance acceptance remain pending. See [build guide](build.md) and [current changelog](docs/changelog/changelog-2026-11-06-4.3.4.md).
 
 ## Capability overview
 
@@ -17,6 +17,13 @@ Fixed 60/90/120/144 FPS presets correct running-jump horizontal momentum against
 | Reflex | Off / On / Boost, DLSS-FG coupling, publication-before-sleep ordering and queue/wait diagnostics. | Experimental admission blocking is off by default after a failed gated run; marker intervals are not input latency. |
 | Atlas | Bundled maps/art, live position, opt-in lamp travel, background geometry preparation, viewport culling and reused upload buffers. | The latest drawing optimizations require identical-route testing. |
 | Co-op | BBSC 0.0.2 relay/rejoin integration, public/private modes and backups. | Matching peer builds required; two clients on one PC reach gameplay, while a summon and co-op between two PCs are not yet run; Chalice synchronization remains a roadmap item. |
+
+## 4.4.1 Maintenance
+
+- No change in play: tests for the startup order and for leaving save backups alone.
+- Save backups are recognised by the same code that names them.
+- The launcher no longer shows old copies from save backup folders as characters.
+- Save backups: long character lists wrap instead of being cut off.
 
 ## 4.4.0 Play starts in seconds; a sharper launcher
 

@@ -6,7 +6,7 @@ fork is based on [Supermedo's Windows port](https://github.com/Supermedo/bloodbo
 Mohammed Albarghouthi, which builds on [deadinside28's bbport](https://github.com/deadinside28/bloodborne_pc)
 and the [shadPS4](https://github.com/shadps4-emu/shadPS4) renderer.
 
-**Current version: 4.4.0** (build ahead; Preparing shaders screen; Stop button; sharper launcher).
+**Current version: 4.4.1** (maintenance and a fix for backup folders shown as characters, on 4.4.0: build ahead; Preparing shaders screen; Stop button; sharper launcher).
 See the [release notes](../Release_Notes.md), the [4.3.5 changelog](../docs/changelog/changelog-2026-11-06-4.3.5.md),
 [all versions](../docs/changelog/README.md) and [DLSS 4.5 vs DLSS 5 at 4K](../docs/dlss-4.2.0-comparison.md).
 

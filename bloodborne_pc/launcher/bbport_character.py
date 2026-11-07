@@ -1,6 +1,7 @@
 """Parse Bloodborne character data from save files for launcher display."""
 
 from datetime import datetime
+import importlib.util
 import json
 import re
 from pathlib import Path
@@ -272,6 +273,17 @@ class CharacterData:
         }
 
 
+def _converter_save_tool():
+    """scripts/sojin/save_tool.py, by its file: in the packaged launcher `sojin` is the bundled
+    package, which has no save_tool, so `from sojin.save_tool import ...` raises there. scripts/ is
+    beside launcher/ and beside _internal/, so this module's parent's parent holds it either way."""
+    path = Path(__file__).resolve().parent.parent / 'scripts' / 'sojin' / 'save_tool.py'
+    spec = importlib.util.spec_from_file_location('bbport_sojin_save_tool', path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
 def get_characters(save_folder, title_id=None):
     """Find and parse all characters in the save folder, including trophy unlocks."""
     characters = []
@@ -305,6 +317,11 @@ def get_characters(save_folder, title_id=None):
         for userdata in save_root.glob('SPRJ*/userdata*'):
             if userdata.is_file() and slot_pattern.match(userdata.name):
                 all_saves.append(userdata)
+
+    # A converter's backup ("SPRJ0005 sojin-chikage backup 20261106-204502") sits beside the save and
+    # matches the patterns above, but it is an old copy, not another character.
+    is_backup_folder = _converter_save_tool().is_backup_folder
+    all_saves = [s for s in all_saves if not is_backup_folder(s.parent.name)]
 
     seen_paths = set()
     unique_saves = []

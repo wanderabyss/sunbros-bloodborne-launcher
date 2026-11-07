@@ -1,5 +1,6 @@
 # Changelog
 
+- [4.4.1 — Fixes from the 4.4.0 review](changelog-2026-11-06-4.4.1.md)
 - [4.4.0 — Build ahead, Preparing shaders screen, Stop button, sharper launcher](changelog-2026-11-06-4.4.0.md)
 - [4.3.5 — NG+7 Sojin Chikage for a Bloodtinge build; Uncanny and Lost hammers](changelog-2026-11-06-4.3.5.md)
 - [4.3.4 — Start timing in the log; test fixes; in-game restart and co-op checked](changelog-2026-11-06-4.3.4.md)

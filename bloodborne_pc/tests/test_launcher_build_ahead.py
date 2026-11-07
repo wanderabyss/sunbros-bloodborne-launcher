@@ -1,7 +1,9 @@
 """The launcher makes the game files before Play."""
+import importlib.util
 import os
 from pathlib import Path
 import sys
+import tempfile
 import unittest
 from unittest import mock
 
@@ -14,17 +16,85 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'launcher'))
 import bbport_launcher_backend as backend_module
 
 PORT = Path(__file__).resolve().parents[1]
+spec = importlib.util.spec_from_file_location('bbport_run_build_ahead', PORT / 'run.py')
+run = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(run)
 
 
 class RunScriptTests(unittest.TestCase):
-    def test_prepare_only_stops_before_saves_online_and_the_game(self):
-        source = (PORT / 'run.py').read_text(encoding='utf-8')
-        main = source[source.index('def main():'):]
-        stop = main.index("env.get('BB_PREPARE_ONLY') == '1'")
-        self.assertLess(main.index("run_script('patches.py', '--out'"), stop)
-        for later in ('sojin_saves(', 'hunters_dream(env', 'online_overrides(env', 'dlss5_environment(env',
-                      'subprocess.Popen(command'):
-            self.assertLess(stop, main.index(later), later)
+    """run.py's main() itself, with its scripts and the game replaced by records of the calls."""
+
+    def setUp(self):
+        temp = tempfile.TemporaryDirectory()
+        self.addCleanup(temp.cleanup)
+        self.addCleanup(os.chdir, os.getcwd())
+        root = Path(temp.name)
+        self.user = root / 'user'
+        self.game = root / 'game'
+        self.game.mkdir()
+        (self.game / 'eboot.bin').write_bytes(b'')
+        probe = root / 'bin' / 'bb-probe.exe'
+        probe.parent.mkdir()
+        probe.write_bytes(b'')
+        (probe.parent / 'SDL3.dll').write_bytes(b'')
+        (root / 'bbport.ini').write_text('', encoding='utf-8')
+        (root / 'out').mkdir()
+        (root / 'out' / 'eboot.elf').write_bytes(b'')
+        self.calls = []
+        environ = {key: value for key, value in os.environ.items() if not key.startswith('BB_')}
+        environ.update(BB_DATA_DIR=str(root), BB_GAME_DIR=str(self.game), BB_PROBE=str(probe),
+                       BB_USER_DIR=str(self.user), BB_ONLINE='1', BB_SKIP_GAME_CHECK='1')
+
+        def record(name):
+            return mock.Mock(side_effect=lambda *a, **k: self.calls.append(name))
+
+        game_process = mock.Mock()
+        game_process.wait.return_value = 0
+        game_process.poll.return_value = 0
+
+        def popen(*args, **kwargs):
+            self.calls.append('game')
+            return game_process
+
+        def script(name, *args, **kwargs):
+            self.calls.append(name)
+            return str(self.game) if name == 'mods.py' else ''
+
+        sys.path.insert(0, str(PORT / 'scripts'))
+        import aspect_ratio
+        import game_check
+        import patches as game_patches
+        patches = [mock.patch.dict(os.environ, environ, clear=True),
+                   mock.patch.object(sys, 'argv', ['run.py']),
+                   mock.patch.object(run, 'missing_port_files', return_value=[]),
+                   mock.patch.object(run, 'run_script', script),
+                   mock.patch.object(run, 'shader_prebuild'),
+                   mock.patch.object(run, 'low_vram_mb', return_value=0),
+                   mock.patch.object(run, 'start_companions', return_value=[]),
+                   mock.patch.object(run, 'sojin_saves', record('saves')),
+                   mock.patch.object(run, 'online_overrides', record('online')),
+                   mock.patch.object(run, 'dlss5_environment', record('dlss5')),
+                   mock.patch.object(run.subprocess, 'Popen', popen),
+                   mock.patch.object(game_check, 'missing_files', return_value=[]),
+                   mock.patch.object(game_patches, 'eboot_matches_patches', return_value=True),
+                   mock.patch.object(aspect_ratio, 'segment_fingerprint', return_value='')]
+        for patch in patches:
+            patch.start()
+            self.addCleanup(patch.stop)
+
+    def test_prepare_only_makes_the_files_and_stops_before_saves_online_and_the_game(self):
+        os.environ['BB_PREPARE_ONLY'] = '1'
+        self.assertEqual(run.main(), 0)
+        self.assertIn('patches.py', self.calls)
+        for later in ('saves', 'online', 'dlss5', 'game'):
+            self.assertNotIn(later, self.calls)
+        self.assertFalse(self.user.exists(), 'the save folder is for a real start')
+
+    def test_a_real_start_converts_saves_before_the_game(self):
+        self.assertEqual(run.main(), 0)
+        self.assertIn('patches.py', self.calls)
+        steps = [call for call in self.calls if call in ('online', 'saves', 'dlss5', 'game')]
+        self.assertEqual(steps, ['online', 'saves', 'dlss5', 'game'])
 
 
 class BuildAheadTests(unittest.TestCase):

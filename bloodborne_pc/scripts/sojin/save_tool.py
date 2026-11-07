@@ -20,7 +20,7 @@ file is converted, also in the older save copies found in the tail of the files 
 the header lists), and the tool refuses to write if any Sojin id sits somewhere it does not understand.
 See save-tool-notes.md for the format facts this relies on.
 """
-import argparse, csv, datetime, glob, os, shutil, struct, subprocess, sys
+import argparse, csv, datetime, glob, os, re, shutil, struct, subprocess, sys
 from collections import Counter
 
 # (first Sojin id, its Chikage's first id, that Chikage's sortId of +0, names)
@@ -43,6 +43,18 @@ def sort_part(sort_id):
 SOJIN_SORT_PARTS = {sort_part(s + lv): lv for s in SOJIN_SORTS for lv in LEVELS}
 # In the backup folder's name (thunderwright/save_tool.py runs this converter on its own ids).
 BACKUP_TAG = "sojin-chikage"
+
+
+def backup_folder_name(save, stamp):
+    """The folder a save's backup gets beside it. is_backup_folder must recognise it."""
+    return f"{save} {BACKUP_TAG} backup {stamp}"
+
+
+def is_backup_folder(name):
+    """Whether a save folder is one of these backups, of any converter (also a backup of a backup,
+    or one with -2 after its time). run.py leaves these alone."""
+    return re.search(r" backup \d{8}-\d{6}", name) is not None
+
 
 CHAR_SIZE, SYS_SIZE = 0x140000, 0x40000
 LIVE_ROOT = r"C:\Games\Bloodborne\user"
@@ -470,7 +482,7 @@ def backup(folder, paths, data, beside=False):
         base, name = LIVE_BACKUPS, f"{stamp} before {BACKUP_TAG} removal"
     else:
         # A long name (>= 32 characters) keeps the save-directory search of the PC port from listing it.
-        base, name = os.path.dirname(folder), f"{os.path.basename(folder)} {BACKUP_TAG} backup {stamp}"
+        base, name = os.path.dirname(folder), backup_folder_name(os.path.basename(folder), stamp)
     dest = os.path.join(base, name)
     k = 1
     while os.path.exists(dest):

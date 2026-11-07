@@ -465,17 +465,21 @@ Item {
                                 objectName: "saveBackupRow_" + index
                                 property bool confirmRestore: workspace.backupConfirm === "restore:" + modelData.name
                                 property bool confirmDelete: workspace.backupConfirm === "delete:" + modelData.name
-                                width: saveBackupsSection.width; height: 58
+                                width: saveBackupsSection.width; height: Math.max(58, backupText.implicitHeight + 16)
                                 Column {
+                                    id: backupText
                                     anchors.left: parent.left; anchors.verticalCenter: parent.verticalCenter
                                     width: parent.width - actions.width - 16; spacing: 3
                                     Text { width: parent.width; elide: Text.ElideRight; color: Theme.text; font.family: Theme.sans; font.pixelSize: 14
                                         text: backupRow.modelData.date + (backupRow.modelData.label ? "  ·  " + backupRow.modelData.label : "") }
-                                    Text { width: parent.width; elide: Text.ElideRight; color: backupRow.modelData.valid ? Theme.textDim : Theme.warn; font.family: Theme.sans; font.pixelSize: 12
+                                    Text { width: parent.width; wrapMode: Text.Wrap; color: backupRow.modelData.valid ? Theme.textDim : Theme.warn; font.family: Theme.sans; font.pixelSize: 12
                                         text: !backupRow.modelData.valid ? "Unreadable backup  ·  " + backupRow.modelData.size :
                                               ({manual: "Manual", auto: "Automatic", safety: "Before restore"}[backupRow.modelData.kind] || backupRow.modelData.kind) +
-                                              "  ·  " + backupRow.modelData.size + "  ·  " + backupRow.modelData.files + " files" +
-                                              (backupRow.modelData.summary ? "  ·  " + backupRow.modelData.summary : "") }
+                                              "  ·  " + backupRow.modelData.size + "  ·  " + backupRow.modelData.files + " files" }
+                                    // Its own line, which wraps: a summary can name several characters.
+                                    Text { objectName: "saveBackupSummary_" + backupRow.index; visible: backupRow.modelData.valid && !!backupRow.modelData.summary
+                                        width: parent.width; wrapMode: Text.Wrap; color: Theme.textDim; font.family: Theme.sans; font.pixelSize: 12
+                                        text: backupRow.modelData.summary || "" }
                                 }
                                 Row {
                                     id: actions

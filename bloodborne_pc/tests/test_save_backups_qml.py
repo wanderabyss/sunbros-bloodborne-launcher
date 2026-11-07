@@ -1,4 +1,5 @@
 """Save backups in the launcher: the backend's guards and worker, and the Settings section."""
+from datetime import datetime, timedelta
 import os
 from pathlib import Path
 import tempfile
@@ -220,6 +221,29 @@ class SaveBackupSectionTests(BackendFixture):
         self.wait_idle()
         self.assertTrue(self.backend.saveBackupStatus.startswith('Restored'), self.backend.saveBackupStatus)
         self.assertIn('safety', [b['kind'] for b in self.backend.saveBackups])
+
+    def test_a_long_summary_wraps_and_the_row_grows_to_fit(self):
+        summary = ', '.join(['Hunter Lv 181'] * 3) + ' (+200 more characters than fit on one line, whatever the width)' * 2
+        backups.create_backup(self.root, summary=summary)
+        backups.create_backup(self.root, summary='Hunter Lv 40', now=datetime.now() + timedelta(minutes=1))
+        self.open_section()
+        short = self.item('saveBackupSummary_0')
+        long = self.item('saveBackupSummary_1')
+        self.assertEqual(long.property('text'), summary)
+        self.assertFalse(long.property('truncated'))
+        self.assertGreater(long.property('lineCount'), 1)
+        self.assertEqual(short.property('lineCount'), 1)
+        row = self.item('saveBackupRow_1')
+        bottom = long.mapToItem(row, long.boundingRect().bottomLeft()).y()
+        self.assertLessEqual(bottom, row.height())
+        self.assertGreater(row.height(), self.item('saveBackupRow_0').height())
+
+    def test_a_row_without_a_summary_keeps_its_height_and_shows_no_empty_line(self):
+        with mock.patch.object(backend_module.LauncherBackend, '_save_summary', return_value=''):
+            backups.create_backup(self.root)
+            self.open_section()
+        self.assertEqual(self.item('saveBackupRow_0').height(), 58)
+        self.assertFalse(any(item.objectName() == 'saveBackupSummary_0' and item.isVisible() for item in self.items()))
 
     def test_buttons_are_blocked_with_a_notice_while_the_game_runs(self):
         backups.create_backup(self.root)
