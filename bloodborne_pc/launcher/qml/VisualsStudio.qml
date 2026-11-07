@@ -84,6 +84,7 @@ Item {
     }
 
     Flickable {
+        onContentYChanged: Theme.frostTick++
         id: scroll
         anchors.fill: parent
         clip: true; boundsBehavior: Flickable.StopAtBounds

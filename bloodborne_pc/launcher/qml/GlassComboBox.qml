@@ -104,6 +104,7 @@ ComboBox {
         padding: 4
 
         contentItem: ListView {
+            onContentYChanged: Theme.frostTick++
             clip: true
             implicitHeight: contentHeight
             model: control.popup.visible ? control.delegateModel : null

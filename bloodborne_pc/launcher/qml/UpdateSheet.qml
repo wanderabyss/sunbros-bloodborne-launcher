@@ -76,6 +76,7 @@ Item {
             height: parent.height - y - 84
             radius: 18; color: Theme.well
             Flickable {
+                onContentYChanged: Theme.frostTick++
                 id: notesBox
                 anchors.fill: parent; anchors.margins: 18
                 clip: true; boundsBehavior: Flickable.StopAtBounds

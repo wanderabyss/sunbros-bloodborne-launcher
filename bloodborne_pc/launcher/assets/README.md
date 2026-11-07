@@ -1,5 +1,7 @@
 # Launcher assets
 
+`fonts/IBMPlexSans-*.ttf` is IBM Plex Sans, hinted, from https://github.com/IBM/plex under the SIL Open Font License (`fonts/IBMPlexSans-LICENSE.txt`).
+
 The SunBro's Edition art (`hunter-icon.*`, `ui/sunbros-*.png`, `ui/bg/home.jpg` and `../art/`) is part of this project.
 
 These files come from Bloodborne (Sony Interactive Entertainment, FromSoftware) and are **not** in the public source repository:

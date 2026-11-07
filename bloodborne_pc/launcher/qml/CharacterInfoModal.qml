@@ -577,6 +577,7 @@ Rectangle {
 
                             // Earned Trophies List
                             ListView {
+                                onContentYChanged: Theme.frostTick++
                                 id: earnedListView
                                 width: parent.width
                                 height: parent.height - 128
@@ -855,6 +856,7 @@ Rectangle {
 
                             // Locked Trophies List
                             ListView {
+                                onContentYChanged: Theme.frostTick++
                                 id: lockedListView
                                 width: parent.width
                                 height: parent.height - 76

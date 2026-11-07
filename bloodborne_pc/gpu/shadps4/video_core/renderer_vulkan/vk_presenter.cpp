@@ -31,6 +31,7 @@
 #include <cctype>
 #include <chrono>
 #include <cmath>
+#include <condition_variable>
 #include <csetjmp>
 #include <cstdio>
 #include <cstring>
@@ -40,6 +41,7 @@
 #include <iomanip>
 #include <limits>
 #include <memory>
+#include <mutex>
 #include <span>
 #include <sstream>
 #include <system_error>
@@ -193,6 +195,57 @@ Presenter::Presenter(Frontend::WindowSDL& window_, AmdGpu::Liverpool* liverpool_
     frame_generator = std::make_unique<FrameGenerator>(instance, draw_scheduler);
     swapchain_frame_gen = frame_generator->Wanted();
     rasterizer->GetUpscaler().SetFrameGenerator(frame_generator.get());
+    WarmUpShaders();
+}
+
+void Presenter::WarmUpShaders() {
+    // Blank frames carry the overlay through the normal present path, so HDR, frame generation and
+    // window resizes work as for any frame: "Starting the game", and over it "Preparing shaders"
+    // once PipelineCache::WarmUp reports real preparation (BbOverlay::SetStartupFirstRun).
+    // A warm-up shorter than the delay never shows the screen, so it does not flash: a start
+    // with a filled cache took 1.2 s on an RTX 4090, a first start 4 to 6 s.
+    static constexpr auto ScreenDelay = std::chrono::milliseconds(1500);
+    static constexpr auto FrameInterval = std::chrono::milliseconds(16);
+    std::mutex mutex;
+    std::condition_variable finished;
+    bool done = false;
+    std::thread screen{[&] {
+        Common::SetCurrentThreadName("bb:shader_screen");
+        std::unique_lock lock{mutex};
+        if (finished.wait_for(lock, ScreenDelay, [&] { return done; })) {
+            return;
+        }
+        BbOverlay::SetStartupCover(true);
+        bool announced = false;
+        while (!done) {
+            lock.unlock();
+            const auto next = std::chrono::steady_clock::now() + FrameInterval;
+            const bool first_run = BbOverlay::StartupFirstRun();
+            if (first_run) {
+                BbOverlay::SetStartupScreen(true);
+            }
+            Present(PrepareBlankFrame(true), false, false);
+            if (first_run && !announced) {
+                announced = true;
+                std::printf("Shader screen: shown\n");
+                std::fflush(stdout);
+            }
+            lock.lock();
+            finished.wait_until(lock, next, [&] { return done; });
+        }
+        lock.unlock();
+        BbOverlay::SetStartupScreen(false);
+        // Black until the game draws, not the screen's last picture.
+        Present(PrepareBlankFrame(true), false, false);
+    }};
+    rasterizer->GetPipelineCache().WarmUp();
+    BbOverlay::SetStartupCover(true); // before the screen ends: no grey frame between them
+    {
+        std::scoped_lock lock{mutex};
+        done = true;
+    }
+    finished.notify_all();
+    screen.join();
 }
 
 Presenter::~Presenter() {

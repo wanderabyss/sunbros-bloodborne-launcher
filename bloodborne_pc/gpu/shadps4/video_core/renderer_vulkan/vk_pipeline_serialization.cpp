@@ -6,6 +6,7 @@
 #include <mutex>
 #include <cstdio>
 #include <stdexcept>
+#include "bbport_overlay.h"
 #include "common/serdes.h"
 #include "core/emulator_settings.h"
 #include "shader_recompiler/frontend/fetch_shader.h"
@@ -431,14 +432,22 @@ void PipelineCache::WarmUp() {
     Storage::DataBase::Instance().Load(Storage::BlobType::DriverPipelineCache, "driver", driver_data);
     std::array<uint8_t, 16> uuid;
     std::copy_n(props.pipelineCacheUUID.data(), uuid.size(), uuid.data());
+    // The "Preparing shaders" screen is for real preparation: a new install or driver (no usable
+    // driver cache), another shader profile, or many shaders to translate (below). A normal start
+    // also reloads every pipeline and translates about a hundred shaders, under "Starting the game".
+    bool driver_cache_restored = false;
     if (CompatiblePipelineData(driver_data, props.vendorID, props.deviceID, uuid)) {
         auto [result, cache] = instance.GetDevice().createPipelineCacheUnique({
             .initialDataSize = driver_data.size(), .pInitialData = driver_data.data()});
         if (result == vk::Result::eSuccess) {
             pipeline_cache = std::move(cache);
+            driver_cache_restored = true;
             std::printf("Pipeline driver cache: restored %.2f MiB for this device/driver\n",
                         double(driver_data.size()) / (1u << 20));
         }
+    }
+    if (!driver_cache_restored) {
+        BbOverlay::SetStartupFirstRun();
     }
     const auto warmup_start = std::chrono::steady_clock::now();
     // bbport shader pre-build: with the game files' code (BB_SHADER_CODE), the cache's records of
@@ -456,6 +465,7 @@ void PipelineCache::WarmUp() {
     std::vector<u8> profile_data{};
     Storage::DataBase::Instance().Load(Storage::BlobType::ShaderProfile, "profile", profile_data);
     if (profile_data.empty()) {
+        BbOverlay::SetStartupFirstRun();
         Storage::DataBase::Instance().FinishPreload();
 
         profile_data.resize(sizeof(profile));
@@ -475,6 +485,9 @@ void PipelineCache::WarmUp() {
     Shader::Profile cached_profile{};
     if (profile_data.size() == sizeof(Shader::Profile)) {
         std::memcpy(&cached_profile, profile_data.data(), sizeof(cached_profile));
+    }
+    if (profile_data.size() != sizeof(Shader::Profile) || cached_profile != profile) {
+        BbOverlay::SetStartupFirstRun();
     }
     const bool vendor_incompatible =
         cached_profile.supports_amd_shader_explicit_vertex_parameter !=
@@ -522,8 +535,13 @@ void PipelineCache::WarmUp() {
                      Storage::DataBase::Instance().Count(Storage::BlobType::ShaderMeta);
     u32 done = 0;
     auto shown = std::chrono::steady_clock::now();
+    static constexpr u32 ManyTranslated = 300; // a normal start translates about 110
     const auto progress = [&] {
         ++done;
+        if (prebuild_translated > ManyTranslated) {
+            BbOverlay::SetStartupFirstRun();
+        }
+        BbOverlay::SetStartupProgress(float(done) / float(work));
         const auto now = std::chrono::steady_clock::now();
         if (work > 200 && now - shown > std::chrono::milliseconds(200)) {
             shown = now;
@@ -535,6 +553,11 @@ void PipelineCache::WarmUp() {
         Storage::BlobType::PipelineKey, [&](std::vector<u8>&& data) {
             ++num_total_pipelines;
             progress();
+            // Skipped on the "Preparing shaders" screen: the record stays for the next start,
+            // and the pipeline is compiled if the game uses it before then.
+            if (BbOverlay::StartupSkipRequested()) {
+                return true;
+            }
 
             Serialization::Archive ar{std::move(data)};
             Serialization::Reader pldata{ar};
@@ -586,6 +609,9 @@ void PipelineCache::WarmUp() {
     Storage::DataBase::Instance().ForEachBlob(
         Storage::BlobType::ShaderMeta, [&](std::vector<u8>&& data) {
             progress();
+            if (BbOverlay::StartupSkipRequested()) {
+                return;
+            }
             Serialization::Archive ar{std::move(data)};
             try {
                 variants += LoadPipelineStage(ar, 0);
@@ -596,6 +622,9 @@ void PipelineCache::WarmUp() {
             sel.fetch_shader.reset();
         });
     SetWindowStatus({});
+    if (BbOverlay::StartupSkipRequested()) {
+        std::printf("Shader warm-up: skipped on the screen; the rest compile when the game uses them\n");
+    }
     if (prebuild) {
         std::printf("Shader pre-build: %u stored shader variants ready, pipelines or not\n",
                     variants);

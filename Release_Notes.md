@@ -1,5 +1,25 @@
 # Release Notes
 
+## [4.4.0+build110626.195000] — 2026-11-06
+### Play starts in seconds; a Preparing shaders screen, a Stop button, and a sharper launcher
+<!-- launcher:
+### Play starts in seconds; a Preparing shaders screen, a Stop button, and a sharper launcher
+
+- The launcher now prepares your game files in the background, so Play starts the game within seconds. You can press Play at any time.
+- On a first start, or after an update or driver change, the game shows shader progress in Bloodborne's font instead of a black window. Skip it with Options or Menu on a controller, Esc, or a click on Skip; the game can stutter while the rest compile.
+- A Stop button sits beside Game running. Click it twice to end the game; unsaved progress is lost.
+- Home's art is now sharp, with frosted glass behind its panels, and the other pages lose their JPEG blocks. Text uses the open IBM Plex Sans font and draws with clean edges, without colour fringes.
+- Fixed: with a custom weapon's switch off, each start made more save backup folders and took longer. Existing folders stay, because they may hold your original weapons.
+-->
+
+- **Build ahead:** the launcher prepares your game files in the background when it opens and after settings change. On a test PC with five enhancements on, Play reached the game in 3.3 s instead of 160 s on a new version's first start.
+- **Preparing shaders:** a first start, or one after an update or driver change, shows progress instead of a black window. Skip with Options or Menu, Esc, or a click on Skip; the rest are prepared at the next start.
+- **Stop:** a button beside Game running, which needs a second click.
+- **Sharper launcher:** sharp art on Home with frosted glass behind its panels, smoother blurred art on the other pages, less banding, and the open IBM Plex Sans font with clean edges.
+- **Fixed, save backups:** with a custom weapon's switch off, each start converted earlier backups and made more of them, which also slowed the start. Backups are now left alone. Existing folders stay, because they may hold your original weapons.
+
+[Changelog](docs/changelog/changelog-2026-11-06-4.4.0.md)
+
 ## [4.3.5+build110626.152541] — 2026-11-06
 ### NG+7 Sojin Chikage for a Bloodtinge build; Uncanny and Lost hammers
 <!-- launcher:

@@ -474,6 +474,13 @@ class LauncherBackend(QObject):
         self._atlas_progress = ''  # Hunter's Atlas: the map preparation's progress line
         self._problem: str = str(self._route.get('problem', '') or '')
         self._game_started = False
+        self._stopping = False
+        self._build_ahead_enabled = False  # start_background_checks: a launcher window, not a direct launch
+        self._build_process = None
+        self._build_job = None
+        self._build_again = False
+        self._queued_play = None  # Play pressed during a build: {'env': ...}
+        self._build_timer = None
         self._checks_started = False
         # A first start (no bbport.ini, no saved settings anywhere): once the GPU check reports,
         # the settings come from this PC instead of INI_DEFAULTS (_apply_first_start).
@@ -596,6 +603,8 @@ class LauncherBackend(QObject):
         if not self.hdPackInstalled and self._hd_in_downloads():
             self._hd_watch()  # a pack file downloaded (or downloading) since the launcher last ran
         self._hd_auto_build()  # every download already in its folder
+        self._build_ahead_enabled = True
+        self._schedule_build()
 
     @Property(str, notify=noticeChanged)
     def notice(self):
@@ -1221,6 +1230,7 @@ class LauncherBackend(QObject):
         core.save_ini({k: self.ini[k] for k in core.INI_DEFAULTS}, self.ini_lines)
         self.ini, self.ini_lines = core.load_ini()
         self._remember_written()
+        self._schedule_build()
         self.changed.emit()
 
     @Slot()
@@ -1616,6 +1626,17 @@ class LauncherBackend(QObject):
             except OSError as error:
                 self._append_log(f"Launcher: could not change BBSC's co-op bells back: {error}\n")
         self._game_started = False
+        self._stopping = False
+        if self._build_process:
+            # The build has the work done so far: it goes on as this start, and the game follows.
+            self._queued_play = {'env': env}
+            self.process, self.job = self._build_process, self._build_job
+            self.runningChanged.emit()
+            self._set_notice('Preparing the game…')
+            return
+        self._start_game(env)
+
+    def _start_game(self, env):
         try:
             # Play was pressed: the log's "Start timing:" lines count from here (run.py).
             start_env = {**(env or core.game_environment(self.app, self.ini)), 'BB_START_TIME': str(time.time())}
@@ -1626,6 +1647,7 @@ class LauncherBackend(QObject):
         except OSError as error:
             self._set_notice(f'Could not start: {error}')
             self.process = None
+            self.runningChanged.emit()
             return
         self.job = core.GameJob(self.process)
         self.runningChanged.emit()
@@ -1634,6 +1656,66 @@ class LauncherBackend(QObject):
         if self.app.get('close_on_play'):
             from PySide6.QtCore import QTimer
             QTimer.singleShot(5000, self.closeRequested.emit)
+
+    # --- Build ahead: the game files are made before Play, so the game starts at once ---------------
+    # run.py with BB_PREPARE_ONLY=1, at low priority: a first start of a new version takes minutes.
+    BUILD_DELAY_MS = 3000  # settings often change in bursts
+    buildAheadChanged = Signal()
+    _buildWanted = Signal()
+    _buildFinished = Signal(int)
+
+    @Property(bool, notify=buildAheadChanged)
+    def buildingAhead(self):
+        return self._build_process is not None and self._queued_play is None
+
+    def _schedule_build(self):
+        """Any thread. A build follows the settings once they settle."""
+        if self._build_ahead_enabled:
+            self._buildWanted.emit()
+
+    def _begin_build(self):
+        if self._build_process:
+            self._build_again = True
+            return
+        if (self.process or self._hd_process or self._setup_running or self._save_backup_busy
+                or not core.game_info(self.app.get('game_dir'))):
+            return
+        env = {**core.game_environment(self.app, self.ini), 'BB_PREPARE_ONLY': '1'}
+        flags = core.NO_WINDOW | getattr(subprocess, 'BELOW_NORMAL_PRIORITY_CLASS', 0)
+        try:
+            core.DATA_DIR.mkdir(parents=True, exist_ok=True)
+            with open(core.DATA_DIR / 'build_ahead.log', 'wb') as log:
+                self._build_process = subprocess.Popen(core.run_command(), cwd=core.PORT_DIR, env=env,
+                                                       stdin=subprocess.DEVNULL, stdout=log,
+                                                       stderr=subprocess.STDOUT, creationflags=flags)
+        except OSError:
+            return  # Play makes the files, and reports what is wrong
+        self._build_job = core.GameJob(self._build_process)
+        process = self._build_process
+        threading.Thread(target=lambda: self._buildFinished.emit(process.wait()), daemon=True).start()
+        self.buildAheadChanged.emit()
+
+    @Slot(int)
+    def _receive_build_finished(self, code):
+        queued, self._queued_play = self._queued_play, None
+        job, self._build_job = self._build_job, None
+        self._build_process = None
+        again, self._build_again = self._build_again, False
+        if job:
+            job.close()
+        self.buildAheadChanged.emit()
+        if queued is not None:
+            self.process, self.job = None, None
+            if self._stopping:
+                self._receive_exit(code)
+            else:
+                self._start_game(queued['env'])
+        elif again:
+            self._schedule_build()
+
+    def shutdown_build_ahead(self):
+        if self._build_job:
+            self._build_job.terminate()
 
     # The game's output reaches the window in batches: one GUI update per line rebuilt the
     # 350 KB log text and its view for every line, and the burst the game prints when it quits
@@ -1677,6 +1759,10 @@ class LauncherBackend(QObject):
     @Slot(int)
     def _receive_exit(self, code):
         self._append_log(f'\n— The game exited (code {code}) —\n')
+        stopped = self._stopping
+        self._stopping = False
+        if stopped:
+            code = 0  # the player's Stop, not a game that failed to start
         self.process = None
         if self.job:
             self.job.close()
@@ -1687,21 +1773,32 @@ class LauncherBackend(QObject):
         self._settings_revision += 1
         self.presetApplied.emit()  # the pages rebuild their rows with those values
         self.changed.emit()
-        if self._game_started or code == 0:
+        if stopped:
+            self._set_notice('The game was stopped.')
+        elif self._game_started or code == 0:
             self._set_notice('Ready to hunt.')
         else:
             self._set_notice(f'The game could not start (exit code {code}). See the log for details.')
         if self._game_started and self.app.get('backup_after_play', True):
             self._auto_backup_saves()  # zipped in a worker thread: this exit path stays fast
         self.gameFinished.emit(code, self._game_started)
+        self._schedule_build()  # what the in-game menu changed
 
     def connect_workers(self):
         self._outputLine.connect(self._receive_line)
         self._gameExited.connect(self._receive_exit)
+        self._buildFinished.connect(self._receive_build_finished)
+        from PySide6.QtCore import QTimer
+        self._build_timer = QTimer(self)
+        self._build_timer.setSingleShot(True)
+        self._build_timer.setInterval(self.BUILD_DELAY_MS)
+        self._build_timer.timeout.connect(self._begin_build)
+        self._buildWanted.connect(self._build_timer.start)
 
     @Slot()
     def stop(self):
         if self.job:
+            self._stopping = True
             self.job.terminate()
 
     # --- Save backups (bbport_save_backups) ------------------------------------------------------
@@ -1910,6 +2007,7 @@ class LauncherBackend(QObject):
 
     @Slot(str, bool)
     def setMod(self, name, enabled):
+        self._schedule_build()
         profile_file = core.DATA_DIR / 'mods.json'
         profile_file.parent.mkdir(parents=True, exist_ok=True)
         profile = core.load_json(profile_file, {})
@@ -1925,6 +2023,7 @@ class LauncherBackend(QObject):
 
     @Slot(str, int)
     def moveMod(self, name, step):
+        self._schedule_build()
         names = [m['name'] for m in self._mods]
         if name not in names:
             return

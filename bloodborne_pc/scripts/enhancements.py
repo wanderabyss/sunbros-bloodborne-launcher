@@ -79,6 +79,7 @@ from pathlib import Path
 import shutil
 import struct
 import sys
+import time
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from fromsoft import FormatError, dcx_compress, dcx_decompress
@@ -692,6 +693,7 @@ def make(game, out, keys, ng7_cap=None):
                 folders.append(folder)
                 print(f'Enhancements: {FEATURES[key][2]} (up to date)', file=sys.stderr)
                 continue
+        started = time.monotonic()
         files = MAKERS[key](dvdroot, keys) if key in COMBINED else MAKERS[key](dvdroot)
         if capped and files:
             files = ng_plus_7_with_cap(dvdroot, files, out, keys, ng7_cap)
@@ -704,7 +706,8 @@ def make(game, out, keys, ng7_cap=None):
             target.write_bytes(data)
         stamp_file.write_text(stamp_for(dvdroot, files, identity), encoding='utf-8')
         folders.append(folder)
-        print(f'Enhancements: {FEATURES[key][2]} ({len(files)} files)', file=sys.stderr)
+        print(f'Enhancements: {FEATURES[key][2]} ({len(files)} files) took {time.monotonic() - started:.1f} s',
+              file=sys.stderr)
     return folders
 
 

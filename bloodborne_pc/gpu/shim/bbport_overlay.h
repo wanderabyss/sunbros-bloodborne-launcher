@@ -30,6 +30,23 @@ void UpdateTextInput(SDL_Window* window);
 /// Whether anything is drawn this frame (menu open or FPS counter on).
 bool Visible();
 
+/// The "Preparing shaders" screen, which replaces everything else the overlay draws. Any thread.
+void SetStartupScreen(bool shown);
+/// Black with "Starting the game", through the warm-up and over the game's first frames (its grey
+/// clear colour), until its first UI frame ends it.
+void SetStartupCover(bool on);
+/// The warm-up found real preparation to do: "Preparing shaders" shows instead of the cover.
+void SetStartupFirstRun();
+bool StartupFirstRun();
+/// 0 to 1; below 0 (the start) the amount of work is not known yet.
+void SetStartupProgress(float fraction);
+/// The player asked to go on without the remaining shaders (the controller's Options or Menu,
+/// Esc, or a click on Skip).
+bool StartupSkipRequested();
+/// Window thread, once per poll: holds the controllers open while that screen is shown and reads
+/// the skip button. The game opens its own only once it runs (runtime_pad.c).
+void UpdateStartupPads();
+
 /// Present thread: draws into `view` (layout ColorAttachmentOptimal).
 void Render(vk::CommandBuffer cmdbuf, vk::ImageView view, vk::Extent2D extent);
 /// Present thread, on frames Render is skipped (nothing visible): scripted tests' map commands

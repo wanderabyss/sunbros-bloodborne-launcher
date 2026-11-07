@@ -30,6 +30,7 @@ Item {
         height: Math.min(parent.height - y, setup.implicitHeight + 48 + 8)
         Behavior on height { NumberAnimation { duration: Theme.motionPage; easing.type: Easing.OutCubic } }
         Flickable {
+            onContentYChanged: Theme.frostTick++
             id: scroll
             anchors.fill: parent; anchors.margins: 24
             clip: true; boundsBehavior: Flickable.StopAtBounds

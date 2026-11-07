@@ -41,6 +41,7 @@ Item {
 
     // Content
     Flickable {
+        onContentYChanged: Theme.frostTick++
         anchors.top: parent.top
         anchors.topMargin: 60
         anchors.left: parent.left

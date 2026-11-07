@@ -64,8 +64,7 @@ Rasterizer::Rasterizer(const Instance& instance_, Scheduler& scheduler_, Runtime
     ray_tracing = std::make_unique<RayTracing>(instance, scheduler, object_motion.get());
     rt_effects = std::make_unique<RtEffects>(instance, scheduler, texture_cache, runtime,
                                              *camera_motion);
-    pipeline_cache.WarmUp(); // after object motion: see PipelineCache::PipelineCache
-    upscaler = std::make_unique<TemporalUpscaler>(instance, scheduler, texture_cache, runtime,
+    upscaler =std::make_unique<TemporalUpscaler>(instance, scheduler, texture_cache, runtime,
                                                   *camera_motion, *scene_targets);
     if (!EmulatorSettings.IsNullGPU()) {
         liverpool->BindRasterizer(this);

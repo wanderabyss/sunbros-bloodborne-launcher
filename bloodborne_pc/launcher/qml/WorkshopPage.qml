@@ -23,6 +23,7 @@ Item {
     Connections { target: launcher; function onChanged() { workshop.tick++ } }
 
     Flickable {
+        onContentYChanged: Theme.frostTick++
         id: scroll
         anchors.fill: parent
         clip: true; boundsBehavior: Flickable.StopAtBounds

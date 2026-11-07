@@ -10,6 +10,7 @@ Item {
     function openAt(section, key) { scroll.contentY = 0 }
 
     Flickable {
+        onContentYChanged: Theme.frostTick++
         id: scroll
         anchors.fill: parent
         clip: true; boundsBehavior: Flickable.StopAtBounds

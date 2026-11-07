@@ -130,6 +130,15 @@ def no_console():
     return 0 if ctypes.windll.kernel32.GetConsoleWindow() else subprocess.CREATE_NO_WINDOW
 
 
+def saves_holding(user_dir, ids):
+    """Save folders with one of these weapon ids. A converter's backup ("SPRJ0005 sojin-chikage backup
+    20261106-204502") sits beside the save and keeps the weapons on purpose: converting it would
+    back it up again, with more folders on every start."""
+    return sorted({path.parent for path in user_dir.glob('savedata/*/*/*/userdata00*')
+                   if not re.search(r' backup \d{8}-\d{6}', path.parent.name)
+                   and any(i in path.read_bytes() for i in ids)})
+
+
 def sojin_saves(game, original_game, user_dir):
     """Saves holding a Hunter's Arsenal weapon the game no longer has (pc_sojin_chikage off and no
     mod with it) would not load it: before the game starts, Sojin Chikage weapons become the
@@ -144,8 +153,7 @@ def sojin_saves(game, original_game, user_dir):
         try:
             weapon = __import__(f'{package}.weapon', fromlist=['weapon'])
             ids = [struct.pack('<I', v) for v in weapon.WEAPON_IDS]
-            holding = sorted({path.parent for path in user_dir.glob('savedata/*/*/*/userdata00*')
-                              if any(i in path.read_bytes() for i in ids)})
+            holding = saves_holding(user_dir, ids)
             if not holding:
                 continue
             weapon.set_game(Path(original_game) / 'dvdroot_ps4')
@@ -460,6 +468,13 @@ def main():
         print(f"Hunter's Atlas: on (maps in {atlas_env['BB_MAP_DIR']})")
     elif ini_value(config, 'atlas_enabled') == '1':
         print("Hunter's Atlas: on in the settings, but its maps are not prepared (launcher: Prepare maps)")
+    # The "Preparing shaders" screen's font: the game's own, from the prepared maps when they are
+    # there (with the map off too), else the launcher's copy.
+    startup_font = next((font for font in (Path(env.get('BB_ATLAS_DIR', data / 'atlas')) / 'art' / 'native-font.ttf',
+                                           PORT / 'launcher' / 'assets' / 'ui' / 'bloodborne-font.ttf')
+                         if font.is_file()), None)
+    if startup_font:
+        env['BB_STARTUP_FONT'] = str(startup_font)
     # Rebirth's runtime half acts only with the altar's rewritten script in place.
     env['BB_PC_REBIRTH_ACTIVE'] = '1' if any(Path(f).name == 'rebirth' for f in generated) else '0'
     # NG+7 world's runtime half: with the Hunter's Dream's rune gift in place.
@@ -696,6 +711,11 @@ def main():
         if (env.get('BB_DAMAGE_LOG') or ini_value(config, 'damage_log') or '0') == '1':
             env['BB_DAMAGE_LOG'] = '1'
 
+        # The launcher's build ahead: the game files are ready, so a later Play has little left to
+        # do. Saves, online and the game itself are for a real start.
+        if env.get('BB_PREPARE_ONLY') == '1':
+            START_TIMING.step('other preparation')
+            return 0
         # The in-game restart starts this script again once this process is gone.
         # GPU caches (shaders, pipelines) beside the saves; read before main(), so set here.
         user_dir = Path(env.get('BB_USER_DIR', data / 'user')).resolve()

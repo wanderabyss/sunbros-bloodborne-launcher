@@ -11,18 +11,22 @@ ApplicationWindow {
     objectName: "launcherWindow"
     visible: true
     // A window, never full screen: opened (once, in Component.onCompleted) at the design size
-    // scaled to about 40% x 45% of the desktop and centred, so a 4K screen shows the same
-    // launcher larger and sharp rather than a small one in a corner.
+    // scaled to about 40% x 45% of the desktop and centred, never below the design size (a 1080p
+    // screen opens at 1290 x 830).
     width: 1290; height: 830
     // Home fits at 800 px (the tab bar is 640); sidebar pages need room for sidebar and list.
     minimumWidth: page === "Home" ? 800 : 1040
     minimumHeight: 720
     // The design fills 80% of the window's height or width (the rest is art), times the A− / A+
     // step; never below 0.8, and never so large that sidebar pages get less than 1040 x 720.
-    readonly property real fitZoom: Math.max(1, Math.min(width / 1290, height / 830) * 0.8)
+    // Below 1.25x it stays at exactly 1: a small scale softens text without giving it more pixels.
+    readonly property real fitZoom: {
+        const fit = Math.min(width / 1290, height / 830) * 0.8
+        return fit < 1.25 ? 1 : fit
+    }
     readonly property real roomZoom: Math.min(width / 1040, height / 720)
     readonly property real zoom: Math.max(0.8, Math.min(3, roomZoom, fitZoom * Theme.sizeStep))
-    onZoomChanged: Theme.zoom = zoom
+    onZoomChanged: { Theme.zoom = zoom; frostMoved() }
     function stepSize(delta) {
         Theme.uiScale = delta === 0 ? "auto" : Theme.sizeValue(Theme.sizeIndex(Theme.uiScale) + delta)
         launcher.setValue("ui_scale", Theme.uiScale)
@@ -35,7 +39,7 @@ ApplicationWindow {
     color: Theme.base
     property string page: "Home"
     property var visited: ({"Home": true})
-    // Each page's background in assets/ui/bg (blurred once at build time, not live).
+    // Each page's background in assets/ui/bg (scripts/bake_launcher_art.py).
     readonly property var backgrounds: ({
         "Home": "home", "Visuals": "visuals", "VisualsAdvanced": "visuals-advanced",
         "Online": "online", "Coop": "coop", "Dossier": "dossier", "Mods": "workshop",
@@ -46,6 +50,7 @@ ApplicationWindow {
     readonly property int pageBottom: page === "Setup" ? 0 : Theme.tabBarHeight + Theme.tabBarBottom + 12
 
     onPageChanged: {
+        frostSettle.restart()
         if (!visited[page]) {
             var next = Object.assign({}, visited)
             next[page] = true
@@ -138,36 +143,62 @@ ApplicationWindow {
 
     FontLoader { source: Qt.resolvedUrl("../assets/ui/bloodborne-font.ttf") }
 
+    // Over everything: a bright display shows 8-bit banding in the translucent shades and glass
+    // gradients, and about two levels of noise hides it (scripts/bake_launcher_art.py).
+    Image {
+        anchors.fill: parent
+        z: 1000
+        source: Qt.resolvedUrl("../assets/ui/dither.png")
+        fillMode: Image.Tile
+        smooth: false
+        enabled: false
+    }
+
     // --- Background: the page's art, crossfaded; only the shown one stays decoded ------------
-    Repeater {
-        model: ["home", "visuals", "visuals-advanced", "online", "coop", "dossier", "workshop", "workshop-advanced", "settings", "setup"]
-        delegate: Image {
-            required property string modelData
-            readonly property bool current: window.backgroundName === modelData
+    // Home's art is sharp (3344 wide, scripts/bake_launcher_art.py) and its panels frost what is
+    // behind them (GlassPanel.qml). The other pages' art is blurred when it is made.
+    Item {
+        id: backdrop
+        anchors.fill: parent
+        Component.onCompleted: Theme.backdrop = backdrop
+        Binding { target: Theme; property: "sharpBackdrop"; value: window.page === "Home" }
+        Repeater {
+            model: ["home", "visuals", "visuals-advanced", "online", "coop", "dossier", "workshop", "workshop-advanced", "settings", "setup"]
+            delegate: Image {
+                required property string modelData
+                readonly property bool current: window.backgroundName === modelData
+                anchors.fill: parent
+                source: current || opacity > 0 ? Qt.resolvedUrl("../assets/ui/bg/" + modelData + ".jpg") : ""
+                fillMode: Image.PreserveAspectCrop
+                smooth: true
+                sourceSize.width: modelData === "home" ? 3344 : 1920
+                mipmap: modelData === "home" // drawn smaller than it is decoded in most windows
+                opacity: current ? 1 : 0
+                visible: opacity > 0
+                Behavior on opacity { NumberAnimation { duration: Theme.reducedMotion ? 0 : 260 } }
+            }
+        }
+        // Home keeps its art sharp: a light shade where the text sits.
+        Rectangle {
             anchors.fill: parent
-            source: current || opacity > 0 ? Qt.resolvedUrl("../assets/ui/bg/" + modelData + ".jpg") : ""
-            sourceSize.width: 1920
-            fillMode: Image.PreserveAspectCrop
-            opacity: current ? 1 : 0
-            visible: opacity > 0
-            Behavior on opacity { NumberAnimation { duration: Theme.reducedMotion ? 0 : 260 } }
+            visible: window.page === "Home"
+            gradient: Gradient {
+                orientation: Gradient.Horizontal
+                GradientStop { position: 0; color: "#590a0c12" }
+                GradientStop { position: 0.55; color: "#000a0c12" }
+            }
+        }
+        Rectangle {
+            anchors.fill: parent
+            visible: window.page !== "Home"
+            color: "#330a0c12"
         }
     }
-    // Home keeps its art sharp: a light shade where the text sits.
-    Rectangle {
-        anchors.fill: parent
-        visible: window.page === "Home"
-        gradient: Gradient {
-            orientation: Gradient.Horizontal
-            GradientStop { position: 0; color: "#590a0c12" }
-            GradientStop { position: 0.55; color: "#000a0c12" }
-        }
-    }
-    Rectangle {
-        anchors.fill: parent
-        visible: window.page !== "Home"
-        color: "#330a0c12"
-    }
+    // Panels follow the window's layout, which their own position does not report.
+    function frostMoved() { Qt.callLater(function () { Theme.frostTick++ }) }
+    onWidthChanged: frostMoved()
+    onHeightChanged: frostMoved()
+    Timer { id: frostSettle; interval: 450; onTriggered: window.frostMoved() } // after a page's rise-in
 
     // --- Pages --------------------------------------------------------------------------------
     Item {

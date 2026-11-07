@@ -10,6 +10,11 @@ QtObject {
     // when the window is larger (a maximised 4K window) or the player picks a size in Settings.
     // Canvas icons read it to paint at the magnified resolution and stay sharp.
     property real zoom: 1
+    // Main.qml's page art, which GlassPanel `frost` blurs, and a count that goes up when panels
+    // may have moved with the layout around them.
+    property Item backdrop: null
+    property bool sharpBackdrop: true // false: this page's art is already blurred, nothing to frost
+    property int frostTick: 0
     // Any page asks Main.qml to show release notes: "update" (the offered release) or "whatsnew".
     signal showReleaseNotes(string mode)
     // Interface size (A− / A+), saved as ui_scale: a step around the fitted size, "auto" = 100%.
@@ -83,7 +88,7 @@ QtObject {
     // Typography: Segoe UI Variable stands in for SF Pro; the Bloodborne face is for the logo.
     readonly property string bloodborne: "fleshandblood"
     readonly property string serif: "fleshandblood"
-    readonly property string sans: "Segoe UI Variable Display"
+    readonly property string sans: "IBM Plex Sans" // bundled, assets/fonts: hinted, sturdy at small sizes on Windows
     readonly property int fontSmall: 12
     readonly property int fontNormal: 14
     readonly property int fontLarge: 15

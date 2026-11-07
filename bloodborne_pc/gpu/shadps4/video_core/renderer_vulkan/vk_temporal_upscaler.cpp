@@ -15,6 +15,7 @@
 #include <vk_mem_alloc.h>
 
 #include "bbport_nvidia_gpu.h"
+#include "bbport_overlay.h"
 #include "video_core/renderer_vulkan/vk_dlss5.h"
 #include "bbport_settings.h"
 #include "bbport_start_timing.h"
@@ -1677,6 +1678,7 @@ void TemporalUpscaler::EnsureUiResources(u32 w, u32 h, vk::Format color, vk::For
     if (!timed) {
         timed = true;
         bb_start_timing("first UI frame");
+        BbOverlay::SetStartupCover(false);
     }
 }
 

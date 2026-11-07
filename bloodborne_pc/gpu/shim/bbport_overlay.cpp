@@ -92,6 +92,25 @@ std::string text_entry_prompt, text_entry_text;
 float base_scale = 1.0f;
 ImFont* guide_serif_font = nullptr; // Georgia from Windows when present; embedded font remains the fallback.
 
+// The "Preparing shaders" screen (SetStartupScreen).
+ImFont* startup_font = nullptr; // the game's font; the guide's serif without it
+std::atomic<bool> startup_shown{false};
+std::atomic<float> startup_progress{-1.0f};
+std::atomic<bool> startup_skip{false};
+std::atomic<bool> startup_first_run{false};
+// Black over the game's first frames, its grey clear colour, until its first UI frame.
+std::atomic<int64_t> startup_cover_end{0}; // steady_clock nanoseconds; 0: off
+ImVec4 startup_skip_area{}; // left, top, right, bottom in pixels; under imgui_mutex
+std::atomic<const char*> startup_pad_label{nullptr}; // the first controller's skip button; none connected: null
+std::vector<SDL_Gamepad*> startup_pads; // window thread
+
+void RequestStartupSkip(const char* how) {
+    if (!startup_skip.exchange(true)) {
+        std::printf("Shader screen: skip pressed (%s)\n", how);
+        std::fflush(stdout);
+    }
+}
+
 // Present rate for the FPS counter.
 std::chrono::steady_clock::time_point last_present{};
 float frame_ms_avg = 0.0f, last_present_ms = 0.0f;
@@ -2167,24 +2186,39 @@ void ConfigureContext() {
             guide_serif_font = io.Fonts->AddFontFromFileTTF(georgia.string().c_str(), 28.0f);
     }
 #endif
+    const auto load_face = [&io](const std::filesystem::path& path) -> ImFont* {
+        std::ifstream file(path, std::ios::binary | std::ios::ate);
+        const auto bytes = file ? std::streamoff(file.tellg()) : std::streamoff(0);
+        if (bytes <= 0 || bytes >= 16 * 1024 * 1024) {
+            return nullptr;
+        }
+        void* data = IM_ALLOC(size_t(bytes));
+        file.seekg(0);
+        file.read(static_cast<char*>(data), bytes);
+        if (!file) {
+            IM_FREE(data);
+            return nullptr;
+        }
+        return io.Fonts->AddFontFromMemoryTTF(data, int(bytes), 24.0f);
+    };
+    // The "Preparing shaders" screen: the game's font (run.py chooses the file). The embedded
+    // face fills in what it lacks: the launcher's copy has no percent sign.
+    if (const char* face = std::getenv("BB_STARTUP_FONT"); face && *face) {
+        startup_font = load_face(face);
+        if (startup_font) {
+            ImFontConfig fill;
+            fill.MergeMode = true;
+            fill.FontDataOwnedByAtlas = false;
+            io.Fonts->AddFontFromMemoryTTF(const_cast<unsigned char*>(bb_font_ttf),
+                                           int(bb_font_ttf_end - bb_font_ttf), 24.0f, &fill);
+        }
+        std::printf("Shader screen font: %s%s\n", face, startup_font ? "" : " (could not be read)");
+    }
     // Hunter's Atlas: the map's serif, made from the player's own menu font by its generator.
     if (BbMap::Enabled()) {
-        const auto map_font = BbAtlasPath("BB_MAP_FONT", BbAtlasPath("BB_MAP_DIR", "navigation-map/maps")
-                                                             .parent_path() / "fonts/bloodborne-native.ttf");
-        std::ifstream face_file(map_font, std::ios::binary | std::ios::ate);
-        if (face_file) {
-            const auto bytes = face_file.tellg();
-            if (bytes > 0 && bytes < 16 * 1024 * 1024) {
-                void* data = IM_ALLOC(size_t(bytes));
-                face_file.seekg(0);
-                face_file.read(static_cast<char*>(data), bytes);
-                if (face_file) {
-                    if (auto* face = io.Fonts->AddFontFromMemoryTTF(data, int(bytes), 24.0f))
-                        BbMap::SetTitleFont(face);
-                } else {
-                    IM_FREE(data);
-                }
-            }
+        if (auto* face = load_face(BbAtlasPath("BB_MAP_FONT", BbAtlasPath("BB_MAP_DIR", "navigation-map/maps")
+                                                                  .parent_path() / "fonts/bloodborne-native.ttf"))) {
+            BbMap::SetTitleFont(face);
         }
     }
     // Trophy notifications: their fonts, options, pictures and sounds (decoded now, not at the
@@ -2193,6 +2227,105 @@ void ConfigureContext() {
 }
 
 // One frame's windows, between NewFrame and Render (Render; also the offscreen preview).
+void StartupRing(ImDrawList* draw, ImVec2 center, float seconds) {
+    const float radius = Px(15.0f);
+    const float angle = seconds * 4.0f;
+    draw->AddCircle(center, radius, Ink::LineStrong, 48, Px(2.0f));
+    draw->PathArcTo(center, radius, angle, angle + 1.8f, 24);
+    draw->PathStroke(Ink::Accent, ImDrawFlags_None, Px(2.0f));
+}
+
+bool StartupCovering() {
+    const int64_t end = startup_cover_end.load(std::memory_order_relaxed);
+    return end != 0 && std::chrono::steady_clock::now().time_since_epoch().count() < end;
+}
+
+// Between the warm-up and the game's first UI frame.
+void StartupCover() {
+    static const auto opened = std::chrono::steady_clock::now();
+    const float seconds = std::chrono::duration<float>(std::chrono::steady_clock::now() - opened).count();
+    ImDrawList* const draw = ImGui::GetBackgroundDrawList();
+    const ImVec2 display = ImGui::GetIO().DisplaySize;
+    draw->AddRectFilled(ImVec2(0.0f, 0.0f), display, IM_COL32(0, 0, 0, 255));
+    StartupRing(draw, ImVec2(display.x * 0.5f, display.y * 0.56f - Px(118.0f)), seconds);
+    ImFont* const font = startup_font          ? startup_font
+                         : guide_serif_font ? guide_serif_font
+                                            : ImGui::GetFont();
+    const float size = Px(21.0f);
+    const char* const text = "Starting the game";
+    const ImVec2 extent = font->CalcTextSizeA(size, FLT_MAX, 0.0f, text);
+    draw->AddText(font, size, ImVec2((display.x - extent.x) * 0.5f, display.y * 0.56f - Px(84.0f)), Ink::Dim, text);
+}
+
+// Over the blank frames while the stored shaders are prepared (Presenter::WarmUpShaders).
+void StartupScreen() {
+    static const auto opened = std::chrono::steady_clock::now();
+    const float seconds =
+        std::chrono::duration<float>(std::chrono::steady_clock::now() - opened).count();
+
+    ImDrawList* const draw = ImGui::GetBackgroundDrawList();
+    const ImVec2 display = ImGui::GetIO().DisplaySize;
+    ImFont* const body = startup_font          ? startup_font
+                         : guide_serif_font ? guide_serif_font
+                                            : ImGui::GetFont();
+    const auto centered = [&](ImFont* font, float size, float y, ImU32 color, const char* text) {
+        const ImVec2 extent = font->CalcTextSizeA(size, FLT_MAX, 0.0f, text);
+        draw->AddText(font, size, ImVec2((display.x - extent.x) * 0.5f, y), color, text);
+    };
+    const float center_x = display.x * 0.5f;
+    const float bar_y = display.y * 0.56f;
+
+    // The ring keeps turning when one pipeline takes long, so the wait never looks like a hang.
+    StartupRing(draw, ImVec2(center_x, bar_y - Px(118.0f)), seconds);
+
+    centered(body, Px(42.0f), bar_y - Px(84.0f), Ink::Text, "Preparing shaders");
+
+    const float bar_half = std::min(display.x * 0.32f, Px(620.0f));
+    const float left = center_x - bar_half, right = center_x + bar_half;
+    const float height = std::max(Px(2.0f), 1.0f);
+    draw->AddRectFilled(ImVec2(left, bar_y), ImVec2(right, bar_y + height), Ink::LineStrong);
+    const float progress = startup_progress.load(std::memory_order_relaxed);
+    if (progress >= 0.0f) {
+        const float head = left + (right - left) * std::clamp(progress, 0.0f, 1.0f);
+        const ImU32 faded = Ink::AccentSoft, full = Ink::Accent;
+        draw->AddRectFilledMultiColor(ImVec2(left, bar_y), ImVec2(head, bar_y + height), faded,
+                                      full, full, faded);
+        draw->AddCircleFilled(ImVec2(head, bar_y + height * 0.5f), Px(3.5f), Ink::Text);
+        char percent[8];
+        std::snprintf(percent, sizeof(percent), "%d%%", std::min(99, int(progress * 100.0f)));
+        centered(body, Px(19.0f), bar_y + Px(16.0f), Ink::Dim, percent);
+    }
+
+    centered(body, Px(21.0f), bar_y + Px(72.0f), Ink::Dim,
+             "This runs the first time the game starts, after an update,");
+    centered(body, Px(21.0f), bar_y + Px(102.0f), Ink::Dim,
+             "or after your graphics driver changes. It can take a while on some PCs.");
+    centered(body, Px(21.0f), bar_y + Px(146.0f), Ink::Faint,
+             "If you skip it, the game can stutter while the remaining shaders compile.");
+
+    // The controller's Options or Menu when one is connected, else Esc; Esc and a click on this
+    // work either way. No other input: a press meant for the launcher or the game must not skip.
+    static constexpr const char* SkipName = "Skip";
+    const char* const pad_label = startup_pad_label.load(std::memory_order_relaxed);
+    const char* const key_name = pad_label ? pad_label : "Esc";
+    const float size = Px(21.0f), gap = Px(12.0f), inset = Px(10.0f);
+    if (startup_skip) {
+        // The press is seen at once; the warm-up ends when the pipeline being built is done.
+        centered(body, size, display.y - Px(108.0f), Ink::Text, "Skipping...");
+        return;
+    }
+    const ImVec2 key = body->CalcTextSizeA(size, FLT_MAX, 0.0f, key_name);
+    const ImVec2 skip = body->CalcTextSizeA(size, FLT_MAX, 0.0f, SkipName);
+    const float total = key.x + inset * 2.0f + gap + skip.x;
+    const float x = (display.x - total) * 0.5f;
+    const float y = display.y - Px(108.0f);
+    const ImVec2 box_min(x, y - Px(5.0f)), box_max(x + key.x + inset * 2.0f, y + key.y + Px(5.0f));
+    draw->AddRect(box_min, box_max, Ink::Dim, Px(4.0f), 0, Px(1.5f));
+    draw->AddText(body, size, ImVec2(x + inset, y), Ink::Text, key_name);
+    draw->AddText(body, size, ImVec2(box_max.x + gap, y), Ink::Text, SkipName);
+    startup_skip_area = ImVec4(box_min.x, box_min.y, box_max.x + gap + skip.x, box_max.y);
+}
+
 void DrawWindows(float display_height) {
     // UI scale follows the display height (1080p = 1).
     const float scale = std::max(display_height / 1080.0f, 0.75f);
@@ -2203,6 +2336,14 @@ void DrawWindows(float display_height) {
         base_scale = scale;
     }
 
+    if (startup_shown) {
+        StartupScreen();
+        return;
+    }
+    if (StartupCovering()) {
+        StartupCover();
+        return;
+    }
     if (menu_open) {
         Menu();
         if (BbMap::IsOpen()) BbMap::Close();
@@ -2303,6 +2444,21 @@ bool HandleEvent(const SDL_Event& event) {
         return false;
     }
     ImGuiIO& io = ImGui::GetIO();
+    if (startup_shown) {
+        if (event.type == SDL_EVENT_KEY_DOWN && !event.key.repeat &&
+            event.key.key == SDLK_ESCAPE) {
+            RequestStartupSkip("Esc");
+        } else if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN &&
+                   event.button.button == SDL_BUTTON_LEFT) {
+            const float density = PixelDensity(event.button.windowID);
+            const float x = event.button.x * density, y = event.button.y * density;
+            const ImVec4& area = startup_skip_area;
+            if (x >= area.x && y >= area.y && x <= area.z && y <= area.w) {
+                RequestStartupSkip("click");
+            }
+        }
+        return true;
+    }
     // Hunter's Atlas first: the Map tile's mouse, and the open map's keys and mouse.
     BbAtlasMenu::Suppress(menu_open || text_entry_active);
     if (!text_entry_active && BbAtlasMenu::HandleMouse(event)) return true;
@@ -2419,8 +2575,98 @@ bool HandleEvent(const SDL_Event& event) {
     }
 }
 
+void SetStartupScreen(bool shown) {
+    startup_shown = shown;
+}
+
+void SetStartupFirstRun() {
+    startup_first_run = true;
+}
+
+bool StartupFirstRun() {
+    return startup_first_run;
+}
+
+void SetStartupCover(bool on) {
+    using namespace std::chrono;
+    // Off: a moment more, as the frame that reports the first UI can still show the grey clear colour.
+    // On: a limit, for a start with no UI frame (the upscaler off).
+    const auto end = steady_clock::now() + (on ? milliseconds(30000) : milliseconds(250));
+    startup_cover_end.store(end.time_since_epoch().count(), std::memory_order_relaxed);
+}
+
+void SetStartupProgress(float fraction) {
+    startup_progress.store(fraction, std::memory_order_relaxed);
+}
+
+bool StartupSkipRequested() {
+    return startup_skip;
+}
+
+void UpdateStartupPads() {
+    static bool background = false; // the hint below is set
+    static bool released = false;   // the skip button was seen up: a press after this one counts
+    static std::chrono::steady_clock::time_point first_seen{}; // ignoring a just-opened pad's first reports
+    if (!startup_shown) {
+        // SDL counts opens: the game's own, later, are not affected.
+        for (SDL_Gamepad* const pad : startup_pads) {
+            SDL_CloseGamepad(pad);
+        }
+        startup_pads.clear();
+        if (background) {
+            SDL_ResetHint(SDL_HINT_JOYSTICK_ALLOW_BACKGROUND_EVENTS);
+            background = false;
+        }
+        return;
+    }
+    // A game started from the launcher may not have the focus yet, and SDL then drops controller
+    // input. Only for this screen: the game ignores a controller while it is in the background.
+    if (!background) {
+        SDL_SetHint(SDL_HINT_JOYSTICK_ALLOW_BACKGROUND_EVENTS, "1");
+        background = true;
+    }
+    bool pressed = false;
+    int count = 0;
+    SDL_JoystickID* const ids = SDL_GetGamepads(&count);
+    const char* label = nullptr;
+    for (int i = 0; ids && i < count; ++i) {
+        SDL_Gamepad* pad = SDL_GetGamepadFromID(ids[i]);
+        if (!pad && (pad = SDL_OpenGamepad(ids[i]))) {
+            startup_pads.push_back(pad);
+        }
+        if (pad && !label) {
+            const SDL_GamepadType type = SDL_GetGamepadType(pad);
+            label = type == SDL_GAMEPAD_TYPE_PS4 || type == SDL_GAMEPAD_TYPE_PS5 ? "Options"
+                    : type == SDL_GAMEPAD_TYPE_XBOX360 || type == SDL_GAMEPAD_TYPE_XBOXONE ? "Menu"
+                                                                                            : "Start";
+        }
+        pressed = pressed || (pad && SDL_GetGamepadButton(pad, SDL_GAMEPAD_BUTTON_START));
+    }
+    SDL_free(ids);
+    startup_pad_label.store(label, std::memory_order_relaxed);
+    // The button's state, not its event. A button already held when the screen appeared does not
+    // count, nor does anything in a just-opened pad's first half second.
+    if (!label) {
+        first_seen = {};
+        return;
+    }
+    const auto now = std::chrono::steady_clock::now();
+    if (first_seen == std::chrono::steady_clock::time_point{}) {
+        first_seen = now;
+    }
+    if (now - first_seen < std::chrono::milliseconds(500)) {
+        return;
+    }
+    if (!pressed) {
+        released = true;
+    } else if (released) {
+        RequestStartupSkip("controller");
+    }
+}
+
 bool Visible() {
-    return initialized && (menu_open || text_entry_active || BbSettings::Get().show_fps ||
+    return initialized && (startup_shown || StartupCovering() || menu_open || text_entry_active ||
+                           BbSettings::Get().show_fps ||
                            CompareShown() ||
                            BbMap::IsOpen() || BbAtlasMenu::Visible() || BbAtlasMenu::Animating() ||
                            BbToast::Busy());
@@ -2455,7 +2701,7 @@ uint32_t RoutePad(uint32_t buttons, uint8_t lx, uint8_t ly, uint8_t rx, uint8_t 
 }
 
 bool ReleasesMouse() {
-    return CapturesInput() || BbAtlasMenu::Interacting();
+    return startup_shown || CapturesInput() || BbAtlasMenu::Interacting();
 }
 
 void SetTextEntry(bool active, const std::string& prompt, const std::string& text) {
@@ -2541,7 +2787,7 @@ void Render(vk::CommandBuffer cmdbuf, vk::ImageView view, vk::Extent2D extent) {
     {
         std::scoped_lock lock{imgui_mutex};
         lock_ms += lap();
-        if (initialized) {
+        if (initialized && !startup_shown) {
             BbMap::PollTestCommands();
             BbMap::Tick();
             BbAtlasMenu::Suppress(menu_open || text_entry_active);

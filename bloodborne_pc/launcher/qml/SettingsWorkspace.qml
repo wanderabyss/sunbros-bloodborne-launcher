@@ -117,6 +117,7 @@ Item {
         x: 16; y: 16; width: workspace.width < 1200 ? 260 : 290; height: parent.height - 16
         radius: 26
         Flickable {
+            onContentYChanged: Theme.frostTick++
             anchors.fill: parent; anchors.margins: 12
             clip: true; boundsBehavior: Flickable.StopAtBounds
             contentHeight: sideColumn.implicitHeight
@@ -240,6 +241,7 @@ Item {
         }
 
         Flickable {
+            onContentYChanged: Theme.frostTick++
             id: detailScroll
             visible: workspace.query === ""
             y: header.y + header.height + 18; width: parent.width + 14; height: parent.height - y

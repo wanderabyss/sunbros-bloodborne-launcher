@@ -33,7 +33,7 @@ Item {
             var fps = String(launcher.effectiveFrameRate || home.liveVal("fps_mode") || "120")
             var overridden = fps !== String(home.liveVal("fps_mode"))
             var base = Number(fps)
-            if (!isFinite(base) || base <= 0) return overridden ? "Unlocked (override)" : "Unlocked base FPS"
+            if (!isFinite(base) || base <= 0) return overridden ? "Unlocked (override)" : "Unlocked FPS"
             var provider = String(home.liveVal("frame_gen") || "off")
             if (overridden) return fps + " base FPS (override)"
             if (provider === "off") return fps + " FPS (no FG)"
@@ -78,10 +78,25 @@ Item {
     readonly property bool hasHunter: !!profile.valid
     readonly property bool compact: width < 1120
     readonly property bool setupBlocked: launcher.playModeBlocked && !launcher.running && !startingGame && !launcher.coopBusy
-    readonly property string statusText: launcher.running ? "Game running" : startingGame ? "Starting game..." : launcher.coopBusy ? "Preparing co-op..." : launchError ? "Launch needs attention" : setupBlocked ? (launcher.playMode === "coop" ? "Co-op setup required" : "Online sign-in required") : "Ready for the hunt"
-    readonly property string statusDetail: launcher.running ? "Your game is running. Return here when the hunt is over." : startingGame ? "Preparing Bloodborne with your selected settings." : launcher.coopBusy ? "Please wait while the session is prepared." : launchError ? launchError : setupBlocked ? (launcher.playMode === "coop" ? "Add your co-op account and choose a server in Co-op." : "Sign in to The Hunter's Dream to play online.") : launcher.playMode === "coop" ? "Your co-op settings are ready. Play to join the hunt." : launcher.playMode === "huntersdream" ? "Messages, bloodstains and summons through The Hunter's Dream." : "Your own Yharnam with your current graphics settings."
+    readonly property string statusText: startingGame ? "Preparing the game" : launcher.running ? "Game running" : launcher.coopBusy ? "Preparing co-op..." : launchError ? "Launch needs attention" : setupBlocked ? (launcher.playMode === "coop" ? "Co-op setup required" : "Online sign-in required") : "Ready for the hunt"
+    readonly property string statusDetail: startingGame ? "Building your game files. The first start of a new version can take a few minutes." : launcher.running ? "Your game is running. Return here when the hunt is over." : launcher.coopBusy ? "Please wait while the session is prepared." : launchError ? launchError : setupBlocked ? (launcher.playMode === "coop" ? "Add your co-op account and choose a server in Co-op." : "Sign in to The Hunter's Dream to play online.") : launcher.buildingAhead ? "Getting your game files ready in the background, so Play starts quickly. You can press Play at any time." : launcher.playMode === "coop" ? "Your co-op settings are ready. Play to join the hunt." : launcher.playMode === "huntersdream" ? "Messages, bloodstains and summons through The Hunter's Dream." : "Your own Yharnam with your current graphics settings."
     readonly property real trophyTotal: Math.max(1, Number(profile.trophies_total || 40))
     readonly property real trophyEarned: Math.max(0, Number(profile.trophies_earned || 0))
+
+    // Stop ends the game at once, so an unsaved moment is lost: the second click does it.
+    property bool stopArmed: false
+    Timer { id: stopDisarm; interval: 4000; onTriggered: home.stopArmed = false }
+
+    function stopGame() {
+        if (stopArmed) {
+            stopArmed = false
+            stopDisarm.stop()
+            launcher.stop()
+        } else {
+            stopArmed = true
+            stopDisarm.restart()
+        }
+    }
 
     function launch() {
         if (launcher.running || startingGame || launcher.coopBusy) return
@@ -104,7 +119,7 @@ Item {
         }
         function onGameStarted() { home.startingGame = false; home.launchError = "" }
         function onGameFinished() { home.startingGame = false }
-        function onRunningChanged() { if (!launcher.running) home.startingGame = false }
+        function onRunningChanged() { if (!launcher.running) { home.startingGame = false; home.stopArmed = false } }
         function onCoopChanged() { if (!launcher.coopBusy && !launcher.running) home.startingGame = false }
         function onChanged() { home.settingsTick++ }
         function onPresetApplied() { home.settingsTick++ }
@@ -276,7 +291,7 @@ Item {
                     color: home.launchError ? Theme.error : home.setupBlocked || !launcher.savesWritable ? Theme.warn : Theme.good }
                 Text {
                     anchors.verticalCenter: parent.verticalCenter
-                    text: home.launchError ? "Needs attention" : !launcher.savesWritable ? "Check setup" : home.setupBlocked ? "Setup needed" : launcher.running ? "Game running" : "Ready to play"
+                    text: home.launchError ? "Needs attention" : !launcher.savesWritable ? "Check setup" : home.setupBlocked ? "Setup needed" : home.startingGame ? "Preparing" : launcher.running ? "Game running" : "Ready to play"
                     color: Theme.text; font.family: Theme.sans; font.pixelSize: 13; font.weight: Font.DemiBold
                 }
             }
@@ -293,6 +308,7 @@ Item {
     readonly property real groupWidth: compact ? heroWidth : heroWidth + columnGap + sideWidth
 
     Flickable {
+        onContentYChanged: Theme.frostTick++
         id: scroller
         objectName: "homeScroller"
         anchors.fill: parent; anchors.topMargin: 76
@@ -360,13 +376,13 @@ Item {
                     }
 
                     RowLayout {
-                        Layout.topMargin: 26; Layout.fillWidth: true; spacing: 12
+                        Layout.topMargin: 26; Layout.fillWidth: true; spacing: 28
                         Button {
                             id: launchButton
                             objectName: "launchHunt"
                             Layout.preferredHeight: 54
                             Layout.preferredWidth: Math.max(150, playText.implicitWidth + 70)
-                            text: launcher.running ? "Game running" : home.startingGame ? "Starting…" : launcher.playModeBlocked ? (launcher.playMode === "coop" ? "Set up co-op" : "Sign in to play") : launcher.playMode === "coop" ? "Play co-op" : launcher.playMode === "huntersdream" ? "Play online" : "Play"
+                            text: home.startingGame ? "Starting…" : launcher.running ? "Game running" : launcher.playModeBlocked ? (launcher.playMode === "coop" ? "Set up co-op" : "Sign in to play") : launcher.playMode === "coop" ? "Play co-op" : launcher.playMode === "huntersdream" ? "Play online" : "Play"
                             enabled: !launcher.running && !home.startingGame && !launcher.coopBusy
                             hoverEnabled: true
                             onClicked: home.launch()
@@ -385,9 +401,32 @@ Item {
                             scale: Theme.reducedMotion ? 1 : launchButton.down ? 0.97 : 1
                             Behavior on scale { NumberAnimation { duration: 80 } }
                         }
+                        Button {
+                            id: stopButton
+                            objectName: "stopGame"
+                            visible: launcher.running
+                            Layout.preferredHeight: 54
+                            Layout.preferredWidth: Math.max(112, stopText.implicitWidth + 64)
+                            text: home.stopArmed ? "Click again to stop" : "Stop"
+                            hoverEnabled: true
+                            onClicked: home.stopGame()
+                            contentItem: Item {
+                                Row {
+                                    anchors.centerIn: parent; spacing: 10
+                                    Rectangle { width: 13; height: 13; radius: 2; color: "#ffffff"; anchors.verticalCenter: parent.verticalCenter }
+                                    Text { id: stopText; text: stopButton.text; color: "#ffffff"; font.family: Theme.sans; font.pixelSize: 18; font.weight: Font.DemiBold; anchors.verticalCenter: parent.verticalCenter }
+                                }
+                            }
+                            background: Rectangle {
+                                radius: height / 2
+                                color: stopButton.down ? "#a12833" : stopButton.hovered || home.stopArmed ? "#d9414e" : "#c8323f"
+                                border.color: stopButton.visualFocus ? Theme.gold : "transparent"; border.width: 2
+                            }
+                        }
                         GlassPanel {
                             Layout.preferredHeight: 54
                             Layout.preferredWidth: modeRow.implicitWidth + 10
+                            visible: !launcher.running // chosen before Play; no use during a run
                             radius: 27
                             Row {
                                 id: modeRow

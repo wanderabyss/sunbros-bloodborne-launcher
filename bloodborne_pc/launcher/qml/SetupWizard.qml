@@ -131,6 +131,7 @@ Item {
     }
 
     Flickable {
+        onContentYChanged: Theme.frostTick++
         y: 206; width: parent.width; height: parent.height - y - 84
         clip: true; boundsBehavior: Flickable.StopAtBounds
         contentHeight: Math.max(step0.implicitHeight, step1.implicitHeight, step2.implicitHeight, step3.implicitHeight)

@@ -234,6 +234,7 @@ bool WindowSDL::PollEvents() {
     if (!text_active) {
         BbOverlay::UpdateTextInput(window);
     }
+    BbOverlay::UpdateStartupPads();
     // A status the renderer shows while the game cannot draw yet (shader pre-build progress).
     if (std::string status; !text_active && TakeWindowStatus(status)) {
         const std::string title = status.empty() ? base_title : base_title + " — " + status;

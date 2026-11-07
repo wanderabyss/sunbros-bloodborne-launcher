@@ -109,6 +109,33 @@ class HomeDashboardTests(unittest.TestCase):
         self.backend.gameFinished.emit(1, False)
         self.assertFalse(self.root.property('startingGame'))
 
+    def test_it_says_starting_until_the_game_has_really_started(self):
+        self.click('launchHunt')
+        self.backend.process = mock.Mock()
+        self.backend.runningChanged.emit()
+        self.addCleanup(setattr, self.backend, 'process', None)
+        self.assertEqual(self.item('launchHunt').property('text'), 'Starting…')
+        self.assertEqual(self.root.property('statusText'), 'Preparing the game')
+        self.assertTrue(self.item('stopGame').property('visible'))
+        self.backend.gameStarted.emit()
+        self.assertEqual(self.item('launchHunt').property('text'), 'Game running')
+
+    def test_stop_sits_beside_game_running_and_needs_a_second_click(self):
+        self.assertFalse(self.item('stopGame').property('visible'))
+        self.backend.process = mock.Mock()
+        self.backend.job = mock.Mock()
+        self.backend.runningChanged.emit()
+        self.addCleanup(setattr, self.backend, 'process', None)
+        self.assertEqual(self.item('launchHunt').property('text'), 'Game running')
+        self.assertTrue(self.item('stopGame').property('visible'))
+        self.assertFalse(self.item('mode_offline').isVisible())
+        self.assertEqual(self.item('stopGame').property('text'), 'Stop')
+        self.click('stopGame')
+        self.assertEqual(self.item('stopGame').property('text'), 'Click again to stop')
+        self.backend.job.terminate.assert_not_called()
+        self.click('stopGame')
+        self.backend.job.terminate.assert_called_once()
+
     def test_compact_layout_keeps_actions_in_view(self):
         self.view.resize(800, 700)
         QTest.qWait(50)
@@ -186,7 +213,7 @@ class HomeDashboardTests(unittest.TestCase):
             ('90', 'fsr3', '4', '90 base → 180 FPS'),
             ('120', 'off', '2', '120 FPS (no FG)'),
             ('30', 'off', '2', '30 FPS (no FG)'),
-            ('uncap', 'dlss', '2', 'Unlocked base FPS'),
+            ('uncap', 'dlss', '2', 'Unlocked FPS'),
         ]:
             with self.subTest(fps=fps, provider=provider):
                 self.backend.app['fps_mode'] = fps

@@ -9,7 +9,7 @@
 </tr>
 </table>
 
-**v4.3.5:** NG+7 Sojin Chikage for a Bloodtinge build; Uncanny and Lost hammers. [Changelog](docs/changelog/changelog-2026-11-06-4.3.5.md)
+**v4.4.0:** Play starts the game in seconds, a Preparing shaders screen, a Stop button, and a sharper launcher. [Changelog](docs/changelog/changelog-2026-11-06-4.4.0.md)
 
 <a href="docs/media/launcher-4.2.7-tour.mp4"><img src="docs/images/launcher-4.2.7-tour.webp" width="100%" alt="Tour of the 4.2.7 launcher: Home, Visuals presets with their ? tips and Save settings, Online, Co-op, Dossier, Workshop, Settings and the what's-new sheet"/></a>
 

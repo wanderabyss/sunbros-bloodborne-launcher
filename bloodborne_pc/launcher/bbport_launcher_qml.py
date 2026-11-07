@@ -5,6 +5,7 @@ import sys
 from PySide6.QtCore import QTimer, QUrl
 from PySide6.QtGui import QIcon
 from PySide6.QtQml import QQmlApplicationEngine
+from PySide6.QtQuick import QQuickWindow
 from PySide6.QtQuickControls2 import QQuickStyle
 from PySide6.QtWidgets import QApplication
 
@@ -19,17 +20,51 @@ SPLASH_MS = 8000
 GRACE_S = 3
 
 
+def follow_zoom_with_text(window):
+    """The sharpest text for the window's zoom (Main.qml scales its stage as one design). At 1 that is
+    native text, hinted to the pixel grid: curve text is visibly softer there. Native text blurs when
+    scaled, so an enlarged window uses curve text, which stays sharp at any scale."""
+    native = [True]
+
+    def set_items(item, value):
+        if item.metaObject().indexOfProperty('renderType') >= 0:
+            item.setProperty('renderType', value)
+        for child in item.childItems():
+            set_items(child, value)
+
+    def apply():
+        wanted = abs(float(window.property('zoom')) - 1) < 0.001
+        if wanted == native[0]:
+            return
+        native[0] = wanted
+        kind = QQuickWindow.TextRenderType
+        # New items take the window default; existing ones are set here. 1 and 2 are Qt's values of
+        # Text.NativeRendering and Text.CurveRendering, the same for text inputs and edits.
+        QQuickWindow.setTextRenderType(kind.NativeTextRendering if wanted else kind.CurveTextRendering)
+        set_items(window.contentItem(), 1 if wanted else 2)
+
+    window.zoomChanged.connect(apply)
+    apply()
+
+
 def run_ui(route=None):
     """ROUTE comes from bbport_startup.route(); without one the launcher opens on Home."""
     QQuickStyle.setStyle('Basic')
-    app = QApplication(sys.argv)
+    QQuickWindow.setTextRenderType(QQuickWindow.TextRenderType.NativeTextRendering)
+    # Grey text with clean pixel edges: ClearType's colour fringes assume an RGB stripe, and read as
+    # blur on panels without one (OLED). An argument, not QT_QPA_PLATFORM: the game inherits the
+    # launcher's environment.
+    arguments = sys.argv + ['-platform', 'windows:fontengine=freetype'] if sys.platform == 'win32' else sys.argv
+    app = QApplication(arguments)
     app.setApplicationName('Bloodborne')
     icon_path = (Path(sys.executable).resolve().parent / 'launcher' / 'assets' / 'hunter-icon.ico') if getattr(sys, 'frozen', False) else (Path(__file__).resolve().parent / 'assets' / 'hunter-icon.ico')
     app.setWindowIcon(QIcon(str(icon_path)))
     font_path = (Path(sys.executable).resolve().parent / 'launcher' / 'assets' / 'ui' / 'bloodborne-font.ttf') if getattr(sys, 'frozen', False) else (Path(__file__).resolve().parent / 'assets' / 'ui' / 'bloodborne-font.ttf')
+    from PySide6.QtGui import QFontDatabase
     if font_path.exists():
-        from PySide6.QtGui import QFontDatabase
         QFontDatabase.addApplicationFont(str(font_path))
+    for face in sorted((font_path.parent.parent / 'fonts').glob('IBMPlexSans-*.ttf')):
+        QFontDatabase.addApplicationFont(str(face))
     backend = LauncherBackend(route)
     backend.connect_workers()
     engine = QQmlApplicationEngine()
@@ -58,9 +93,11 @@ def run_ui(route=None):
             backend.open_at(page, step)
         backend.start_background_checks()
         window = load('Main.qml')
+        follow_zoom_with_text(window)
         launcher_window.append(window)
         backend.closeRequested.connect(window.close)
         app.aboutToQuit.connect(backend.shutdown_coop)
+        app.aboutToQuit.connect(backend.shutdown_build_ahead)
         app.setQuitOnLastWindowClosed(True)
 
     if not route or route['mode'] != 'direct':

@@ -365,9 +365,9 @@ PipelineCache::PipelineCache(const Instance& instance_, Scheduler& scheduler_,
     ASSERT_MSG(cache_result == vk::Result::eSuccess, "Failed to create pipeline cache: {}",
                vk::to_string(cache_result));
     pipeline_cache = std::move(cache);
-    // Preloaded pipelines use the same driver cache as runtime pipelines. bbport: the rasterizer
-    // calls WarmUp() once object motion has fixed its buffer addresses (motion shader variants
-    // embed them, so the shader pre-build translates those for this session).
+    // Preloaded pipelines use the same driver cache as runtime pipelines. bbport: the presenter
+    // calls WarmUp() once the rasterizer's object motion has fixed its buffer addresses (motion
+    // shader variants embed them, so the shader pre-build translates those for this session).
 }
 
 PipelineCache::~PipelineCache() { Sync(); }

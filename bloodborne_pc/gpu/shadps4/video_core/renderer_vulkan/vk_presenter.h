@@ -130,6 +130,10 @@ public:
     }
 
 private:
+    /// Prepares the stored shaders and pipelines, with the "Preparing shaders" screen on while
+    /// that takes more than a moment. The constructor's last step: no other thread presents yet.
+    void WarmUpShaders();
+
     /// `present_thread`: called on the present thread (PrepareBlankFrame(true)), whose
     /// scheduler and RecreateFrame policy it uses; otherwise the render thread's.
     Frame* GetRenderFrame(bool present_thread);
