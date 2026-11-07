@@ -36,6 +36,10 @@ You don't need an NVIDIA card: DLSS needs a GeForce RTX, and FSR works on other 
 
 ## What you get
 
+**What sets it apart**
+- **Native HDR (experimental):** highlights rebuilt from the game's own scene lighting, on top of HDR10 output, for a display with Windows HDR on.
+- **7.1 spatial audio:** the game's real 7.1 mix, channel by channel, through Dolby Atmos, Windows Sonic or DTS.
+
 **Play it your way**
 - **Higher frame rates:** 60 or 120 FPS, instead of the original 30.
 - **Seamless co-op and online play:** play the whole game with friends, or use The Hunter's Dream for messages, bloodstains, summons and invasions.
@@ -43,10 +47,9 @@ You don't need an NVIDIA card: DLSS needs a GeForce RTX, and FSR works on other 
 - **A map of Yharnam:** Hunter's Atlas shows maps and your position, with optional lamp travel.
 - **New ways to play:** Level Up and Storage at every lamp, new weapons, and an optional NG+7 world from the first beast.
 
-**Make it look and sound better**
+**Make it look better**
 - **Sharper at any resolution:** DLSS 4.5 or FSR 4.1.1, with frame generation.
-- **HDR and ray tracing:** HDR10 output, with ray-traced shadows and ambient occlusion.
-- **Surround sound:** the game's real 7.1 mix, through Dolby Atmos, Windows Sonic or DTS.
+- **HDR10 and ray tracing:** 10-bit HDR output, with ray-traced shadows and ambient occlusion.
 - **DLSS 5 (optional):** neural rendering through the community route, with your own add-ons.
 
 ## Gameplay: DLSS 4.5 vs DLSS 5
@@ -91,7 +94,7 @@ You don't need an NVIDIA card: DLSS needs a GeForce RTX, and FSR works on other 
 | Upscaling | DLSS model selection and Auto policy, DLSS mip bias −1 by default and live mip offset, FSR 3.1, FSR 4.1.1 on Windows through fsr4vk (experimental, one-click download; up to 1080p output on NVIDIA), FSR 1 EASU when the output is smaller than the display. |
 | DLSS 5 | Neural rendering through the player's own ReShade + dlss5-bridge + renodx-dlss5 (nothing shipped); one switch, the add-on's look settings, runtime status and a DLSS 5 ready preset sized to the output (★ DLSS 5, next to Remastered's ★ DLSS 4); stays off and says why when ReShade won't load it. [Setup guide](docs/dlss5-setup.md). |
 | Frame generation | DLSS-G through the NGX bridge (ABI 3: SR, FG and DLSS 5 entry points, the last unsupported until NVIDIA ships it); FSR fallback. HDR + DLSS 2× evaluation observed on RTX 4090. |
-| HDR output | **BT.2020 / ST 2084 PQ, 10-bit RGB** swapchain; final conversion shared by rendered and generated frames. Paper white (to 800 nits), peak brightness (or the display's) and highlight boost settings. The picture is SDR expanded to HDR at the final step; physical display calibration remains pending. |
+| HDR output | **BT.2020 / ST 2084 PQ, 10-bit RGB** swapchain; final conversion shared by rendered and generated frames. Paper white (to 800 nits), peak brightness (or the display's) and highlight boost settings. By default the picture is SDR expanded to HDR at the final step; **Native HDR (experimental)** rebuilds highlights from the game's scene lighting. Physical display calibration remains pending. |
 | Spatial sound | The game's 7.1 mix goes to Windows spatial audio objects when Dolby Atmos, Windows Sonic or DTS is on, and to a 5.1 / 7.1 output directly otherwise. Checked with Dolby Atmos for Headphones; other formats and speakers are not yet tested. A launcher toggle under Game & Saves, Audio turns it off. |
 | Ray tracing | Ambient occlusion and moon shadows, quality presets, half-resolution shadows and custom reach. Reflections and secondary-light shadows remain unavailable. |
 | Diagnostics | Runtime provider/fallback status, generation/presentation counters and Reflex marker intervals. A rejected memory free names its block in `last_run.log`. |
