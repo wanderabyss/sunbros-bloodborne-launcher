@@ -29,9 +29,9 @@
 
 ## Gameplay: DLSS 4.5 vs DLSS 5
 
-<a href="https://github.com/wanderabyss/sunbros-bloodborne-launcher/releases/download/v4.2.13/bloodborne-4.2.13-dlss45-vs-dlss5.mp4"><img src="docs/images/dlss45-vs-dlss5-4.2.13.webp" width="100%" alt="DLSS 4.5 (left) and DLSS 5 (right) side by side at the Grand Cathedral, Great Bridge and Upper Cathedral Ward"/></a>
+<a href="https://github.com/wanderabyss/sunbros-bloodborne-launcher/releases/download/v4.4.1/bloodborne-4.4.1-dlss45-vs-dlss5-4k-hdr.mp4"><img src="docs/images/dlss45-vs-dlss5-4.4.1.webp" width="100%" alt="DLSS 4.5 (left) and DLSS 5 (right) side by side with the Thunderwright's Kirkhammer at Lumenwood Garden, Nightmare Church and the Cainhurst gate"/></a>
 
-*DLSS 4.5 (left) and DLSS 5 through the community route (right), the same 30 seconds at the Grand Cathedral, Great Bridge and Upper Cathedral Ward. 4.2.13 on an RTX 4090 at 3840 × 2160 output, DLSS Performance, DLSS 2× frame generation, ray tracing High. DLSS 4.5 holds 120 FPS shown (60 game); DLSS 5 adds detail and contrast but runs at about 80 (40 game) at 4K. DLSS 5 is optional and off by default. [Watch the video (MP4, 3840 × 1080, 60 FPS, 150 MB)](https://github.com/wanderabyss/sunbros-bloodborne-launcher/releases/download/v4.2.13/bloodborne-4.2.13-dlss45-vs-dlss5.mp4), attached to the v4.2.13 release.*
+*DLSS 4.5 (left) and DLSS 5 through the community route (right), filmed in separate runs with the same route, so the two sides drift slightly: the Thunderwright's Kirkhammer at Lumenwood Garden, Nightmare Church and the Cainhurst gate. 4.4.1 on an RTX 4090: DLSS Quality, model M, Ultra graphics and ray tracing, native HDR on, frame generation off, recorded at a 60 FPS cap. DLSS 4.5 is 4K output; DLSS 5 is 1440p output scaled to 4K, because it can't hold 60 FPS at 4K output even on this card. DLSS 5 adds surface depth and contrast, and shifts the game's look; DLSS 4.5 is sharper and closer to the original art. In play at the DLSS 4.5 settings: about 84 FPS with a 120 cap, or 120 shown from 60 with DLSS 2× frame generation. DLSS 5 is optional and off by default. [Watch the video (MP4, 3840 × 2160, 60 FPS, HDR10, 156 MB)](https://github.com/wanderabyss/sunbros-bloodborne-launcher/releases/download/v4.4.1/bloodborne-4.4.1-dlss45-vs-dlss5-4k-hdr.mp4), attached to the v4.4.1 release. The preview above is SDR.*
 
 ## Screenshots
 
